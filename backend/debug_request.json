@@ -1,0 +1,31 @@
+{
+    "teachers": [
+        {
+            "id": "t1",
+            "name": "T1",
+            "subjects": [
+                "s1"
+            ]
+        }
+    ],
+    "subjects": [
+        {
+            "id": "s1",
+            "name": "S1"
+        }
+    ],
+    "classes": [
+        {
+            "id": "c1",
+            "name": "C1"
+        }
+    ],
+    "plan": [
+        {
+            "class_id": "c1",
+            "subject_id": "s1",
+            "teacher_id": "t1",
+            "hours_per_week": 1
+        }
+    ]
+}

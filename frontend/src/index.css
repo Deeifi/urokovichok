@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@layer base {
+    :root {
+        --bg-color: #0f0f11;
+        --card-bg: #18181b;
+        --accent-primary: #6366f1;
+        --accent-secondary: #a855f7;
+        --text-primary: #ffffff;
+        --text-muted: #a1a1aa;
+        --border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        @apply antialiased;
+    }
+}
+
+@layer components {
+    .bento-card {
+        @apply bg-[#18181b] border border-white/5 rounded-[24px] shadow-xl backdrop-blur-xl transition-all duration-300;
+    }
+
+    .accent-card {
+        @apply bg-gradient-to-br from-[#6366f1] to-[#a855f7] rounded-[32px] p-8 text-white relative overflow-hidden;
+    }
+
+    .btn-premium {
+        @apply bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border border-white/10;
+    }
+
+    .status-badge {
+        @apply bg-black/30 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black tracking-widest text-white/90 border border-white/5 flex items-center gap-2 w-fit;
+    }
+
+    .live-dot {
+        @apply w-2 h-2 rounded-full bg-rose-500 animate-pulse;
+        box-shadow: 0 0 10px #f43f5e;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+        background-clip: content-box;
+    }
+}
+
+/* Hide default scrollbars but allow scrolling */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+}
