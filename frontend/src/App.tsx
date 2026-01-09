@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { BELL_SCHEDULE } from './constants';
 import type { ScheduleRequest, ScheduleResponse } from './types';
 import { generateSchedule } from './api';
 import {
