@@ -78,11 +78,16 @@ const DashboardView = ({ data, selectedClassId, setSelectedClassId, timeInfo, fi
                 </div>
 
                 <div className="flex items-center gap-4 mt-8">
-                    <button className="btn-premium w-fit flex items-center gap-2 group/btn">
+                    <a
+                        href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-premium w-fit flex items-center gap-2 group/btn"
+                    >
                         <Video size={20} />
                         Приєднатися до Video 📹
                         <ChevronRight size={18} className="translate-x-0 group-hover/btn:translate-x-1 transition-transform" />
-                    </button>
+                    </a>
                 </div>
             </div>
 
@@ -688,6 +693,18 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     // Drag and Drop State
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
     const [dragOverCell, setDragOverCell] = useState<{ classId: string, day: string, period: number } | null>(null);
+
+    // Extract lessons safely from the response
+    const lessons = (schedule.status === 'success' || schedule.status === 'conflict') ? schedule.schedule : [];
+
+    // Helper to find a lesson
+    const findLesson = (classId: string, day: string, period: number): Lesson | null => {
+        return lessons.find(l =>
+            l.class_id === classId &&
+            l.day === day &&
+            l.period === period
+        ) || null;
+    };
     const [dragConfirm, setDragConfirm] = useState<{
         type: 'swap' | 'move';
         source: Lesson;
@@ -711,27 +728,32 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     };
 
     const handleSaveLesson = (classId: string, day: string, period: number, subjectId: string, teacherId: string, room?: string) => {
-        const newSchedule = { ...schedule };
-        if (!newSchedule.schedule) newSchedule.schedule = [];
+        const currentLessons = (schedule.status === 'success' || schedule.status === 'conflict') ? schedule.schedule : [];
+        let updatedLessons = [...currentLessons];
 
-        // Remove existing
-        newSchedule.schedule = newSchedule.schedule.filter(l =>
+        // Remove existing lesson at this cell
+        updatedLessons = updatedLessons.filter(l =>
             !(l.class_id === classId && l.day === day && l.period === period)
         );
 
-        // Add new if valid
+        // Add new lesson only if subjectId and teacherId are provided
         if (subjectId && teacherId) {
-            newSchedule.schedule.push({
+            updatedLessons.push({
                 class_id: classId,
-                day,
-                period,
                 subject_id: subjectId,
                 teacher_id: teacherId,
-                room // Save the room
+                day,
+                period,
+                room: room || undefined // Ensure room is undefined if empty string
             });
         }
 
-        onScheduleChange(newSchedule);
+        const newResponse: ScheduleResponse = {
+            status: schedule.status === 'conflict' ? 'conflict' : 'success', // Preserve conflict status if it exists, otherwise success
+            schedule: updatedLessons,
+            violations: schedule.status === 'conflict' ? schedule.violations : [] // Preserve violations if conflict, otherwise empty
+        };
+        onScheduleChange(newResponse);
         setEditingCell(null);
     };
 
@@ -799,6 +821,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         return { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod };
     }, [now]);
 
+    // Check if period 0 is used
+    const hasPeriod0 = useMemo(() => {
+        return lessons.some(l => l.period === 0);
+    }, [lessons]);
+
     const periods = [0, 1, 2, 3, 4, 5, 6, 7];
 
     useEffect(() => {
@@ -806,18 +833,8 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         if (!masterDay && timeInfo.todayApiDay) setMasterDay(timeInfo.todayApiDay);
     }, [timeInfo.todayApiDay]);
 
-    const findLesson = (classId: string, day: string, period: number): Lesson | null => {
-        if (!schedule?.schedule) return null;
-        return schedule.schedule.find(l =>
-            l.class_id === classId &&
-            l.day === day &&
-            l.period === period
-        ) || null;
-    };
-
     const getConflicts = (teacherId: string, day: string, period: number, excludeClassId?: string): string[] => {
-        if (!schedule?.schedule) return [];
-        return schedule.schedule
+        return lessons
             .filter(l =>
                 l.teacher_id === teacherId &&
                 l.day === day &&
@@ -842,44 +859,50 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         [data.classes]
     );
 
-    if (!schedule || !schedule.schedule) return null;
+    if (!schedule || !lessons) return null;
 
     // --- Drag and Drop Logic ---
 
     const executeDragAction = () => {
         if (!dragConfirm) return;
         const { source, target } = dragConfirm;
-        const newSchedule = { ...schedule };
-        if (!newSchedule.schedule) newSchedule.schedule = [];
+        let updatedLessons = [...lessons];
 
         // Remove source
-        newSchedule.schedule = newSchedule.schedule.filter(l =>
+        updatedLessons = updatedLessons.filter(l =>
             !(l.class_id === source.class_id && l.day === source.day && l.period === source.period)
         );
 
-        if (target.lesson) {
+        if (dragConfirm.type === 'swap') {
             // Remove target (if swap)
-            newSchedule.schedule = newSchedule.schedule.filter(l =>
+            updatedLessons = updatedLessons.filter(l =>
                 !(l.class_id === target.classId && l.day === target.day && l.period === target.period)
             );
             // Add target at source position (Swap)
-            newSchedule.schedule.push({
-                ...target.lesson,
-                class_id: source.class_id,
-                day: source.day,
-                period: source.period
-            });
+            if (target.lesson) { // Ensure target.lesson exists for a swap
+                updatedLessons.push({
+                    ...target.lesson,
+                    class_id: source.class_id,
+                    day: source.day,
+                    period: source.period
+                });
+            }
         }
 
         // Add source at target position
-        newSchedule.schedule.push({
+        updatedLessons.push({
             ...source,
             class_id: target.classId,
             day: target.day,
             period: target.period
         });
 
-        onScheduleChange(newSchedule);
+        const newResponse: ScheduleResponse = {
+            status: schedule.status === 'conflict' ? 'conflict' : 'success',
+            schedule: updatedLessons,
+            violations: schedule.status === 'conflict' ? schedule.violations : []
+        };
+        onScheduleChange(newResponse);
         setDragConfirm(null);
         setDraggedLesson(null);
     };
@@ -921,21 +944,26 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             });
         } else {
             // Direct move if no target and no conflicts
-            const newSchedule = { ...schedule };
-            if (!newSchedule.schedule) newSchedule.schedule = [];
+            let updatedLessons = [...lessons];
 
             // Remove old
-            newSchedule.schedule = newSchedule.schedule.filter(l =>
+            updatedLessons = updatedLessons.filter(l =>
                 !(l.class_id === draggedLesson.class_id && l.day === draggedLesson.day && l.period === draggedLesson.period)
             );
             // Add new
-            newSchedule.schedule.push({
+            updatedLessons.push({
                 ...draggedLesson,
                 class_id: targetClassId,
                 day: targetDay,
                 period: targetPeriod
             });
-            onScheduleChange(newSchedule);
+
+            const newResponse: ScheduleResponse = {
+                status: schedule.status === 'conflict' ? 'conflict' : 'success',
+                schedule: updatedLessons,
+                violations: schedule.status === 'conflict' ? schedule.violations : []
+            };
+            onScheduleChange(newResponse);
             setDraggedLesson(null);
         }
         setDragOverCell(null);
@@ -946,12 +974,19 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     // Redundant TeachersMasterView internal definition removed
 
     const findLessonByTeacher = (teacherId: string, day: string, period: number): Lesson | null => {
-        if (!schedule?.schedule) return null;
-        return schedule.schedule.find(l =>
+        return lessons.find(l =>
             l.teacher_id === teacherId &&
             l.day === day &&
             l.period === period
         ) || null;
+    };
+
+    const getTeacherStats = (teacherId: string) => {
+        if (!lessons) return { totalHours: 0, days: 0 };
+        const teacherLessons = lessons.filter(l => l.teacher_id === teacherId);
+        const totalHours = teacherLessons.length;
+        const days = new Set(teacherLessons.map(l => l.day)).size;
+        return { totalHours, days };
     };
 
     return (
@@ -1082,7 +1117,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             {editingCell && (
                 <EditLessonModal
                     data={data}
-                    schedule={schedule.schedule || []}
+                    schedule={lessons}
                     initialClassId={editingCell.classId}
                     initialDay={editingCell.day}
                     initialPeriod={editingCell.period}
@@ -1152,7 +1187,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             {editingTeacherCell && (
                 <TeacherEditModal
                     data={data}
-                    schedule={schedule.schedule || []}
+                    schedule={lessons}
                     teacherId={editingTeacherCell.teacherId}
                     day={editingTeacherCell.day}
                     period={editingTeacherCell.period}

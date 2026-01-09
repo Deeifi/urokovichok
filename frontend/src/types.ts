@@ -46,8 +46,7 @@ export interface Lesson {
     room?: string;
 }
 
-export interface ScheduleResponse {
-    status: "success" | "error";
-    message?: string;
-    schedule?: Lesson[];
-}
+export type ScheduleResponse =
+    | { status: 'success'; schedule: Lesson[] }
+    | { status: 'error'; message: string }
+    | { status: 'conflict'; schedule: Lesson[]; violations: string[] };

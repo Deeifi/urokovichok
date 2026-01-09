@@ -6,28 +6,82 @@ import collections
 from ortools.sat.python import cp_model
 
 def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
-    # Two-pass strategy: periods 1-7 (preferred), then 0-7 if needed
-    last_error = "Невідома помилка"
-    for periods_range in [list(range(1, 8)), list(range(0, 8))]:
-        print(f"Attempting with OR-Tools for periods {periods_range}...")
-        result, error = ortools_solve(data, periods_range)
-        if result:
-            print(f"OR-Tools found a solution!")
+    # Pass 1: Strict Solve (Periods 1-7, Hard Constraints)
+    # If this succeeds, we get a perfect schedule.
+    print("Attempting STRICT solve (Periods 1-7)...")
+    result, error = ortools_solve(data, list(range(1, 8)), strict=True)
+    if result:
+        # DOUBLE CHECK: Even if solver says "optimal", verify violations manually.
+        # This is a safety net against model loopholes.
+        violations = analyze_violations(result, data)
+        if not violations:
+            print("Strict solve successful and valid!")
             return {"status": "success", "schedule": result}
-        last_error = error
+        else:
+            print(f"Strict solve produced result but with violations (Model Loophole?): {violations}")
+            return {
+                "status": "conflict", 
+                "schedule": result, 
+                "violations": violations
+            }
     
-    # Fallback to hill climbing if OR-Tools failed for some reason (unlikely but safe)
-    print("OR-Tools failed, falling back to hill climbing...")
-    for periods_range in [list(range(1, 8)), list(range(0, 8))]:
-        for attempt in range(2):
-            result, error = weighted_score_solve(data, periods_range, steps=50000)
-            if result:
-                return {"status": "success", "schedule": result}
-            last_error = error
+    # Pass 2: Diagnostic Solve (Periods 1-7, Soft Constraints)
+    # If Strict fails, we run this to see WHAT failed.
+    print("Strict solve failed. Attempting DIAGNOSTIC solve...")
+    result, error = ortools_solve(data, list(range(1, 8)), strict=False)
+    
+    if result:
+        # Analyze violations in the result
+        violations = analyze_violations(result, data)
+        return {
+            "status": "conflict", 
+            "schedule": result, 
+            "violations": violations
+        }
+    
+    # Fallback to period 0 if even diagnostic failed (rare)
+    print("Diagnostic failed for 1-7. Trying 0-7...")
+    result, error = ortools_solve(data, list(range(0, 8)), strict=False)
+    if result:
+        violations = analyze_violations(result, data)
+        return {
+            "status": "conflict",
+            "schedule": result,
+            "violations": violations
+        }
 
-    return {"status": "error", "message": last_error}
+    return {"status": "error", "message": "Неможливо згенерувати навіть частковий розклад. Перевірте вхідні дані."}
 
-def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[List[Dict[str, Any]]], str]:
+def analyze_violations(schedule: List[Dict[str, Any]], data: ScheduleRequest) -> List[str]:
+    violations = []
+    
+    # Group by class and day
+    class_days = {} # (class_id, day) -> [periods]
+    for l in schedule:
+        key = (l["class_id"], l["day"])
+        if key not in class_days: class_days[key] = []
+        class_days[key].append(l["period"])
+
+    class_names = {c.id: c.name for c in data.classes}
+
+    for (c_id, day), periods in class_days.items():
+        periods.sort()
+        if not periods: continue
+        
+        c_name = class_names.get(c_id, c_id)
+        
+        # Check 1: Start period
+        if periods[0] > 1:
+            violations.append(f"• {c_name} ({day}): починає з {periods[0]}-го уроку замість 1-го")
+            
+        # Check 2: Gaps
+        for i in range(len(periods) - 1):
+            if periods[i+1] - periods[i] > 1:
+                 violations.append(f"• {c_name} ({day}): має вікно між {periods[i]} та {periods[i+1]} уроками")
+                 
+    return violations
+
+def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True) -> tuple[Optional[List[Dict[str, Any]]], str]:
     model = cp_model.CpModel()
     days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
     
@@ -36,12 +90,9 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
     class_names = {c.id: c.name for c in data.classes}
     
     # data_requests equivalents
-    # (r_idx, class_id, teacher_id, subject_id, count)
     requests = []
     
-    # Helper to check if class is primary (1-4)
     def is_primary(c_name: str) -> bool:
-        # Extract digits from the start of the name
         import re
         match = re.match(r'^(\d+)', c_name)
         if match:
@@ -52,8 +103,7 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
     for plan in data.plan:
         if plan.hours_per_week > 0:
             c_name = class_names.get(plan.class_id, "")
-            if is_primary(c_name):
-                continue
+            if is_primary(c_name): continue
                 
             requests.append({
                 "class_id": plan.class_id,
@@ -85,8 +135,6 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
         for d in range(len(days)):
             for p in periods:
                 x[(r_idx, d, p)] = model.NewBoolVar(f'lesson_{r_idx}_{d}_{p}')
-                
-                # Links to busy variables
                 model.AddImplication(x[(r_idx, d, p)], class_busy[(req["class_id"], d, p)])
                 model.AddImplication(x[(r_idx, d, p)], teacher_busy[(req["teacher_id"], d, p)])
 
@@ -103,7 +151,6 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
                 relevant_vars = [x[(r_idx, d, p)] for r_idx, req in enumerate(requests) if req["teacher_id"] == t]
                 if relevant_vars:
                     model.Add(sum(relevant_vars) <= 1)
-                    # Correctly link teacher_busy: if any lesson for this teacher is scheduled, teacher_busy is 1
                     model.Add(teacher_busy[(t, d, p)] == sum(relevant_vars))
 
     # C. At most one lesson per slot for each class
@@ -113,18 +160,18 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
                 relevant_vars = [x[(r_idx, d, p)] for r_idx, req in enumerate(requests) if req["class_id"] == c]
                 if relevant_vars:
                     model.Add(sum(relevant_vars) <= 1)
-                    # Correctly link class_busy: if any lesson for this class is scheduled, class_busy is 1
                     model.Add(class_busy[(c, d, p)] == sum(relevant_vars))
 
-    # --- 4. OPTIMIZATION OBJECTIVES (SOFT CONSTRAINTS) ---
+    # --- 4. OPTIMIZATION OBJECTIVES & ADDITIONAL CONSTRAINTS ---
     objective_terms = []
 
-    # D. NO GAPS strategy for CLASSES
-    # Logic: end_period - start_period + 1 == day_load
     for c in classes:
         for d in range(len(days)):
             day_load = sum(class_busy[(c, d, p)] for p in periods)
             
+            # Max daily load constraint (always useful)
+            model.Add(day_load <= 7)
+
             has_lessons = model.NewBoolVar(f'has_lessons_{c}_{d}')
             model.Add(day_load > 0).OnlyEnforceIf(has_lessons)
             model.Add(day_load == 0).OnlyEnforceIf(has_lessons.Not())
@@ -136,26 +183,40 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
                 model.Add(start_p <= p).OnlyEnforceIf(class_busy[(c, d, p)])
                 model.Add(end_p >= p).OnlyEnforceIf(class_busy[(c, d, p)])
             
-            # If there are lessons, the span must equal the load
-            model.Add(end_p - start_p + 1 == day_load).OnlyEnforceIf(has_lessons)
+            # --- STRICT VS RELAXED LOGIC ---
             
-            # Minimize Class End Period (Pushes lessons to start of day)
-            # Higher weight (100) ensures morning classes are prioritized over teacher gaps.
-            weight_class_end = 100
-            penalty_end = model.NewIntVar(0, max(periods), f'penalty_end_{c}_{d}')
-            model.Add(penalty_end == end_p).OnlyEnforceIf(has_lessons)
-            model.Add(penalty_end == 0).OnlyEnforceIf(has_lessons.Not())
-            objective_terms.append(penalty_end * weight_class_end)
+            if strict:
+                # 1. MUST start at 1
+                if 1 in periods:
+                    model.Add(start_p == 1).OnlyEnforceIf(has_lessons)
+                
+                # 2. MUST have NO GAPS
+                # end - start + 1 == load
+                model.Add(end_p - start_p + 1 == day_load).OnlyEnforceIf(has_lessons)
+                
+            else:
+                # Relaxed Mode: Penalize bad starts and gaps
+                
+                # Penalty 1: Start > 1
+                # (start_p - 1) * weight
+                if 1 in periods:
+                    objective_terms.append((start_p - 1) * 1000)
+                
+                # Penalty 2: Gaps
+                # gaps = (end - start + 1) - load
+                gaps = model.NewIntVar(0, 8, f'gaps_{c}_{d}')
+                model.Add(gaps == (end_p - start_p + 1) - day_load).OnlyEnforceIf(has_lessons)
+                model.Add(gaps == 0).OnlyEnforceIf(has_lessons.Not())
+                objective_terms.append(gaps * 5000)
 
-    # Penalty for 0-th period (if period 0 is in 'periods')
-    weight_period_0 = 100
-    if 0 in periods:
-        for r_idx, req in enumerate(requests):
-            for d in range(len(days)):
-                objective_terms.append(x[(r_idx, d, 0)] * weight_period_0)
+            # Common Objectives (Balance & Compactness)
+            over_load = model.NewIntVar(0, 7, f'over_load_{c}_{d}')
+            model.Add(over_load >= day_load - 5)
+            objective_terms.append(over_load * 50)
 
-    # Minimize Teacher Gaps
-    weight_teacher_gap = 10
+
+    # Minimize Teacher Gaps (Always Soft)
+    weight_teacher_gap = 10 
     for t in teachers:
         for d in range(len(days)):
             t_load = sum(teacher_busy[(t, d, p)] for p in periods)
@@ -174,21 +235,24 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
             model.Add(span == t_end - t_start).OnlyEnforceIf(t_has_lessons)
             model.Add(span == 0).OnlyEnforceIf(t_has_lessons.Not())
             
-            # Penalize span - load + 1 (number of gaps)
-            # Actually, span - load + 1 is the number of gaps if we consider span = end - start
-            # Example: start=1, end=3 (3 lessons: 1,2,3). span=2, load=3. span - load + 1 = 2-3+1 = 0. Correct.
-            # Example: start=1, end=4 (3 lessons: 1,2,4). span=3, load=3. span - load + 1 = 3-3+1 = 1. Correct.
             gap_count = model.NewIntVar(0, max(periods), f't_gaps_{t}_{d}')
             model.Add(gap_count == span - t_load + 1).OnlyEnforceIf(t_has_lessons)
             model.Add(gap_count == 0).OnlyEnforceIf(t_has_lessons.Not())
             
             objective_terms.append(gap_count * weight_teacher_gap)
 
+    # --- FINAL PUSH (Global Preferences) ---
+    for r_idx, req in enumerate(requests):
+        for d in range(len(days)):
+            for p in periods:
+                # Prefer earlier slots mildly
+                objective_terms.append(x[(r_idx, d, p)] * p)
+
     model.Minimize(sum(objective_terms))
 
     # --- 5. SOLVE ---
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 10.0
+    solver.parameters.max_time_in_seconds = 15.0 if strict else 30.0
     status = solver.Solve(model)
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
@@ -206,7 +270,7 @@ def ortools_solve(data: ScheduleRequest, periods: List[int]) -> tuple[Optional[L
                         })
         return schedule, ""
     else:
-        return None, "Неможливо знайти рішення з поточними обмеженнями (без вікон для учнів)."
+        return None, "Неможливо знайти рішення."
 
 def has_gaps(mask: int, max_period: int) -> int:
     """

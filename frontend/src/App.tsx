@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import type { ScheduleRequest, ScheduleResponse } from './types';
+import type { ScheduleRequest, ScheduleResponse, Lesson } from './types';
 import { generateSchedule } from './api';
 import {
   Calendar,
@@ -16,6 +17,7 @@ import { DataEntry } from './components/DataEntry';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { TeacherDetails } from './components/TeacherDetails';
 import { cn } from './utils/cn';
+import { CircleAlert, CheckCircle2 } from 'lucide-react';
 
 // Tabs
 type Tab = 'data' | 'schedule' | 'teachers';
@@ -164,6 +166,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [history, setHistory] = useState<ScheduleResponse[]>([]);
+  const [conflictData, setConflictData] = useState<{ schedule: Lesson[], violations: string[] } | null>(null);
 
   const pushToHistory = (currentState: ScheduleResponse) => {
     setHistory(prev => [JSON.parse(JSON.stringify(currentState)), ...prev].slice(0, 10));
@@ -199,9 +202,16 @@ function App() {
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
+    setConflictData(null);
     try {
       const result = await generateSchedule(data);
+
       if (result.status === 'success') {
+        setSchedule(result);
+        setActiveTab('schedule');
+      } else if (result.status === 'conflict') {
+        setConflictData({ schedule: result.schedule, violations: result.violations });
+        // Show the conflicted schedule in the background
         setSchedule(result);
         setActiveTab('schedule');
       } else {
@@ -307,6 +317,61 @@ function App() {
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white/10 shadow-lg shadow-indigo-500/10"></div>
           </div>
         </header>
+
+        {/* Conflict Modal */}
+        {conflictData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-[#18181b] border border-red-500/30 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl shadow-red-900/20">
+              <div className="p-6 border-b border-white/5 flex items-start gap-4">
+                <div className="bg-red-500/10 p-3 rounded-full text-red-500">
+                  <CircleAlert size={32} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-white">Знайдено конфлікти у розкладі</h2>
+                  <p className="text-[#a1a1aa] mt-1">Ми не змогли створити ідеальний розклад за вашими суворими правилами. <br />Ось причини:</p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                {conflictData.violations.map((v, i) => (
+                  <div key={i} className="flex gap-3 text-red-200 bg-red-500/5 p-3 rounded-lg border border-red-500/10 text-sm font-medium">
+                    <span className="text-red-500 mt-0.5">•</span>
+                    {v.replace(/^•\s*/, '')}
+                  </div>
+                ))}
+                {conflictData.violations.length === 0 && (
+                  <div className="text-center text-[#a1a1aa]">Невідома помилка, але розклад не ідеальний.</div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#131316] rounded-b-2xl">
+                <button
+                  onClick={() => setConflictData(null)}
+                  className="px-6 py-3 rounded-xl font-bold bg-white/5 hover:bg-white/10 text-white transition-all "
+                >
+                  Редагувати дані
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  className="px-6 py-3 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-500/20"
+                >
+                  Спробувати ще раз
+                </button>
+                <button
+                  onClick={() => {
+                    setSchedule({ status: 'success', schedule: conflictData.schedule });
+                    setConflictData(null);
+                    setActiveTab('schedule');
+                  }}
+                  className="px-6 py-3 rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                >
+                  <CheckCircle2 size={18} />
+                  Створити журнал (Ігнорувати)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Container */}
         <div className="flex-1 overflow-y-auto scrollbar-hide px-2">

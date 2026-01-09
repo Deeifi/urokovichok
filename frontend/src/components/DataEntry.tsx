@@ -847,7 +847,8 @@ function PlanEditor({ data, onChange }: DataEntryProps) {
         ), [data.classes, searchQuery]);
 
     // Plan editing logic
-    const handleUpdatePlan = (classId: string, subjectId: string, teacherId: string, hours: number) => {
+    // Plan editing logic
+    const handleUpdatePlan = (classId: string, subjectId: string, teacherId: string, hours: number, room?: string) => {
         let newPlan = [...data.plan];
         const existingIndex = newPlan.findIndex(p => p.class_id === classId && p.subject_id === subjectId);
 
@@ -856,9 +857,23 @@ function PlanEditor({ data, onChange }: DataEntryProps) {
             if (existingIndex !== -1) newPlan.splice(existingIndex, 1);
         } else {
             // Add or Update
-            const newItem = { class_id: classId, subject_id: subjectId, teacher_id: teacherId, hours_per_week: hours };
+            // If room is not provided but exists in previous item, keep it? 
+            // Better to pass everything explicitly. 
+            // If room is undefined, check if we should keep existing room. 
+            // Here we assume 'room' arg is the CURRENT value we want.
+            const newItem = {
+                class_id: classId,
+                subject_id: subjectId,
+                teacher_id: teacherId,
+                hours_per_week: hours,
+                room: room
+            };
+
             if (existingIndex !== -1) {
-                newPlan[existingIndex] = newItem;
+                // Determine room: if passed explicitly, use it. If undefined (e.g. valid update of hours), preserve existing. 
+                // However, the caller should pass the current room if they don't want to change it.
+                // Let's assume the UI passes full state.
+                newPlan[existingIndex] = { ...newPlan[existingIndex], ...newItem };
             } else {
                 newPlan.push(newItem);
             }
@@ -949,7 +964,9 @@ function PlanEditor({ data, onChange }: DataEntryProps) {
                     const planItem = data.plan.find(p => p.class_id === selectedClassId && p.subject_id === subject.id);
                     const hours = planItem?.hours_per_week || 0;
                     const teacherId = planItem?.teacher_id || "";
+                    const room = planItem?.room || "";
                     const active = hours > 0;
+                    const color = subject.color || "#f59e0b"; // Default amber-500
 
                     // Filter teachers relevant for this subject + grade
                     const relevantTeachers = data.teachers.filter(t => {
@@ -959,38 +976,60 @@ function PlanEditor({ data, onChange }: DataEntryProps) {
                     });
 
                     return (
-                        <div key={subject.id} className={cn(
-                            "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
-                            active
-                                ? "bg-amber-500/5 border-amber-500/20 shadow-[0_0_15px_-3px_rgba(245,158,11,0.1)]"
-                                : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] opacity-70 hover:opacity-100"
-                        )}>
+                        <div key={subject.id}
+                            className={cn(
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
+                                !active && "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] opacity-70 hover:opacity-100"
+                            )}
+                            style={active ? {
+                                backgroundColor: `${color}10`, // 10% opacity
+                                borderColor: `${color}30`,
+                                boxShadow: `0 0 15px -3px ${color}20`
+                            } : undefined}
+                        >
                             {/* Subject Info */}
                             <div className="w-1/3 flex items-center gap-4">
-                                <div className={cn(
-                                    "w-3 h-12 rounded-full",
-                                    active ? "bg-amber-500" : "bg-white/10"
-                                )} />
+                                <div
+                                    className="w-3 h-12 rounded-full"
+                                    style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.1)' }}
+                                />
                                 <div>
-                                    <div className={cn("font-bold text-lg", active ? "text-white" : "text-white/60")}>
+                                    <div
+                                        className="font-bold text-lg"
+                                        style={{ color: active ? 'white' : 'rgba(255,255,255,0.6)' }}
+                                    >
                                         {subject.name}
                                     </div>
                                     <div className="text-xs font-medium text-[#a1a1aa]">
-                                        {subject.defaultRoom ? `Каб. ${subject.defaultRoom}` : 'Без кабінету'}
+                                        {subject.defaultRoom ? `Стандартний каб. ${subject.defaultRoom}` : 'Без стандартного кабінету'}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Controls */}
                             <div className="flex-1 flex items-center gap-4 justify-end">
+                                {/* Room Input */}
+                                <input
+                                    type="text"
+                                    placeholder={subject.defaultRoom || "Каб."}
+                                    value={room}
+                                    onChange={(e) => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", hours || 1, e.target.value)}
+                                    className={cn(
+                                        "bg-[#0f0f11] border rounded-lg text-sm font-bold px-3 py-2 outline-none transition-all w-24 text-center",
+                                        active ? "text-white" : "border-white/10 text-[#a1a1aa]"
+                                    )}
+                                    style={active ? { borderColor: `${color}50` } : undefined}
+                                />
+
                                 {/* Teacher Selector */}
                                 <select
                                     value={teacherId}
-                                    onChange={(e) => handleUpdatePlan(selectedClassId!, subject.id, e.target.value, hours || 1)}
+                                    onChange={(e) => handleUpdatePlan(selectedClassId!, subject.id, e.target.value, hours || 1, room)}
                                     className={cn(
-                                        "bg-[#0f0f11] border rounded-lg text-sm font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-amber-500 transition-all w-64",
-                                        active ? "border-amber-500/30 text-white" : "border-white/10 text-[#a1a1aa]"
+                                        "bg-[#0f0f11] border rounded-lg text-sm font-bold px-3 py-2 outline-none transition-all w-64",
+                                        active ? "text-white" : "border-white/10 text-[#a1a1aa]"
                                     )}
+                                    style={active ? { borderColor: `${color}50` } : undefined}
                                 >
                                     <option value="">-- Оберіть вчителя --</option>
                                     {relevantTeachers.map(t => (
@@ -1003,16 +1042,19 @@ function PlanEditor({ data, onChange }: DataEntryProps) {
                                 {/* Hours Stepper */}
                                 <div className="flex items-center gap-2 bg-[#0f0f11] p-1 rounded-lg border border-white/10">
                                     <button
-                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", Math.max(0, hours - 1))}
+                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", Math.max(0, hours - 1), room)}
                                         className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                                     >
                                         -
                                     </button>
-                                    <div className={cn("w-8 text-center font-black text-lg", active ? "text-amber-500" : "text-white/30")}>
+                                    <div
+                                        className="w-8 text-center font-black text-lg"
+                                        style={{ color: active ? color : 'rgba(255,255,255,0.3)' }}
+                                    >
                                         {hours}
                                     </div>
                                     <button
-                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", hours + 1)}
+                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", hours + 1, room)}
                                         className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                                     >
                                         +
