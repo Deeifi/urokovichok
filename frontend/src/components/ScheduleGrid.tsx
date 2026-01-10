@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup } from '../types';
+import { useState, useMemo, useEffect, memo, useDeferredValue } from 'react';
+import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup, PerformanceSettings } from '../types';
 import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, ChevronRight, LayoutDashboard, LayoutGrid, ArrowRightLeft, Video, Table as TableIcon, Columns, Lock, Unlock, Info, Search, Droplet } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -17,6 +17,7 @@ interface ScheduleGridProps {
     setIsCompact: (val: boolean) => void;
     viewType: ViewType;
     setViewType: (val: ViewType) => void;
+    perfSettings: PerformanceSettings;
 }
 
 export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
@@ -28,13 +29,15 @@ interface DashboardViewProps {
     selectedClassId: string;
     setSelectedClassId: (id: string) => void;
     timeInfo: any;
+    now: Date;
     findLesson: (classId: string, day: string, period: number) => Lesson | null;
     periods: number[];
     getRoomColor: (room: string | undefined) => string;
     sortedClasses: ClassGroup[];
+    perfSettings: PerformanceSettings;
 }
 
-const DashboardView = ({ data, selectedClassId, setSelectedClassId, timeInfo, findLesson, periods, getRoomColor, sortedClasses }: DashboardViewProps) => {
+const DashboardView = memo(({ data, selectedClassId, setSelectedClassId, timeInfo, now, findLesson, periods, getRoomColor, sortedClasses, perfSettings }: DashboardViewProps) => {
     const { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod } = timeInfo;
 
     const currentLesson = currentPeriod !== -1 ? findLesson(selectedClassId, todayApiDay, currentPeriod) : null;
@@ -99,9 +102,16 @@ const DashboardView = ({ data, selectedClassId, setSelectedClassId, timeInfo, fi
             </div>
 
             {/* Next Lesson Card */}
-            <div className="bento-card flex flex-col justify-between border-white/5 bg-[#1a1a1e] p-8 h-full">
+            <div className="bento-card flex flex-col justify-between border-white/5 bg-[#1a1a1e] p-5 h-full">
                 <div className="space-y-4">
-                    <div className="text-[#a1a1aa] text-xs font-black uppercase tracking-widest">НАСТУПНИЙ УРОК</div>
+                    <div className="text-[#a1a1aa] text-xs font-black uppercase tracking-widest flex justify-between items-center">
+                        <span>НАСТУПНИЙ УРОК</span>
+                        {!perfSettings.lowFrequencyClock && (
+                            <span className="text-[10px] tabular-nums bg-white/5 px-2 py-1 rounded-md">
+                                {now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                        )}
+                    </div>
                     <div className="text-[#22c55e] text-5xl font-black mb-1 tabular-nums">{nextStartTime || "--:--"}</div>
                 </div>
 
@@ -117,7 +127,7 @@ const DashboardView = ({ data, selectedClassId, setSelectedClassId, timeInfo, fi
 
             {/* Today's Schedule List */}
             <div className="md:col-span-3 bento-card border-white/5">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-2">
                     <h3 className="text-[#a1a1aa] text-xs font-black uppercase tracking-widest">РОЗКЛАД НА СЬОГОДНІ</h3>
                     <select
                         value={selectedClassId}
@@ -169,7 +179,7 @@ const DashboardView = ({ data, selectedClassId, setSelectedClassId, timeInfo, fi
             </div>
         </div >
     );
-};
+});
 
 interface ByClassViewProps {
     data: ScheduleRequest;
@@ -191,15 +201,16 @@ interface ByClassViewProps {
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
     isCompact: boolean;
+    perfSettings: PerformanceSettings;
 }
 
-const ByClassView = ({
+const ByClassView = memo(({
     data, selectedClassId, setSelectedClassId, sortedClasses, apiDays, days, periods,
     findLesson, getSubjectColor, getConflicts, dragOverCell, setDragOverCell,
-    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact
+    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact, perfSettings
 }: ByClassViewProps) => {
     return (
-        <div className={cn("animate-in fade-in duration-500", isCompact ? "space-y-2" : "space-y-6")}>
+        <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-500", isCompact ? "space-y-2" : "space-y-6")}>
             <div className={cn("flex flex-wrap", isCompact ? "gap-1" : "gap-2")}>
                 {sortedClasses.map(cls => (
                     <button
@@ -221,8 +232,8 @@ const ByClassView = ({
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {apiDays.map((day, dIdx) => (
                     <div key={day} className={cn("bento-card border-white/5 bg-[#1a1a1e]", isCompact ? "p-2" : "p-4")}>
-                        <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-1 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
-                        <div className="space-y-3">
+                        <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-0.5 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
+                        <div className={isCompact ? "space-y-1" : "space-y-3"}>
                             {periods.map(p => {
                                 const lesson = findLesson(selectedClassId, day, p);
                                 const isUsed = !!lesson;
@@ -238,7 +249,8 @@ const ByClassView = ({
                                     <div
                                         key={p}
                                         className={cn(
-                                            "relative group cursor-pointer p-2 rounded-lg transition-all -mx-2 border-2",
+                                            "relative group cursor-pointer transition-all -mx-2 border-2",
+                                            isCompact ? "p-1 rounded-md" : "p-2 rounded-lg",
                                             isDragOver ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent hover:bg-white/5",
                                             isDragging ? "opacity-50" : "opacity-100",
                                             !isUsed && !isEditMode && "opacity-40"
@@ -272,20 +284,20 @@ const ByClassView = ({
                                         }}
                                     >
                                         <div className="absolute left-0 top-2 bottom-2 w-1 rounded-full group-hover:w-1.5 transition-all" style={{ backgroundColor: subColor }} />
-                                        <div className="pl-3">
-                                            <div className="text-[10px] text-[#a1a1aa] font-black flex items-center gap-2">
+                                        <div className={isCompact ? "pl-2" : "pl-3"}>
+                                            <div className="text-[10px] text-[#a1a1aa] font-black flex items-center gap-2 leading-tight">
                                                 <span>{p} УРОК</span>
                                                 {conflicts.length > 0 && (
                                                     <div className="text-amber-500" title={`Вчитель вже веде урок у: ${conflicts.join(', ')} `}>
-                                                        <AlertTriangle size={12} />
+                                                        <AlertTriangle size={10} />
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-sm font-bold truncate min-h-[1.25rem]">
-                                                {lesson ? data.subjects.find(s => s.id === lesson.subject_id)?.name : (isEditMode && <span className="text-white/20 italic text-[10px] lowercase opacity-50">Вільне вікно</span>)}
+                                            <div className={cn("font-bold truncate min-h-[1rem] leading-tight", isCompact ? "text-xs" : "text-sm")}>
+                                                {lesson ? data.subjects.find(s => s.id === lesson.subject_id)?.name : (isEditMode && <span className="text-white/20 italic text-[9px] lowercase opacity-50">Вільне вікно</span>)}
                                             </div>
                                             {teacher && (
-                                                <div className="text-[10px] text-[#a1a1aa] font-bold truncate opacity-70">
+                                                <div className="text-[10px] text-[#a1a1aa] font-bold truncate opacity-70 leading-tight">
                                                     {teacher.name}
                                                 </div>
                                             )}
@@ -304,7 +316,7 @@ const ByClassView = ({
             </div>
         </div>
     );
-};
+});
 
 interface MatrixViewProps {
     data: ScheduleRequest;
@@ -333,13 +345,14 @@ interface MatrixViewProps {
     isMonochrome: boolean;
     setIsMonochrome: (v: boolean) => void;
     lessons: Lesson[];
+    perfSettings: PerformanceSettings;
 }
 
-const MatrixView = ({
+const MatrixView = memo(({
     data, activeGradeGroup, setActiveGradeGroup, matrixDay, setMatrixDay,
     findLesson, getConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode,
-    isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons
+    isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons, perfSettings
 }: MatrixViewProps) => {
     const filteredClasses = sortedClasses.filter(cls => {
         const grade = parseInt(cls.name);
@@ -462,11 +475,11 @@ const MatrixView = ({
                         <table className="w-full border-collapse text-left">
                             <thead>
                                 <tr className="border-b border-white/5">
-                                    <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 min-w-[80px]">
+                                    <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 min-w-[60px]">
                                         ЧАС
                                     </th>
                                     {filteredClasses.map(cls => (
-                                        <th key={cls.id} className="sticky top-0 z-20 bg-[#18181b] p-4 text-[12px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[160px]">
+                                        <th key={cls.id} className="sticky top-0 z-20 bg-[#18181b] p-3 text-[11px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[120px]">
                                             {cls.name}
                                         </th>
                                     ))}
@@ -493,7 +506,7 @@ const MatrixView = ({
                                                 <td
                                                     key={cls.id}
                                                     className={cn(
-                                                        "p-2 border-r border-white/5 last:border-r-0 h-24 transition-all",
+                                                        "p-1.5 border-r border-white/5 last:border-r-0 h-20 transition-all",
                                                         isDragOver && "bg-indigo-500/10"
                                                     )}
                                                     onDragOver={(e) => {
@@ -518,7 +531,7 @@ const MatrixView = ({
                                                                 : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
                                                             }
                                                             className={cn(
-                                                                "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-xl p-3 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
+                                                                "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
                                                                 isDragging ? "opacity-30 grayscale" : "opacity-100"
                                                             )}
                                                             style={{ borderLeftColor: subColor }}
@@ -588,7 +601,7 @@ const MatrixView = ({
             )}
         </div>
     );
-};
+});
 
 interface TeachersMasterViewProps {
     data: ScheduleRequest;
@@ -615,13 +628,23 @@ interface TeachersMasterViewProps {
     dragOverCell: any;
     setDragOverCell: (c: any) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number) => void;
+    perfSettings: PerformanceSettings;
 }
 
-const TeachersMasterView = ({
+const TeachersMasterView = memo(({
     data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts,
     periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop
+    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop, perfSettings
 }: TeachersMasterViewProps) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const deferredSearchQuery = useDeferredValue(searchQuery);
+
+    const filteredTeachers = useMemo(() => {
+        const query = deferredSearchQuery.toLowerCase();
+        return data.teachers.filter(t => t.name.toLowerCase().includes(query))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.teachers, deferredSearchQuery]);
+
     const dayName = days[apiDays.indexOf(masterDay)];
     // Access lessons from parent Scope (ScheduleGrid)
     // Actually, we should pass lessons as a prop or rely on the fact that this is defined inside ScheduleGrid?
@@ -647,14 +670,14 @@ const TeachersMasterView = ({
 
                 <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
                     {/* Teacher Search & Stats */}
-                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-2xl transition-all", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
+                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transition-all", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
                         <div className="flex items-center gap-2 border-r border-white/5 pr-3 mr-1">
                             <div className="relative">
                                 <Users size={isCompact ? 12 : 14} className="text-indigo-400" />
                                 <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                             </div>
                             <span className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
-                                <span id="teacher-count-visible">{data.teachers.length}</span> / {data.teachers.length}
+                                <span>{filteredTeachers.length}</span> / {data.teachers.length}
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -662,24 +685,8 @@ const TeachersMasterView = ({
                             <input
                                 type="text"
                                 placeholder="ПОШУК..."
-                                className={cn("bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 uppercase tracking-widest transition-all", isCompact ? "w-[80px]" : "w-[150px]")}
-                                onChange={(e) => {
-                                    const val = e.target.value.toLowerCase();
-                                    const rows = document.querySelectorAll('tbody tr');
-                                    let visibleCount = 0;
-                                    rows.forEach(row => {
-                                        const nameCell = row.querySelector('td:first-child');
-                                        const name = nameCell?.querySelector('span')?.textContent?.toLowerCase() || '';
-                                        if (name.includes(val)) {
-                                            (row as HTMLElement).style.display = '';
-                                            visibleCount++;
-                                        } else {
-                                            (row as HTMLElement).style.display = 'none';
-                                        }
-                                    });
-                                    const counter = document.getElementById('teacher-count-visible');
-                                    if (counter) counter.textContent = visibleCount.toString();
-                                }}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
                     </div>
@@ -753,6 +760,7 @@ const TeachersMasterView = ({
                     setDragOverCell={setDragOverCell}
                     processTeacherDrop={processTeacherDrop}
                     isMonochrome={isMonochrome}
+                    searchQuery={deferredSearchQuery}
                 />
             ) : (
                 <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
@@ -760,11 +768,11 @@ const TeachersMasterView = ({
                         <table className="w-full border-separate border-spacing-0 text-left">
                             <thead>
                                 <tr>
-                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-4 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5 min-w-[180px]">
+                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-3 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5 min-w-[150px]">
                                         ВИКЛАДАЧ
                                     </th>
                                     {periods.map(p => (
-                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[120px] text-center">
+                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[100px] text-center">
                                             {p}<br />
                                             <span className="text-[8px] opacity-50 font-black">УРОК</span>
                                         </th>
@@ -772,26 +780,26 @@ const TeachersMasterView = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.teachers.map(teacher => {
+                                {filteredTeachers.map(teacher => {
                                     const teacherPlan = data.plan.filter(p => p.teacher_id === teacher.id);
                                     const mainSubject = data.subjects.find(s => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
 
                                     return (
                                         <tr key={teacher.id} className="group hover:bg-white/[0.01] transition-colors">
-                                            <td className="sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors p-4">
-                                                <div className="flex items-center h-full gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white text-xs font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
-                                                        {teacher.photo ? (
+                                            <td className="sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors p-3">
+                                                <div className="flex items-center h-full gap-2">
+                                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white text-[10px] font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
+                                                        {teacher.photo && !perfSettings.hidePhotos ? (
                                                             <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
                                                         ) : (
                                                             teacher.name.slice(0, 1)
                                                         )}
                                                     </div>
                                                     <div className="flex flex-col min-w-0 justify-center">
-                                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-sm">
+                                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-xs">
                                                             {teacher.name}
                                                         </span>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-1">
                                                             <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
                                                             <span className="text-[8px] px-1 bg-white/5 rounded text-[#a1a1aa] font-black uppercase tracking-tighter shrink-0">
                                                                 {getTeacherStats(teacher.id).totalHours}г / {getTeacherStats(teacher.id).days}д
@@ -882,11 +890,11 @@ const TeachersMasterView = ({
             )}
         </div>
     );
-};
+});
 
 // --- Main ScheduleGrid Component ---
 
-export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType }: ScheduleGridProps) {
+export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
@@ -904,6 +912,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
 
     // Extract lessons safely from the response
     const lessons = (schedule.status === 'success' || schedule.status === 'conflict') ? schedule.schedule : [];
+    const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
     // Helper to find a lesson
     const findLesson = (classId: string, day: string, period: number): Lesson | null => {
@@ -977,9 +986,10 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 60000);
+        const interval = perfSettings.lowFrequencyClock ? 60000 : 1000;
+        const timer = setInterval(() => setNow(new Date()), interval);
         return () => clearInterval(timer);
-    }, []);
+    }, [perfSettings.lowFrequencyClock]);
 
     const timeInfo = useMemo(() => {
         const h = now.getHours();
@@ -1237,12 +1247,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     return (
         <div className={cn(
             "h-full flex flex-col overflow-hidden transition-all",
-            viewType === 'dashboard' ? (isCompact ? "gap-2" : "gap-8") : "gap-0"
+            viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-8") : "gap-0"
         )}>
             {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
             {viewType === 'dashboard' && (
-                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all", isCompact ? "mb-[-16px]" : "mb-0")}>
-                    <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", isCompact ? "p-1" : "p-1.5")}>
+                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all", effectiveIsCompact ? "mb-[-16px]" : "mb-0")}>
+                    <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
                         {[
                             { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
                             { id: 'byClass', label: 'По класах', icon: Columns },
@@ -1254,24 +1264,24 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                                 onClick={() => setViewType(tab.id as ViewType)}
                                 className={cn(
                                     "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
-                                    isCompact ? "px-3 py-1 text-xs" : "px-5 py-2",
+                                    effectiveIsCompact ? "px-3 py-1 text-xs" : "px-5 py-2",
                                     viewType === tab.id
                                         ? "bg-white/10 text-white shadow-lg shadow-black/20"
                                         : "text-[#a1a1aa] hover:text-white"
                                 )}
                             >
-                                <tab.icon size={isCompact ? 14 : 18} />
+                                <tab.icon size={effectiveIsCompact ? 14 : 18} />
                                 {tab.label}
                             </button>
                         ))}
                     </div>
 
-                    <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", isCompact ? "p-1" : "p-1.5")}>
+                    <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
                         <button
                             onClick={() => setIsEditMode(!isEditMode)}
                             className={cn(
                                 "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group",
-                                isCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
+                                effectiveIsCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
                                 isEditMode
                                     ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
                                     : "text-[#a1a1aa] hover:text-white"
@@ -1279,13 +1289,13 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         >
                             {isEditMode ? (
                                 <>
-                                    <Unlock size={isCompact ? 14 : 18} className="animate-pulse" />
-                                    <span>{isCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                                    <Unlock size={effectiveIsCompact ? 14 : 18} className="animate-pulse" />
+                                    <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
                                 </>
                             ) : (
                                 <>
-                                    <Lock size={isCompact ? 14 : 18} />
-                                    <span>{isCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                                    <Lock size={effectiveIsCompact ? 14 : 18} />
+                                    <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
                                 </>
                             )}
                         </button>
@@ -1301,10 +1311,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         selectedClassId={selectedClassId}
                         setSelectedClassId={setSelectedClassId}
                         timeInfo={timeInfo}
+                        now={now}
                         findLesson={findLesson}
                         periods={periods}
                         getRoomColor={getRoomColor}
                         sortedClasses={sortedClasses}
+                        perfSettings={perfSettings}
                     />
                 ) : viewType === 'byClass' ? (
                     /* ... ByClassView remains here for now as it doesn't have internal state bugs reported yet, but I'll stabilize it if needed ... */
@@ -1327,7 +1339,8 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setEditingCell={setEditingCell}
                         setViewingLesson={setViewingLesson}
                         isEditMode={isEditMode}
-                        isCompact={isCompact}
+                        isCompact={false}
+                        perfSettings={perfSettings}
                     />
                 ) : viewType === 'matrix' ? (
                     <MatrixView
@@ -1357,6 +1370,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         isMonochrome={isMonochrome}
                         setIsMonochrome={setIsMonochrome}
                         lessons={lessons}
+                        perfSettings={perfSettings}
                     />
                 ) : (
                     <TeachersMasterView
@@ -1384,6 +1398,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         dragOverCell={dragOverCell}
                         setDragOverCell={setDragOverCell}
                         processTeacherDrop={processTeacherDrop}
+                        perfSettings={perfSettings}
                     />
                 )}
             </div>
@@ -1421,8 +1436,8 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             )}
 
             {dragConfirm && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDragConfirm(null)}>
-                    <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-2xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200" onClick={() => setDragConfirm(null)}>
+                    <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-4">
                             <div className={cn("p-3 rounded-full", dragConfirm.conflicts.length > 0 ? "bg-red-500/20 text-red-500" : "bg-indigo-500/20 text-indigo-500")}>
                                 {dragConfirm.conflicts.length > 0 ? <AlertTriangle size={24} /> : <ArrowRightLeft size={24} />}
@@ -1873,8 +1888,8 @@ function LessonDetailsModal({ data, lesson, classId, day, period, onClose, onEdi
     const teacher = lesson ? data.teachers.find(t => t.id === lesson.teacher_id) : null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                     <div>
                         <h3 className="text-xl font-black text-white">Інформація про урок</h3>

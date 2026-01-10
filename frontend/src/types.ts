@@ -50,3 +50,11 @@ export type ScheduleResponse =
     | { status: 'success'; schedule: Lesson[] }
     | { status: 'error'; message: string }
     | { status: 'conflict'; schedule: Lesson[]; violations: string[] };
+
+export interface PerformanceSettings {
+    disableAnimations: boolean;
+    disableBlur: boolean;
+    disableShadows: boolean;
+    hidePhotos: boolean;
+    lowFrequencyClock: boolean;
+}

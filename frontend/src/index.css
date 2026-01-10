@@ -21,7 +21,7 @@
 
 @layer components {
     .bento-card {
-        @apply bg-[#18181b] border border-white/5 rounded-[24px] shadow-xl backdrop-blur-xl transition-all duration-300;
+        @apply bg-[#18181b] border border-white/5 rounded-2xl shadow-lg backdrop-blur-md transition-all duration-300;
     }
 
     .accent-card {
@@ -29,11 +29,11 @@
     }
 
     .btn-premium {
-        @apply bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border border-white/10;
+        @apply bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border border-white/10;
     }
 
     .status-badge {
-        @apply bg-black/30 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black tracking-widest text-white/90 border border-white/5 flex items-center gap-2 w-fit;
+        @apply bg-black/40 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest text-white/90 border border-white/5 flex items-center gap-2 w-fit;
     }
 
     .live-dot {
@@ -74,4 +74,31 @@
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
     /* Chrome, Safari and Opera */
+}
+
+/* Performance Mode Overrides */
+[data-perf-animations="false"] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+}
+
+[data-perf-blur="false"] * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-perf-blur="false"] .bento-card,
+[data-perf-blur="false"] .status-badge {
+    background-color: #1a1a1e !important;
+}
+
+[data-perf-shadows="false"] * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+[data-perf-shadows="false"] .bento-card,
+[data-perf-shadows="false"] .btn-premium {
+    border-color: rgba(255, 255, 255, 0.1) !important;
 }

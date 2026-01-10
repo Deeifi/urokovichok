@@ -1,7 +1,167 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, memo } from 'react';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson } from '../types';
+
+interface MemoizedTeacherCellProps {
+    teacherId: string;
+    day: string;
+    period: number;
+    lessons: Lesson[];
+    hoveredPos: { day: string, period: number } | null;
+    setHoveredPos: (pos: { day: string, period: number } | null) => void;
+    isEditMode: boolean;
+    isMonochrome: boolean;
+    draggedLesson: Lesson | null;
+    setDraggedLesson: (l: Lesson | null) => void;
+    dragOverCell: any;
+    setDragOverCell: (c: any) => void;
+    onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number) => void;
+    getSubjectColor: (id: string) => string;
+    getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
+    setActiveGroupPicker: (p: any) => void;
+    data: ScheduleRequest;
+}
+
+const MemoizedTeacherCell = memo(({
+    teacherId, day, period, lessons, hoveredPos, setHoveredPos, isEditMode, isMonochrome,
+    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, onCellClick, processTeacherDrop,
+    getSubjectColor, getConflicts, setActiveGroupPicker, data
+}: MemoizedTeacherCellProps) => {
+    const hasLessons = lessons.length > 0;
+    const isHoveredCol = hoveredPos?.day === day && hoveredPos?.period === period;
+    const isDragOver = dragOverCell?.day === day && dragOverCell?.period === period && dragOverCell?.teacherId === teacherId;
+
+    return (
+        <td
+            onMouseEnter={() => setHoveredPos({ day, period })}
+            onMouseLeave={() => setHoveredPos(null)}
+            onDragOver={(e) => {
+                if (isEditMode) {
+                    e.preventDefault();
+                    setDragOverCell({ teacherId, day, period });
+                }
+            }}
+            onDragLeave={() => isEditMode && setDragOverCell(null)}
+            onDrop={(e) => {
+                if (isEditMode) {
+                    e.preventDefault();
+                    processTeacherDrop(teacherId, day, period);
+                }
+            }}
+            className={cn(
+                "p-0 border-b border-r border-white/10 w-[32px] min-w-[32px] transition-all relative",
+                isHoveredCol && "bg-indigo-500/[0.03]",
+                isDragOver && "bg-indigo-500/20 scale-105 z-10 box-border border-2 border-indigo-500"
+            )}
+            style={{ height: '32px' }}
+        >
+            {hasLessons ? (
+                <div className={cn(
+                    "h-[32px] w-full items-stretch",
+                    lessons.length === 2 ? "flex flex-row" : "flex flex-col gap-0"
+                )}>
+                    {lessons.slice(0, lessons.length > 2 ? 1 : 2).map((lesson, idx) => {
+                        const cls = data.classes.find(c => c.id === lesson.class_id);
+                        const sub = data.subjects.find(s => s.id === lesson.subject_id);
+                        const subColor = getSubjectColor(lesson.subject_id);
+                        const conflicts = getConflicts(teacherId, day, period, lesson.class_id);
+                        const room = lesson.room || sub?.defaultRoom || "—";
+                        const isDragging = draggedLesson?.teacher_id === teacherId && draggedLesson.day === day && draggedLesson.period === period && draggedLesson.class_id === lesson.class_id;
+
+                        return (
+                            <div
+                                key={idx}
+                                draggable={isEditMode}
+                                onDragStart={(e) => {
+                                    if (isEditMode) {
+                                        setDraggedLesson(lesson);
+                                        e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
+                                        e.dataTransfer.effectAllowed = 'move';
+                                    }
+                                }}
+                                onDragEnd={() => setDraggedLesson(null)}
+                                onClick={(e) => {
+                                    if (lessons.length > 2) {
+                                        e.stopPropagation();
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setActiveGroupPicker({
+                                            teacherId,
+                                            day,
+                                            period,
+                                            lessons: lessons,
+                                            rect
+                                        });
+                                    } else {
+                                        onCellClick(teacherId, day, period, lesson);
+                                    }
+                                }}
+                                className={cn(
+                                    "flex-1 flex flex-col justify-center items-center transition-all cursor-pointer active:scale-95 overflow-hidden relative group/cell shadow-sm",
+                                    "hover:brightness-125 hover:z-10",
+                                    lessons.length === 2 && idx === 0 && "border-r border-white/10",
+                                    isDragging && "opacity-30"
+                                )}
+                                style={{
+                                    borderLeft: lessons.length === 2 ? `1px solid ${isMonochrome ? '#52525b' : subColor}` : `2px solid ${isMonochrome ? '#52525b' : subColor}`,
+                                    backgroundColor: isMonochrome ? 'transparent' : `${subColor}15`
+                                }}
+                            >
+                                {lessons.length <= 2 && (
+                                    <div className="invisible group-hover/cell:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-[100] w-max max-w-[150px] p-1.5 bg-[#18181b] border border-white/10 rounded-md shadow-2xl pointer-events-none animate-in fade-in zoom-in duration-100">
+                                        <div className="text-[9px] font-black text-white uppercase">{cls?.name} • {sub?.name}</div>
+                                        <div className="text-[7px] font-bold text-[#a1a1aa] mt-0.5">Каб: {room}</div>
+                                        {conflicts.length > 0 && (
+                                            <div className="mt-1 pt-1 border-t border-white/5 text-[7px] text-amber-500 font-bold">
+                                                КОНФЛІКТ: {conflicts.join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {conflicts.length > 0 && (
+                                    <div className="absolute top-0 right-0 text-amber-500 bg-black/60 rounded-bl-[4px] p-[1px] z-10">
+                                        <AlertTriangle size={8} />
+                                    </div>
+                                )}
+                                <span className={cn(
+                                    "font-black tracking-tighter truncate leading-none uppercase",
+                                    isMonochrome ? "text-[#a1a1aa]" : "text-white",
+                                    lessons.length >= 2 ? "text-[8px]" : "text-[11px]"
+                                )}>
+                                    {cls?.name}
+                                </span>
+                                {lessons.length === 1 && room !== "—" && (
+                                    <span className={cn(
+                                        "absolute bottom-[2px] right-[2px] text-[8px] font-black leading-none",
+                                        isMonochrome ? "text-[#a1a1aa]/70" : "text-white/70"
+                                    )}>
+                                        {room}
+                                    </span>
+                                )}
+                                {lessons.length > 2 && (
+                                    <div className="absolute bottom-[1px] right-[2px] bg-indigo-500 text-white text-[7px] px-0.5 rounded-sm font-black">
+                                        +{lessons.length - 1}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div
+                    onClick={() => isEditMode && onCellClick(teacherId, day, period)}
+                    className={cn(
+                        "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all",
+                        isEditMode ? "cursor-pointer hover:bg-white/5 hover:text-indigo-500/30" : ""
+                    )}
+                >
+                    {isEditMode ? <Plus size={12} /> : "·"}
+                </div>
+            )}
+        </td>
+    );
+});
 
 interface CompactTeacherScheduleProps {
     data: ScheduleRequest;
@@ -19,6 +179,7 @@ interface CompactTeacherScheduleProps {
     setDragOverCell: (c: any) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number) => void;
     isMonochrome?: boolean;
+    searchQuery?: string;
 }
 
 export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
@@ -36,7 +197,8 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
     dragOverCell,
     setDragOverCell,
     processTeacherDrop,
-    isMonochrome = false
+    isMonochrome = false,
+    searchQuery = ''
 }) => {
     const [hoveredPos, setHoveredPos] = useState<{ day: string, period: number } | null>(null);
     const [activeGroupPicker, setActiveGroupPicker] = useState<{
@@ -66,10 +228,15 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
         return index;
     }, [lessons]);
 
-    // 2. Sort teachers for consistent view
+    // 2. Sort & Filter teachers
     const sortedTeachers = useMemo(() => {
-        return [...data.teachers].sort((a, b) => a.name.localeCompare(b.name));
-    }, [data.teachers]);
+        let filtered = data.teachers;
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(t => t.name.toLowerCase().includes(query));
+        }
+        return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.teachers, searchQuery]);
 
     return (
         <div className="flex-1 overflow-hidden flex flex-col bg-[#09090b] rounded-2xl border border-white/5 shadow-2xl relative">
@@ -80,9 +247,9 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                 <table className="border-separate border-spacing-0 table-fixed min-w-max">
                     <thead>
                         {/* Day Headers */}
-                        <tr className="h-[40px]">
-                            <th className="sticky top-0 left-0 z-50 bg-[#121214] w-[140px] min-w-[140px] p-4 border-b border-r border-white/20 text-left">
-                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Викладач</span>
+                        <tr className="h-[30px]">
+                            <th className="sticky top-0 left-0 z-50 bg-[#121214] w-[90px] min-w-[90px] p-1 border-b border-r border-white/20 text-left">
+                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Викладач</span>
                             </th>
                             {apiDays.map((day, dIdx) => (
                                 <React.Fragment key={day}>
@@ -96,27 +263,27 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                         </div>
                                     </th>
                                     {/* Large separator column between days */}
-                                    <th className="sticky top-0 z-30 w-[12px] min-w-[12px] bg-[#050507] border-b border-white/10"></th>
+                                    <th className="sticky top-0 z-30 w-[4px] min-w-[4px] bg-[#050507] border-b border-white/10"></th>
                                 </React.Fragment>
                             ))}
                         </tr>
                         {/* Period Headers */}
-                        <tr className="h-[30px]">
-                            <th className="sticky top-[40px] left-0 z-50 bg-[#121214] border-b border-r border-white/20"></th>
+                        <tr className="h-[20px]">
+                            <th className="sticky top-[30px] left-0 z-50 bg-[#121214] border-b border-r border-white/20"></th>
                             {apiDays.map((day) => (
                                 <React.Fragment key={day}>
                                     {periods.map((p) => (
                                         <th
                                             key={`${day}-${p}`}
                                             className={cn(
-                                                "sticky top-[40px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[45px] min-w-[45px] transition-colors duration-200",
+                                                "sticky top-[30px] z-30 p-0 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-200",
                                                 hoveredPos?.day === day && hoveredPos?.period === p ? "bg-indigo-500/20 text-indigo-400" : "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
                                             {p}
                                         </th>
                                     ))}
-                                    <th className="sticky top-[40px] z-30 w-[12px] min-w-[12px] bg-[#050507] border-b border-white/10 text-center"></th>
+                                    <th className="sticky top-[30px] z-30 w-[4px] min-w-[4px] bg-[#050507] border-b border-white/10 text-center"></th>
                                 </React.Fragment>
                             ))}
                         </tr>
@@ -126,177 +293,55 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                             <tr
                                 key={teacher.id}
                                 className={cn(
-                                    "group transition-colors h-[45px]",
+                                    "group transition-colors h-[32px]",
                                     tIdx % 2 === 0 ? "bg-white/[0.03]" : "bg-transparent",
                                     "hover:bg-indigo-500/[0.05]"
                                 )}
                             >
                                 {/* Teacher Sticky Name */}
                                 <td className={cn(
-                                    "sticky left-0 z-20 p-2 border-b border-r border-white/20 transition-colors w-[140px] min-w-[140px]",
+                                    "sticky left-0 z-20 p-1 border-b border-r border-white/20 transition-colors w-[90px] min-w-[90px]",
                                     tIdx % 2 === 0 ? "bg-[#121214]" : "bg-[#0c0c0e]",
                                     "group-hover:bg-[#1a1a1e]"
                                 )}>
                                     <div className="flex flex-col justify-center min-w-0 h-full text-left">
-                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-[10px] leading-tight">
+                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-[8px] leading-none">
                                             {teacher.name}
                                         </span>
                                     </div>
                                 </td>
 
-                                {apiDays.map((day) => {
-                                    const dayLessons = indexedLessons[teacher.id]?.[day] || {};
-
-                                    return (
-                                        <React.Fragment key={day}>
-                                            {periods.map((p) => {
-                                                const currentLessons = dayLessons[p] || [];
-                                                const hasLessons = currentLessons.length > 0;
-                                                const isHoveredCol = hoveredPos?.day === day && hoveredPos?.period === p;
-                                                const isDragOver = dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.teacherId === teacher.id;
-
-                                                return (
-                                                    <td
-                                                        key={`${day}-${p}`}
-                                                        onMouseEnter={() => setHoveredPos({ day, period: p })}
-                                                        onMouseLeave={() => setHoveredPos(null)}
-                                                        onDragOver={(e) => {
-                                                            if (isEditMode) {
-                                                                e.preventDefault();
-                                                                setDragOverCell({ teacherId: teacher.id, day, period: p });
-                                                            }
-                                                        }}
-                                                        onDragLeave={() => isEditMode && setDragOverCell(null)}
-                                                        onDrop={(e) => {
-                                                            if (isEditMode) {
-                                                                e.preventDefault();
-                                                                processTeacherDrop(teacher.id, day, p);
-                                                            }
-                                                        }}
-                                                        className={cn(
-                                                            "p-0 border-b border-r border-white/10 w-[45px] min-w-[45px] transition-all relative",
-                                                            isHoveredCol && "bg-indigo-500/[0.03]",
-                                                            isDragOver && "bg-indigo-500/20 scale-105 z-10 box-border border-2 border-indigo-500"
-                                                        )}
-                                                        style={{ height: '45px' }}
-                                                    >
-                                                        {hasLessons ? (
-                                                            <div className={cn(
-                                                                "h-[45px] w-full items-stretch",
-                                                                currentLessons.length === 2 ? "flex flex-row" : "flex flex-col gap-0"
-                                                            )}>
-                                                                {currentLessons.slice(0, currentLessons.length > 2 ? 1 : 2).map((lesson, idx) => {
-                                                                    const cls = data.classes.find(c => c.id === lesson.class_id);
-                                                                    const sub = data.subjects.find(s => s.id === lesson.subject_id);
-                                                                    const subColor = getSubjectColor(lesson.subject_id);
-                                                                    const conflicts = getConflicts(teacher.id, day, p, lesson.class_id);
-                                                                    const room = lesson.room || sub?.defaultRoom || "—";
-                                                                    const isDragging = draggedLesson?.teacher_id === teacher.id && draggedLesson.day === day && draggedLesson.period === p && draggedLesson.class_id === lesson.class_id;
-
-                                                                    return (
-                                                                        <div
-                                                                            key={idx}
-                                                                            draggable={isEditMode}
-                                                                            onDragStart={(e) => {
-                                                                                if (isEditMode) {
-                                                                                    setDraggedLesson(lesson);
-                                                                                    e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
-                                                                                    e.dataTransfer.effectAllowed = 'move';
-                                                                                }
-                                                                            }}
-                                                                            onDragEnd={() => setDraggedLesson(null)}
-                                                                            onClick={(e) => {
-                                                                                if (currentLessons.length > 2) {
-                                                                                    e.stopPropagation();
-                                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                                    setActiveGroupPicker({
-                                                                                        teacherId: teacher.id,
-                                                                                        day,
-                                                                                        period: p,
-                                                                                        lessons: currentLessons,
-                                                                                        rect
-                                                                                    });
-                                                                                } else {
-                                                                                    onCellClick(teacher.id, day, p, lesson);
-                                                                                }
-                                                                            }}
-                                                                            className={cn(
-                                                                                "flex-1 flex flex-col justify-center items-center transition-all cursor-pointer active:scale-95 overflow-hidden relative group/cell backdrop-blur-[2px] shadow-sm",
-                                                                                "hover:brightness-125 hover:z-10",
-                                                                                currentLessons.length === 2 && idx === 0 && "border-r border-white/10",
-                                                                                isDragging && "opacity-30"
-                                                                            )}
-                                                                            style={{
-                                                                                borderLeft: currentLessons.length === 2 ? `2px solid ${isMonochrome ? '#52525b' : subColor}` : `3px solid ${isMonochrome ? '#52525b' : subColor}`,
-                                                                                backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`
-                                                                            }}
-                                                                        >
-                                                                            {/* Custom Tooltip (только для 1-2 уроков) */}
-                                                                            {currentLessons.length <= 2 && (
-                                                                                <div className="invisible group-hover/cell:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[100] w-max max-w-[200px] p-2 bg-[#18181b] border border-white/10 rounded-lg shadow-2xl pointer-events-none animate-in fade-in zoom-in duration-200">
-                                                                                    <div className="text-[10px] font-black text-white uppercase">{cls?.name} • {sub?.name}</div>
-                                                                                    <div className="text-[8px] font-bold text-[#a1a1aa] mt-1">Кабінет: {room}</div>
-                                                                                    {conflicts.length > 0 && (
-                                                                                        <div className="mt-2 pt-2 border-t border-white/5 text-[8px] text-amber-500 font-bold">
-                                                                                            КОНФЛІКТ: {conflicts.join(', ')}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-
-                                                                            {conflicts.length > 0 && (
-                                                                                <div className="absolute top-0 right-0 text-amber-500 bg-black/60 rounded-bl-[4px] p-[1px] z-10">
-                                                                                    <AlertTriangle size={8} />
-                                                                                </div>
-                                                                            )}
-
-                                                                            <span className={cn(
-                                                                                "font-black tracking-tighter truncate leading-none uppercase",
-                                                                                isMonochrome ? "text-[#a1a1aa]" : "text-white",
-                                                                                currentLessons.length >= 2 ? "text-[9px]" : "text-[12px]"
-                                                                            )}>
-                                                                                {cls?.name}
-                                                                            </span>
-
-                                                                            {currentLessons.length === 1 && room !== "—" && (
-                                                                                <span className={cn(
-                                                                                    "absolute bottom-[2px] right-[2px] text-[8px] font-black leading-none",
-                                                                                    isMonochrome ? "text-[#a1a1aa]/70" : "text-white/70"
-                                                                                )}>
-                                                                                    {room}
-                                                                                </span>
-                                                                            )}
-
-                                                                            {currentLessons.length > 2 && (
-                                                                                <div className="absolute bottom-[1px] right-[2px] bg-indigo-500 text-white text-[7px] px-0.5 rounded-sm font-black">
-                                                                                    +{currentLessons.length - 1}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div
-                                                                onClick={() => isEditMode && onCellClick(teacher.id, day, p)}
-                                                                className={cn(
-                                                                    "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all",
-                                                                    isEditMode ? "cursor-pointer hover:bg-white/5 hover:text-indigo-500/30" : ""
-                                                                )}
-                                                            >
-                                                                {isEditMode ? <Plus size={12} /> : "·"}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                            {/* Vertical divider column */}
-                                            <td className="w-[12px] min-w-[12px] bg-[#050507] border-b border-r border-white/20 relative">
-                                                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white/[0.02]"></div>
-                                            </td>
-                                        </React.Fragment>
-                                    );
-                                })}
+                                {apiDays.map((day) => (
+                                    <React.Fragment key={day}>
+                                        {periods.map((p) => (
+                                            <MemoizedTeacherCell
+                                                key={`${day}-${p}`}
+                                                teacherId={teacher.id}
+                                                day={day}
+                                                period={p}
+                                                lessons={indexedLessons[teacher.id]?.[day]?.[p] || []}
+                                                hoveredPos={hoveredPos}
+                                                setHoveredPos={setHoveredPos}
+                                                isEditMode={isEditMode}
+                                                isMonochrome={isMonochrome}
+                                                draggedLesson={draggedLesson}
+                                                setDraggedLesson={setDraggedLesson}
+                                                dragOverCell={dragOverCell}
+                                                setDragOverCell={setDragOverCell}
+                                                onCellClick={onCellClick}
+                                                processTeacherDrop={processTeacherDrop}
+                                                getSubjectColor={getSubjectColor}
+                                                getConflicts={getConflicts}
+                                                setActiveGroupPicker={setActiveGroupPicker}
+                                                data={data}
+                                            />
+                                        ))}
+                                        {/* Vertical divider column */}
+                                        <td className="w-[4px] min-w-[4px] bg-[#050507] border-b border-r border-white/20 relative">
+                                            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white/[0.02]"></div>
+                                        </td>
+                                    </React.Fragment>
+                                ))}
                             </tr>
                         ))}
                     </tbody>
@@ -376,6 +421,6 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                     </div>
                 </>
             )}
-        </div>
+        </div >
     );
 };
