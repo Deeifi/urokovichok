@@ -227,7 +227,7 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                                                                 isDragging && "opacity-30"
                                                                             )}
                                                                             style={{
-                                                                                borderLeft: currentLessons.length === 2 ? `2px solid ${subColor}` : `3px solid ${subColor}`,
+                                                                                borderLeft: currentLessons.length === 2 ? `2px solid ${isMonochrome ? '#52525b' : subColor}` : `3px solid ${isMonochrome ? '#52525b' : subColor}`,
                                                                                 backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`
                                                                             }}
                                                                         >
@@ -251,14 +251,18 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                                                             )}
 
                                                                             <span className={cn(
-                                                                                "font-black tracking-tighter truncate leading-none text-white uppercase",
+                                                                                "font-black tracking-tighter truncate leading-none uppercase",
+                                                                                isMonochrome ? "text-[#a1a1aa]" : "text-white",
                                                                                 currentLessons.length >= 2 ? "text-[9px]" : "text-[12px]"
                                                                             )}>
                                                                                 {cls?.name}
                                                                             </span>
 
                                                                             {currentLessons.length === 1 && room !== "—" && (
-                                                                                <span className="absolute bottom-[2px] right-[2px] text-[8px] font-black text-white/70 leading-none">
+                                                                                <span className={cn(
+                                                                                    "absolute bottom-[2px] right-[2px] text-[8px] font-black leading-none",
+                                                                                    isMonochrome ? "text-[#a1a1aa]/70" : "text-white/70"
+                                                                                )}>
                                                                                     {room}
                                                                                 </span>
                                                                             )}

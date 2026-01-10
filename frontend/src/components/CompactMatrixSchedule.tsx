@@ -189,7 +189,7 @@ export const CompactMatrixSchedule = ({
                                                                 )}
                                                                 style={{
                                                                     backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`,
-                                                                    borderLeft: `3px solid ${subColor}`
+                                                                    borderLeft: `3px solid ${isMonochrome ? '#52525b' : subColor}`
                                                                 }}
                                                                 draggable={isEditMode}
                                                                 onDragStart={(e) => {
@@ -204,7 +204,10 @@ export const CompactMatrixSchedule = ({
                                                                 }}
                                                             >
                                                                 {/* Subject Name (Unified Style) */}
-                                                                <span className="text-[12px] font-black text-white uppercase leading-none truncate w-full text-center px-0.5 tracking-tighter">
+                                                                <span className={cn(
+                                                                    "text-[12px] font-black uppercase leading-none truncate w-full text-center px-0.5 tracking-tighter",
+                                                                    isMonochrome ? "text-[#a1a1aa]" : "text-white"
+                                                                )}>
                                                                     {subject?.name.toLowerCase().includes('фізкульт')
                                                                         ? 'Ф-РА'
                                                                         : subject?.name.slice(0, 3)}
