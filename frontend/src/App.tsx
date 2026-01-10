@@ -6,7 +6,6 @@ import {
   Calendar,
   LayoutDashboard,
   Loader2,
-  Users,
   BookOpen,
   Settings,
   LogOut,
@@ -15,12 +14,12 @@ import {
 } from 'lucide-react';
 import { DataEntry } from './components/DataEntry';
 import { ScheduleGrid } from './components/ScheduleGrid';
-import { TeacherDetails } from './components/TeacherDetails';
+import { ConfirmationModal } from './components/ConfirmationModal';
 import { cn } from './utils/cn';
 import { CircleAlert, CheckCircle2 } from 'lucide-react';
 
 // Tabs
-type Tab = 'data' | 'schedule' | 'teachers';
+type Tab = 'data' | 'schedule';
 
 // Mock Initial Data: 5-11 Grades ONLY
 const INITIAL_DATA: ScheduleRequest = {
@@ -167,6 +166,7 @@ function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [history, setHistory] = useState<ScheduleResponse[]>([]);
   const [conflictData, setConflictData] = useState<{ schedule: Lesson[], violations: string[] } | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const pushToHistory = (currentState: ScheduleResponse) => {
     setHistory(prev => [JSON.parse(JSON.stringify(currentState)), ...prev].slice(0, 10));
@@ -191,12 +191,15 @@ function App() {
   }, [schedule]);
 
   const handleReset = () => {
-    if (window.confirm('Ви впевнені, що хочете скинути всі дані до початкових?')) {
-      setData(INITIAL_DATA);
-      setSchedule(null);
-      localStorage.removeItem('school_os_data');
-      localStorage.removeItem('school_os_schedule');
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    setData(INITIAL_DATA);
+    setSchedule(null);
+    localStorage.removeItem('school_os_data');
+    localStorage.removeItem('school_os_schedule');
+    setShowResetConfirm(false);
   };
 
   const handleGenerate = async () => {
@@ -227,7 +230,6 @@ function App() {
   const menuItems = [
     { id: 'schedule', label: 'Розклад', icon: Calendar },
     { id: 'data', label: 'База даних', icon: LayoutDashboard },
-    { id: 'teachers', label: 'Вчителі', icon: Users },
     { id: 'homework', label: 'Домашка', icon: BookOpen },
     { id: 'settings', label: 'Налаштування', icon: Settings },
   ];
@@ -389,7 +391,14 @@ function App() {
 
           {activeTab === 'data' ? (
             <div className="space-y-6">
-              <DataEntry data={data} onChange={setData} />
+              <DataEntry
+                data={data}
+                onChange={setData}
+                schedule={schedule}
+                onScheduleChange={setSchedule}
+                isEditMode={isEditMode}
+                setIsEditMode={setIsEditMode}
+              />
             </div>
           ) : activeTab === 'schedule' ? (
             <div className="flex-1 flex flex-col min-h-0">
@@ -414,15 +423,17 @@ function App() {
                 </div>
               )}
             </div>
-          ) : activeTab === 'teachers' ? (
-            <TeacherDetails data={data} />
-          ) : (
-            <div className="text-center py-20 text-[#a1a1aa]">
-              Розділ у розробці 🛠️
-            </div>
-          )}
+          ) : null}
         </div>
       </main>
+
+      <ConfirmationModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmReset}
+        title="Скинути всі дані?"
+        description="Ви впевнені, що хочете скинути всю базу даних та розклад до початкових значень? Цю дію неможливо скасувати."
+      />
     </div>
   );
 }

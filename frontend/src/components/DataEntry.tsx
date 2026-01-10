@@ -1,11 +1,20 @@
 import { useState, useMemo } from 'react';
-import type { ScheduleRequest, Subject, ClassGroup } from '../types';
-import { Plus, Trash2, Check, X, Pencil, ArrowLeft, BookOpen, Users, GraduationCap, ClipboardList, Search, ChevronDown } from 'lucide-react';
+import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
+import { Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ConfirmationModal } from './ConfirmationModal';
+import { TeacherDetails } from './TeacherDetails';
+import { CompactTeacherSchedule } from './CompactTeacherSchedule';
+import { TeacherEditModal } from './ScheduleGrid';
+import type { Lesson } from '../types';
 
 interface DataEntryProps {
     data: ScheduleRequest;
     onChange: (data: ScheduleRequest) => void;
+    schedule: ScheduleResponse | null;
+    onScheduleChange: (schedule: ScheduleResponse) => void;
+    isEditMode: boolean;
+    setIsEditMode: (v: boolean) => void;
 }
 
 // --- Helpers ---
@@ -31,7 +40,7 @@ const getSortedSubjects = (subjects: Subject[]) => {
 
 type Section = 'subjects' | 'teachers' | 'classes' | 'plan';
 
-export function DataEntry({ data, onChange }: DataEntryProps) {
+export function DataEntry({ data, onChange, schedule, onScheduleChange, isEditMode, setIsEditMode }: DataEntryProps) {
     const getNextId = (items: { id: string }[]) => {
         const ids = items.map(i => parseInt(i.id)).filter(id => !isNaN(id));
         return ids.length === 0 ? "1" : (Math.max(...ids) + 1).toString();
@@ -93,7 +102,17 @@ export function DataEntry({ data, onChange }: DataEntryProps) {
             <div className="bento-card border-white/5 bg-[#18181b]/50 backdrop-blur-xl min-h-[500px]">
                 <div className="p-8">
                     {section === 'subjects' && <SubjectsEditor data={data} onChange={onChange} nextId={() => getNextId(data.subjects)} />}
-                    {section === 'teachers' && <TeachersEditor data={data} onChange={onChange} nextId={() => getNextId(data.teachers)} />}
+                    {section === 'teachers' && (
+                        <TeachersEditor
+                            data={data}
+                            onChange={onChange}
+                            nextId={() => getNextId(data.teachers)}
+                            schedule={schedule}
+                            onScheduleChange={onScheduleChange}
+                            isEditMode={isEditMode}
+                            setIsEditMode={setIsEditMode}
+                        />
+                    )}
                     {section === 'classes' && <ClassesEditor data={data} onChange={onChange} />}
                     {section === 'plan' && <PlanEditor data={data} onChange={onChange} />}
                 </div>
@@ -103,7 +122,13 @@ export function DataEntry({ data, onChange }: DataEntryProps) {
 }
 
 // --- Subjects Editor ---
-function SubjectsEditor({ data, onChange, nextId }: DataEntryProps & { nextId: () => string }) {
+interface SubjectsEditorProps {
+    data: ScheduleRequest;
+    onChange: (data: ScheduleRequest) => void;
+    nextId: () => string;
+}
+
+function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
     const [newName, setNewName] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingName, setEditingName] = useState('');
@@ -135,13 +160,21 @@ function SubjectsEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
         setEditingId(null);
     };
 
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     const handleDelete = (id: string) => {
+        setDeleteId(id);
+    };
+
+    const confirmDelete = () => {
+        if (!deleteId) return;
         onChange({
             ...data,
-            subjects: data.subjects.filter(s => s.id !== id),
-            teachers: data.teachers.map(t => ({ ...t, subjects: t.subjects.filter(sid => sid !== id) })),
-            plan: data.plan.filter(p => p.subject_id !== id)
+            subjects: data.subjects.filter(s => s.id !== deleteId),
+            teachers: data.teachers.map(t => ({ ...t, subjects: t.subjects.filter(sid => sid !== deleteId) })),
+            plan: data.plan.filter(p => p.subject_id !== deleteId)
         });
+        setDeleteId(null);
     };
 
     const filteredSubjects = useMemo(() =>
@@ -216,71 +249,98 @@ function SubjectsEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
             </div>
 
             {/* List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredSubjects.map(subject => (
-                    <div key={subject.id} className="bg-white/5 hover:bg-white/[0.08] p-5 rounded-2xl border border-white/10 flex items-center justify-between transition-all group">
-                        <div className="flex items-center gap-4 flex-1">
-                            <div className="w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center font-black text-sm">
-                                {subject.id}
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {filteredSubjects.map(subject => {
+                    const isEditing = editingId === subject.id;
+                    const hours = data.plan.filter(p => p.subject_id === subject.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+                    const color = subject.color || "#6366f1";
+
+                    return (
+                        <div key={subject.id} className={cn(
+                            "bento-card p-6 border-white/5 transition-all duration-300 group relative overflow-hidden",
+                            isEditing ? "ring-2 ring-indigo-500 bg-indigo-500/10" : "bg-white/[0.04] hover:bg-white/[0.08]"
+                        )}>
+                            <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700 pointer-events-none">
+                                <BookOpen size={140} />
                             </div>
-                            {editingId === subject.id ? (
-                                <div className="space-y-2 flex-1 mr-4">
-                                    <input
-                                        value={editingName}
-                                        onChange={e => setEditingName(e.target.value)}
-                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                                        className="px-3 py-1 bg-white/5 border border-indigo-500/50 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none font-bold text-white w-full"
-                                        autoFocus
-                                    />
-                                    <div className="flex gap-2">
-                                        <input
-                                            value={editingRoom}
-                                            onChange={e => setEditingRoom(e.target.value)}
-                                            className="w-16 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white"
-                                            placeholder="Каб."
-                                        />
-                                        <input
-                                            type="color"
-                                            value={editingColor}
-                                            onChange={e => setEditingColor(e.target.value)}
-                                            className="w-8 h-6 bg-transparent border-none p-0 cursor-pointer"
-                                        />
+
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 shadow-inner" style={{ backgroundColor: `${color}20`, color: color }}>
+                                        {subject.id}
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {isEditing ? (
+                                            <>
+                                                <button onClick={handleSaveEdit} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"><Check size={16} /></button>
+                                                <button onClick={() => setEditingId(null)} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"><X size={16} /></button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => {
+                                                    setEditingId(subject.id);
+                                                    setEditingName(subject.name);
+                                                    setEditingColor(subject.color || '#6366f1');
+                                                    setEditingRoom(subject.defaultRoom || '101');
+                                                }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-lg hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button onClick={() => handleDelete(subject.id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-                            ) : (
-                                <div>
-                                    <div className="font-bold text-white text-lg flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: subject.color || '#6366f1' }} />
-                                        {subject.name}
+
+                                {isEditing ? (
+                                    <div className="space-y-3">
+                                        <input
+                                            value={editingName}
+                                            onChange={e => setEditingName(e.target.value)}
+                                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl focus:border-indigo-500 outline-none font-bold text-white text-lg transition-all"
+                                            placeholder="Назва..."
+                                            autoFocus
+                                        />
+                                        <div className="flex gap-2">
+                                            <input
+                                                value={editingRoom}
+                                                onChange={e => setEditingRoom(e.target.value)}
+                                                className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white"
+                                                placeholder="Кабінет"
+                                            />
+                                            <input
+                                                type="color"
+                                                value={editingColor}
+                                                onChange={e => setEditingColor(e.target.value)}
+                                                className="w-12 h-9 bg-transparent border-none p-0 cursor-pointer"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                                        Кабінет {subject.defaultRoom || '101'}
-                                    </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <>
+                                        <div className="text-2xl font-black text-white tracking-tighter mb-4 leading-tight min-h-[3.5rem]">
+                                            {subject.name}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
+                                                <span>Годин в плані</span>
+                                                <span className="text-white">{hours}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
+                                                <span>Кабінет</span>
+                                                <span className="text-white">{subject.defaultRoom || '101'}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-5 w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: '100%', backgroundColor: color }} />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            {editingId === subject.id ? (
-                                <>
-                                    <button onClick={handleSaveEdit} className="p-2 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-colors"><Check size={18} /></button>
-                                    <button onClick={() => setEditingId(null)} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors"><X size={18} /></button>
-                                </>
-                            ) : (
-                                <>
-                                    <button onClick={() => {
-                                        setEditingId(subject.id);
-                                        setEditingName(subject.name);
-                                        setEditingColor(subject.color || '#6366f1');
-                                        setEditingRoom(subject.defaultRoom || '101');
-                                    }} className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-500/30 transition-colors opacity-0 group-hover:opacity-100">
-                                        <Pencil size={18} />
-                                    </button>
-                                    <button onClick={() => handleDelete(subject.id)} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {filteredSubjects.length === 0 && (
                     <div className="col-span-full text-center py-20 bg-white/5 rounded-3xl border-2 border-dashed border-white/5">
                         <BookOpen size={48} className="mx-auto mb-4 text-white/10" />
@@ -290,12 +350,82 @@ function SubjectsEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={deleteId !== null}
+                onClose={() => setDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Видалити предмет?"
+                description={`Ви впевнені, що хочете видалити "${data.subjects.find(s => s.id === deleteId)?.name}"? Це також видалить його з планів та вчителів.`}
+            />
         </div>
     );
 }
 
 // --- Teachers Editor ---
-function TeachersEditor({ data, onChange, nextId }: DataEntryProps & { nextId: () => string }) {
+interface TeachersEditorProps {
+    data: ScheduleRequest;
+    onChange: (data: ScheduleRequest) => void;
+    nextId: () => string;
+    schedule: ScheduleResponse | null;
+    onScheduleChange: (schedule: ScheduleResponse) => void;
+    isEditMode: boolean;
+    setIsEditMode: (v: boolean) => void;
+}
+
+function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, isEditMode, setIsEditMode }: TeachersEditorProps) {
+    const [viewMode, setViewMode] = useState<'list' | 'details' | 'schedule'>('list');
+    const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+    const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
+    const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
+    const [dragOverCell, setDragOverCell] = useState<any>(null);
+
+    const periods = [0, 1, 2, 3, 4, 5, 6, 7];
+    const days = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+    const apiDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+    const lessons = useMemo(() =>
+        (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [],
+        [schedule]);
+
+    const getSubjectColor = (subjectId: string) => {
+        const subject = data.subjects.find(s => s.id === subjectId);
+        if (subject?.color) return subject.color;
+        const palette = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+        const index = data.subjects.findIndex(s => s.id === subjectId);
+        return palette[index % palette.length] || '#6366f1';
+    };
+
+    const getConflicts = (teacherId: string, day: string, period: number, excludeClassId?: string): string[] => {
+        return lessons
+            .filter(l =>
+                l.teacher_id === teacherId &&
+                l.day === day &&
+                l.period === period &&
+                l.class_id !== excludeClassId
+            )
+            .map(l => data.classes.find(c => c.id === l.class_id)?.name || '???');
+    };
+
+    const handleSaveTeacherLesson = (classId: string, day: string, period: number, subjectId: string, teacherId: string, room?: string) => {
+        if (!schedule) return;
+        let updatedLessons = [...lessons];
+        updatedLessons = updatedLessons.filter(l => !(l.teacher_id === teacherId && l.day === day && l.period === period && l.class_id === classId));
+        if (subjectId && teacherId && classId) {
+            updatedLessons.push({ class_id: classId, subject_id: subjectId, teacher_id: teacherId, day, period, room });
+        }
+        onScheduleChange({ ...schedule, schedule: updatedLessons } as any);
+        setEditingTeacherCell(null);
+    };
+
+    const processTeacherDrop = (targetTeacherId: string, targetDay: string, targetPeriod: number) => {
+        if (!draggedLesson || !schedule) return;
+        let updatedLessons = [...lessons].filter(l => !(l.class_id === draggedLesson.class_id && l.day === draggedLesson.day && l.period === draggedLesson.period));
+        updatedLessons.push({ ...draggedLesson, teacher_id: targetTeacherId, day: targetDay, period: targetPeriod });
+        onScheduleChange({ ...schedule, schedule: updatedLessons } as any);
+        setDraggedLesson(null);
+        setDragOverCell(null);
+    };
+
     const [name, setName] = useState('');
     const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
     const [photo, setPhoto] = useState<string | null>(null);
@@ -306,7 +436,6 @@ function TeachersEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
     const [is_primary, setIsPrimary] = useState(false);
     const [editingIsPrimary, setEditingIsPrimary] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
         const file = e.target.files?.[0];
@@ -342,18 +471,127 @@ function TeachersEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
         setEditingPhoto(null);
     };
 
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     const handleDelete = (id: string) => {
+        setDeleteId(id);
+    };
+
+    const confirmDelete = () => {
+        if (!deleteId) return;
         onChange({
             ...data,
-            teachers: data.teachers.filter(t => t.id !== id),
-            plan: data.plan.filter(p => p.teacher_id !== id)
+            teachers: data.teachers.filter(t => t.id !== deleteId),
+            plan: data.plan.filter(p => p.teacher_id !== deleteId)
         });
+        setDeleteId(null);
     };
 
     const filteredTeachers = useMemo(() =>
         [...data.teachers].sort((a, b) => a.name.localeCompare(b.name, 'uk')).filter(t =>
             t.name.toLowerCase().includes(searchQuery.toLowerCase())
         ), [data.teachers, searchQuery]);
+
+    if (selectedTeacherId) {
+        const teacher = data.teachers.find(t => t.id === selectedTeacherId);
+        if (teacher) {
+            return (
+                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={() => { setSelectedTeacherId(null); setViewMode('list'); }}
+                            className="flex items-center gap-2 text-[#a1a1aa] hover:text-white transition-colors font-black text-[10px] uppercase tracking-widest group"
+                        >
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            Назад до списку вчителів
+                        </button>
+
+                        <div className="flex p-1 bg-white/5 rounded-2xl border border-white/5">
+                            <button
+                                onClick={() => setViewMode('details')}
+                                className={cn(
+                                    "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    viewMode === 'details' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                                )}
+                            >
+                                Статистика
+                            </button>
+                            <button
+                                onClick={() => setViewMode('schedule')}
+                                className={cn(
+                                    "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    viewMode === 'schedule' ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-[#a1a1aa] hover:text-white"
+                                )}
+                            >
+                                Розклад
+                            </button>
+                        </div>
+                    </div>
+
+                    {viewMode === 'details' ? (
+                        <TeacherDetails data={data} key={teacher.id} teacherId={teacher.id} />
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between bg-white/5 p-6 rounded-3xl border border-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black border border-emerald-500/10">
+                                        {teacher.name.slice(0, 1).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-white">{teacher.name}</h3>
+                                        <p className="text-xs font-bold text-[#a1a1aa] uppercase tracking-widest">Персональний розклад</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setIsEditMode(!isEditMode)}
+                                        className={cn(
+                                            "flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border-2",
+                                            isEditMode ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-400" : "bg-white/5 border-white/10 text-[#a1a1aa] hover:bg-white/10"
+                                        )}
+                                    >
+                                        {isEditMode ? "Редагування УВІМК." : "Редагування ВИМК."}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Schedule Component */}
+                            <div className="h-[600px] border border-white/5 rounded-[32px] overflow-hidden">
+                                <CompactTeacherSchedule
+                                    data={{ ...data, teachers: data.teachers.filter(t => t.id === selectedTeacherId) }}
+                                    lessons={lessons}
+                                    periods={periods}
+                                    apiDays={apiDays}
+                                    days={days}
+                                    getSubjectColor={getSubjectColor}
+                                    getConflicts={getConflicts}
+                                    isEditMode={isEditMode}
+                                    onCellClick={(tId, d, p) => setEditingTeacherCell({ teacherId: tId, day: d, period: p })}
+                                    draggedLesson={draggedLesson}
+                                    setDraggedLesson={setDraggedLesson}
+                                    dragOverCell={dragOverCell}
+                                    setDragOverCell={setDragOverCell}
+                                    processTeacherDrop={processTeacherDrop}
+                                />
+                            </div>
+
+                            {editingTeacherCell && (
+                                <TeacherEditModal
+                                    data={data}
+                                    schedule={lessons}
+                                    teacherId={editingTeacherCell.teacherId}
+                                    day={editingTeacherCell.day}
+                                    period={editingTeacherCell.period}
+                                    onSave={handleSaveTeacherLesson}
+                                    onClose={() => setEditingTeacherCell(null)}
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+    }
 
     return (
         <div className="space-y-8">
@@ -452,140 +690,109 @@ function TeachersEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
             </div>
 
             {/* List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredTeachers.map(teacher => {
-                    const isExpanded = expandedId === teacher.id;
                     const isEditing = editingId === teacher.id;
+                    const hours = data.plan.filter(p => p.teacher_id === teacher.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+
                     return (
                         <div key={teacher.id} className={cn(
-                            "bento-card border-white/5 overflow-hidden transition-all duration-300 h-fit",
-                            isExpanded ? "ring-2 ring-emerald-500/50 bg-white/5" : "bg-white/[0.02] hover:bg-white/[0.04]"
+                            "bento-card p-6 border-white/5 transition-all duration-300 group relative overflow-hidden",
+                            isEditing ? "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-2xl shadow-emerald-500/10" : "bg-white/[0.04] hover:bg-white/[0.08]"
                         )}>
-                            <div className="p-5 flex items-center justify-between cursor-pointer" onClick={() => !isEditing && setExpandedId(isExpanded ? null : teacher.id)}>
-                                <div className="flex items-center gap-5">
-                                    <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-black overflow-hidden border border-white/5">
-                                        {teacher.name.slice(0, 1).toUpperCase()}
+                            <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700 pointer-events-none">
+                                <Users size={160} />
+                            </div>
+
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-[24px] flex items-center justify-center font-black overflow-hidden border border-white/10 shadow-xl group-hover:scale-110 transition-transform">
+                                        {teacher.photo ? (
+                                            <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
+                                        ) : (
+                                            <span className="text-2xl">{teacher.name.slice(0, 1).toUpperCase()}</span>
+                                        )}
                                     </div>
-                                    {isEditing ? (
+                                    <div className="flex gap-1.5">
+                                        {isEditing ? (
+                                            <>
+                                                <button onClick={handleSaveEdit} className="p-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 shadow-lg shadow-green-500/20"><Check size={18} /></button>
+                                                <button onClick={() => setEditingId(null)} className="p-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 shadow-lg shadow-red-500/20"><X size={18} /></button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedTeacherId(teacher.id);
+                                                        setViewMode('details');
+                                                    }}
+                                                    className="p-2.5 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 transition-all"
+                                                    title="Статистика та розклад"
+                                                >
+                                                    <ClipboardList size={18} />
+                                                </button>
+                                                <button onClick={() => { setEditingId(teacher.id); setEditingName(teacher.name); setEditingSubjects(teacher.subjects); setEditingIsPrimary(teacher.is_primary || false); setEditingPhoto(teacher.photo || null); }} className="p-2.5 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100"><Pencil size={18} /></button>
+                                                <button onClick={() => handleDelete(teacher.id)} className="p-2.5 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {isEditing ? (
+                                    <div className="space-y-4">
                                         <input
                                             value={editingName}
                                             onChange={e => setEditingName(e.target.value)}
-                                            onClick={e => e.stopPropagation()}
-                                            className="px-3 py-1 bg-white/5 border border-emerald-500/50 rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none font-bold text-white"
-                                            autoFocus
+                                            className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl focus:border-emerald-500 outline-none font-black text-white text-xl"
+                                            placeholder="Прізвище І.О."
                                         />
-                                    ) : (
-                                        <div>
-                                            <div className="font-black text-white text-lg tracking-tight">{teacher.name}</div>
-                                            <div className="text-xs text-[#a1a1aa] font-black uppercase tracking-widest flex items-center gap-2">
-                                                {teacher.subjects.length} ДИСЦИПЛІН
-                                                {teacher.is_primary && (
-                                                    <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-md border border-emerald-500/10">1-4 КЛАСИ</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {isEditing ? (
-                                        <>
-                                            <button onClick={e => { e.stopPropagation(); handleSaveEdit(); }} className="p-2 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30"><Check size={18} /></button>
-                                            <button onClick={e => { e.stopPropagation(); setEditingId(null); }} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30"><X size={18} /></button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button onClick={e => { e.stopPropagation(); setEditingId(teacher.id); setEditingName(teacher.name); setEditingSubjects(teacher.subjects); setEditingIsPrimary(teacher.is_primary || false); setEditingPhoto(teacher.photo || null); }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all"><Pencil size={18} /></button>
-                                            <button onClick={e => { e.stopPropagation(); handleDelete(teacher.id); }} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all"><Trash2 size={18} /></button>
-                                            <ChevronDown className={cn("text-white/20 transition-transform ml-2", isExpanded && "rotate-180 text-emerald-400")} size={20} />
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            {(isExpanded || isEditing) && (
-                                <div className="p-4 border-t border-white/5 bg-black/20 animate-in slide-in-from-top-2 duration-300">
-                                    <div className="flex flex-col sm:flex-row gap-6">
-                                        {teacher.photo && !isEditing && (
-                                            <div className="flex-shrink-0 flex justify-center sm:block">
-                                                <div className="w-24 h-24 rounded-2xl overflow-hidden border border-white/10 shadow-xl mt-1">
-                                                    <img src={teacher.photo} className="w-full h-full object-cover" alt={teacher.name} />
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="flex-1">
-                                            <label className="block text-[10px] font-black text-[#a1a1aa] mb-3 uppercase tracking-widest">МОЖЕ ВИКЛАДАТИ:</label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {isEditing ? data.subjects.map(sub => (
+                                        <div className="space-y-3">
+                                            <label className="block text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em]">Дисципліни</label>
+                                            <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                                                {data.subjects.map(sub => (
                                                     <button
                                                         key={sub.id}
                                                         onClick={() => setEditingSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
                                                         className={cn(
-                                                            "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-300",
-                                                            editingSubjects.includes(sub.id)
-                                                                ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20"
-                                                                : "bg-white/5 border-white/10 text-[#a1a1aa] hover:border-emerald-500/50"
+                                                            "px-3 py-2 rounded-xl text-[10px] font-bold border transition-all text-left",
+                                                            editingSubjects.includes(sub.id) ? "bg-emerald-500 border-emerald-400 text-white" : "bg-white/5 border-white/10 text-[#a1a1aa]"
                                                         )}
                                                     >
                                                         {sub.name}
                                                     </button>
-                                                )) : teacher.subjects.map(sid => {
-                                                    const sub = data.subjects.find(s => s.id === sid);
-                                                    return <span key={sid} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-xl text-[11px] font-bold border border-emerald-500/10">{sub?.name || sid}</span>;
-                                                })}
-                                                {!isEditing && teacher.subjects.length === 0 && <span className="text-sm text-white/20 italic">Немає призначених предметів</span>}
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <>
+                                        <div className="text-3xl font-black text-white tracking-tighter mb-4 leading-[1.1]">
+                                            {teacher.name.split(' ').map((p, i) => <div key={i}>{p}</div>)}
+                                        </div>
 
-                                    {isEditing && (
-                                        <button
-                                            onClick={() => setEditingIsPrimary(!editingIsPrimary)}
-                                            className={cn(
-                                                "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300 mt-4",
-                                                editingIsPrimary
-                                                    ? "bg-emerald-500/20 border-emerald-500/50 shadow-lg shadow-emerald-500/10"
-                                                    : "bg-white/5 border-white/10 hover:bg-white/10"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", editingIsPrimary ? "bg-emerald-500 border-emerald-500" : "border-white/20")}>
-                                                    {editingIsPrimary && <Check size={14} className="text-white" />}
-                                                </div>
-                                                <div className="text-left">
-                                                    <div className="font-bold text-white text-sm">Вчитель початкових класів</div>
-                                                    <div className="text-[10px] text-[#a1a1aa] font-medium">Може викладати для 1-4 класів</div>
-                                                </div>
+                                        <div className="space-y-3 mt-auto">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Load</span>
+                                                <span className={cn("text-xs font-black", hours > 30 ? "text-red-400" : "text-emerald-400")}>{hours}h / week</span>
                                             </div>
-                                        </button>
-                                    )}
-
-                                    {isEditing && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
-                                                    {editingPhoto ? (
-                                                        <img src={editingPhoto} className="w-full h-full object-cover" alt="" />
-                                                    ) : (
-                                                        <Users size={20} className="text-white/10" />
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="cursor-pointer group/up">
-                                                        <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e, true)} />
-                                                        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#a1a1aa] group-hover/up:bg-white/10 group-hover/up:text-white transition-all">
-                                                            {editingPhoto ? 'Змінити фото' : 'Додати фото'}
-                                                        </div>
-                                                    </label>
-                                                    {editingPhoto && (
-                                                        <button onClick={() => setEditingPhoto(null)} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500/20 transition-all">
-                                                            <Trash2 size={14} /> Видалити фото
-                                                        </button>
-                                                    )}
-                                                </div>
+                                            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all duration-1000 delay-100", hours > 30 ? "bg-red-500" : "bg-emerald-500")}
+                                                    style={{ width: `${Math.min(hours / 35 * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {teacher.subjects.slice(0, 3).map(sid => (
+                                                    <span key={sid} className="px-2 py-0.5 bg-white/5 text-[9px] font-black text-[#a1a1aa] rounded-md border border-white/5 uppercase">
+                                                        {data.subjects.find(s => s.id === sid)?.name.slice(0, 6) || sid}
+                                                    </span>
+                                                ))}
+                                                {teacher.subjects.length > 3 && <span className="text-[9px] font-black text-white/20">+{teacher.subjects.length - 3}</span>}
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     );
                 })}
@@ -598,12 +805,24 @@ function TeachersEditor({ data, onChange, nextId }: DataEntryProps & { nextId: (
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={deleteId !== null}
+                onClose={() => setDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Видалити вчителя?"
+                description={`Ви впевнені, що хочете видалити вчителя "${data.teachers.find(t => t.id === deleteId)?.name}"?`}
+            />
         </div>
     );
 }
 
 // --- Classes Editor ---
-function ClassesEditor({ data, onChange }: DataEntryProps) {
+interface ClassesEditorProps {
+    data: ScheduleRequest;
+    onChange: (data: ScheduleRequest) => void;
+}
+
+function ClassesEditor({ data, onChange }: ClassesEditorProps) {
     const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
     const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
     const [viewingClassId, setViewingClassId] = useState<string | null>(null);
@@ -635,12 +854,20 @@ function ClassesEditor({ data, onChange }: DataEntryProps) {
         setSelectedLetters([]);
     };
 
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     const handleDelete = (id: string) => {
+        setDeleteId(id);
+    };
+
+    const confirmDelete = () => {
+        if (!deleteId) return;
         onChange({
             ...data,
-            classes: data.classes.filter(c => c.id !== id),
-            plan: data.plan.filter(p => p.class_id !== id)
+            classes: data.classes.filter(c => c.id !== deleteId),
+            plan: data.plan.filter(p => p.class_id !== deleteId)
         });
+        setDeleteId(null);
     };
 
     const handleSavePlanEdit = (subjectId: string) => {
@@ -808,20 +1035,43 @@ function ClassesEditor({ data, onChange }: DataEntryProps) {
             </div>
 
             {/* Class Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {getSortedClasses(data.classes).map(cls => (
-                    <div key={cls.id} className="bento-card p-5 border-white/5 hover:bg-white/[0.04] transition-all group cursor-pointer" onClick={() => setViewingClassId(cls.id)}>
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="text-3xl font-black text-white tracking-tighter">{cls.name}</div>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(cls.id); }} className="p-1 text-[#a1a1aa] hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-                                <Trash2 size={16} />
-                            </button>
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {getSortedClasses(data.classes).map(cls => {
+                    const hours = data.plan.filter(p => p.class_id === cls.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+                    const subjectsCount = data.plan.filter(p => p.class_id === cls.id).length;
+
+                    return (
+                        <div key={cls.id} className="bento-card p-6 border-white/5 hover:bg-white/[0.04] transition-all group cursor-pointer relative overflow-hidden" onClick={() => setViewingClassId(cls.id)}>
+                            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:scale-110 transition-transform">
+                                <ClipboardList size={60} />
+                            </div>
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="text-4xl font-black text-white tracking-tighter">{cls.name}</div>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(cls.id); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
+                                    <span>Годин / Тиждень</span>
+                                    <span className={cn(hours > 30 ? "text-red-400" : "text-violet-400")}>{hours}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
+                                    <span>Предметів</span>
+                                    <span className="text-white">{subjectsCount}</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                                <div
+                                    className={cn("h-full rounded-full transition-all duration-500", hours > 30 ? "bg-red-500" : "bg-violet-500")}
+                                    style={{ width: `${Math.min(hours / 35 * 100, 100)}%` }}
+                                />
+                            </div>
                         </div>
-                        <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-tighter">
-                            {data.plan.filter(p => p.class_id === cls.id).reduce((a, p) => a + p.hours_per_week, 0)} ГОД / ТИЖД
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
             {data.classes.length === 0 && (
                 <div className="text-center py-20 bg-white/5 rounded-3xl border-2 border-dashed border-white/5">
@@ -829,12 +1079,24 @@ function ClassesEditor({ data, onChange }: DataEntryProps) {
                     <p className="font-black text-white/30 uppercase tracking-widest text-sm">Класи ще не додані</p>
                 </div>
             )}
+            <ConfirmationModal
+                isOpen={deleteId !== null}
+                onClose={() => setDeleteId(null)}
+                onConfirm={confirmDelete}
+                title="Видалити клас?"
+                description={`Ви впевнені, що хочете видалити клас "${data.classes.find(c => c.id === deleteId)?.name}"? Це також видалить весь його навчальний план.`}
+            />
         </div>
     );
 }
 
 // --- Plan Editor ---
-function PlanEditor({ data, onChange }: DataEntryProps) {
+interface PlanEditorProps {
+    data: ScheduleRequest;
+    onChange: (data: ScheduleRequest) => void;
+}
+
+function PlanEditor({ data, onChange }: PlanEditorProps) {
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 

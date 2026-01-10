@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup } from '../types';
 import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, ChevronRight, LayoutDashboard, LayoutGrid, ArrowRightLeft, Video, Table as TableIcon, Columns, Lock, Unlock, Info, Search, Droplet } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ConfirmationModal } from './ConfirmationModal';
 import { BELL_SCHEDULE } from '../constants';
 import { CompactTeacherSchedule } from './CompactTeacherSchedule';
 import { CompactMatrixSchedule } from './CompactMatrixSchedule';
@@ -1476,6 +1477,7 @@ function EditLessonModal({ data, schedule, initialClassId, initialDay, initialPe
     const [teacherId, setTeacherId] = useState(currentTeacherId || '');
     const [room, setRoom] = useState(currentRoom || ''); // Room state
     const [conflict, setConflict] = useState<{ teacherName: string, className: string } | null>(null);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     // If subject changes, maybe pre-fill default room?
     useEffect(() => {
@@ -1618,7 +1620,7 @@ function EditLessonModal({ data, schedule, initialClassId, initialDay, initialPe
 
                             <div className="flex gap-3 pt-4">
                                 <button
-                                    onClick={handleClear}
+                                    onClick={() => setShowClearConfirm(true)}
                                     className="flex-1 py-3 rounded-xl font-black text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={18} />
@@ -1637,6 +1639,14 @@ function EditLessonModal({ data, schedule, initialClassId, initialDay, initialPe
                     )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showClearConfirm}
+                onClose={() => setShowClearConfirm(false)}
+                onConfirm={handleClear}
+                title="Очистити урок?"
+                description="Ви впевнені, що хочете видалити цей урок з розкладу?"
+            />
         </div>
     );
 }
@@ -1652,13 +1662,14 @@ interface TeacherEditModalProps {
     onClose: () => void;
 }
 
-function TeacherEditModal({ data, schedule, teacherId, day, period, onSave, onClose }: TeacherEditModalProps) {
+export function TeacherEditModal({ data, schedule, teacherId, day, period, onSave, onClose }: TeacherEditModalProps) {
     const existingLesson = schedule.find(l => l.teacher_id === teacherId && l.day === day && l.period === period);
 
     const [classId, setClassId] = useState(existingLesson?.class_id || '');
     const [subjectId, setSubjectId] = useState(existingLesson?.subject_id || '');
     const [room, setRoom] = useState(existingLesson?.room || '');
     const [conflict, setConflict] = useState<{ teacherName: string, className: string } | null>(null);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     const teacherObj = data.teachers.find(t => t.id === teacherId);
     const dayMap: Record<string, string> = { "Mon": "Пн", "Tue": "Вт", "Wed": "Ср", "Thu": "Чт", "Fri": "Пт" };
@@ -1792,7 +1803,7 @@ function TeacherEditModal({ data, schedule, teacherId, day, period, onSave, onCl
 
                             <div className="flex gap-3 pt-4">
                                 <button
-                                    onClick={handleClear}
+                                    onClick={() => setShowClearConfirm(true)}
                                     className="flex-1 py-3 rounded-xl font-black text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={18} />
@@ -1811,6 +1822,14 @@ function TeacherEditModal({ data, schedule, teacherId, day, period, onSave, onCl
                     )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showClearConfirm}
+                onClose={() => setShowClearConfirm(false)}
+                onConfirm={handleClear}
+                title="Очистити урок?"
+                description="Ви впевнені, що хочете видалити цей урок з розкладу?"
+            />
         </div>
     );
 }
