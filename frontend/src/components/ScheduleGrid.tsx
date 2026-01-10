@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup } from '../types';
-import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, LayoutDashboard, Table as TableIcon, Columns, ArrowRightLeft, Video, ChevronRight, Lock, Unlock, Info } from 'lucide-react';
+import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, ChevronRight, LayoutDashboard, LayoutGrid, ArrowRightLeft, Video, Table as TableIcon, Columns, Lock, Unlock, Info, Search, Droplet } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { BELL_SCHEDULE } from '../constants';
+import { CompactTeacherSchedule } from './CompactTeacherSchedule';
+import { CompactMatrixSchedule } from './CompactMatrixSchedule';
 
 interface ScheduleGridProps {
     data: ScheduleRequest;
@@ -175,8 +177,8 @@ interface ByClassViewProps {
     findLesson: (classId: string, day: string, period: number) => Lesson | null;
     getSubjectColor: (subjectId: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
-    dragOverCell: { classId: string, day: string, period: number } | null;
-    setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
+    dragOverCell: any;
+    setDragOverCell: (c: any) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
     processDrop: (classId: string, day: string, period: number) => void;
@@ -267,7 +269,7 @@ const ByClassView = ({
                                             <div className="text-[10px] text-[#a1a1aa] font-black flex items-center gap-2">
                                                 <span>{p} УРОК</span>
                                                 {conflicts.length > 0 && (
-                                                    <div className="text-amber-500" title={`Вчитель вже веде урок у: ${conflicts.join(', ')}`}>
+                                                    <div className="text-amber-500" title={`Вчитель вже веде урок у: ${conflicts.join(', ')} `}>
                                                         <AlertTriangle size={12} />
                                                     </div>
                                                 )}
@@ -313,18 +315,24 @@ interface MatrixViewProps {
     sortedClasses: ClassGroup[];
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: { classId: string, day: string, period: number } | null;
-    setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
+    dragOverCell: any;
+    setDragOverCell: (c: any) => void;
     processDrop: (classId: string, day: string, period: number) => void;
     setEditingCell: (c: { classId: string, day: string, period: number } | null) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
+    isCompact: boolean;
+    setIsCompact: (v: boolean) => void;
+    isMonochrome: boolean;
+    setIsMonochrome: (v: boolean) => void;
+    lessons: Lesson[];
 }
 
 const MatrixView = ({
     data, activeGradeGroup, setActiveGradeGroup, matrixDay, setMatrixDay,
     findLesson, getConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode
+    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode,
+    isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons
 }: MatrixViewProps) => {
     const filteredClasses = sortedClasses.filter(cls => {
         const grade = parseInt(cls.name);
@@ -337,176 +345,237 @@ const MatrixView = ({
     const dayName = days[apiDays.indexOf(matrixDay)];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Загальний розклад</h2>
+                    <h2 className="text-2xl font-black text-white tracking-tight">
+                        Загальний розклад {isCompact && "(Компактно)"}
+                    </h2>
                     <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                        Вся школа • {dayName}
+                        {isCompact ? "Повна сітка школи • Весь тиждень" : `Вся школа • ${dayName}`}
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                        {apiDays.map((day, idx) => (
-                            <button
-                                key={day}
-                                onClick={() => setMatrixDay(day)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                    matrixDay === day ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
-                                )}
-                            >
-                                {days[idx].toUpperCase()}
-                            </button>
-                        ))}
+                    {!isCompact && (
+                        <>
+                            <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                                {apiDays.map((day, idx) => (
+                                    <button
+                                        key={day}
+                                        onClick={() => setMatrixDay(day)}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                            matrixDay === day ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
+                                        )}
+                                    >
+                                        {days[idx].toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                                {(['1-4', '5-9', '10-11'] as const).map(group => (
+                                    <button
+                                        key={group}
+                                        onClick={() => setActiveGradeGroup(group)}
+                                        className={cn(
+                                            "px-4 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                            activeGradeGroup === group ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                                        )}
+                                    >
+                                        {group}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                        <button
+                            onClick={() => setIsMonochrome(!isMonochrome)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[130px]",
+                                isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
+                            )}
+                        >
+                            <Droplet size={14} />
+                            {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
+                        </button>
                     </div>
 
                     <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        {(['1-4', '5-9', '10-11'] as const).map(group => (
-                            <button
-                                key={group}
-                                onClick={() => setActiveGradeGroup(group)}
-                                className={cn(
-                                    "px-4 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                    activeGradeGroup === group ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
-                                )}
-                            >
-                                {group} КЛАСИ
-                            </button>
-                        ))}
+                        <button
+                            onClick={() => setIsCompact(!isCompact)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[160px]",
+                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                            )}
+                        >
+                            <LayoutGrid size={14} />
+                            {isCompact ? "КОМПАКТНО: УВІМК." : "КОМПАКТНО: ВИМК."}
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div className="bento-card border-white/5 overflow-hidden">
-                <div className="overflow-auto max-h-[70vh] custom-scrollbar">
-                    <table className="w-full border-collapse text-left">
-                        <thead>
-                            <tr className="border-b border-white/5">
-                                <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 min-w-[80px]">
-                                    ЧАС
-                                </th>
-                                {filteredClasses.map(cls => (
-                                    <th key={cls.id} className="sticky top-0 z-20 bg-[#18181b] p-4 text-[12px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[160px]">
-                                        {cls.name}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {periods.map(p => (
-                                <tr key={p} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                                    <th className="sticky left-0 z-10 bg-[#18181b] p-4 border-r border-white/5 text-center">
-                                        <div className="text-lg font-black text-white leading-none">{p}</div>
-                                        <div className="text-[8px] text-[#a1a1aa] font-black mt-1 opacity-50 uppercase">УРОК</div>
-                                    </th>
-                                    {filteredClasses.map(cls => {
-                                        const lesson = findLesson(cls.id, matrixDay, p);
-                                        const subject = lesson ? data.subjects.find(s => s.id === lesson.subject_id) : null;
-                                        const teacher = lesson ? data.teachers.find(t => t.id === lesson.teacher_id) : null;
-                                        const subColor = getSubjectColor(lesson?.subject_id || '');
-                                        const conflicts = lesson ? getConflicts(lesson.teacher_id, matrixDay, p, cls.id) : [];
-
-                                        const isDragOver = dragOverCell?.day === matrixDay && dragOverCell?.period === p && dragOverCell?.classId === cls.id;
-                                        const isDragging = draggedLesson?.day === matrixDay && draggedLesson?.period === p && draggedLesson?.class_id === cls.id;
-
-                                        return (
-                                            <td
-                                                key={cls.id}
-                                                className={cn(
-                                                    "p-2 border-r border-white/5 last:border-r-0 h-24 transition-all",
-                                                    isDragOver && "bg-indigo-500/10"
-                                                )}
-                                                onDragOver={(e) => {
-                                                    if (isEditMode) {
-                                                        e.preventDefault();
-                                                        e.dataTransfer.dropEffect = 'move';
-                                                        setDragOverCell({ classId: cls.id, day: matrixDay, period: p });
-                                                    }
-                                                }}
-                                                onDragLeave={() => isEditMode && setDragOverCell(null)}
-                                                onDrop={(e) => {
-                                                    if (isEditMode) {
-                                                        e.preventDefault();
-                                                        processDrop(cls.id, matrixDay, p);
-                                                    }
-                                                }}
-                                            >
-                                                {lesson ? (
-                                                    <div
-                                                        onClick={() => isEditMode
-                                                            ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
-                                                            : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
-                                                        }
-                                                        className={cn(
-                                                            "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-xl p-3 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
-                                                            isDragging ? "opacity-30 grayscale" : "opacity-100"
-                                                        )}
-                                                        style={{ borderLeftColor: subColor }}
-                                                        draggable={isEditMode}
-                                                        onDragStart={(e) => {
-                                                            if (isEditMode) {
-                                                                setDraggedLesson(lesson);
-                                                                e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
-                                                                e.dataTransfer.effectAllowed = 'move';
-                                                            }
-                                                        }}
-                                                        onDragEnd={() => {
-                                                            setDraggedLesson(null);
-                                                            setDragOverCell(null);
-                                                        }}
-                                                    >
-                                                        {conflicts.length > 0 && (
-                                                            <div
-                                                                className="absolute top-1 right-1 text-amber-500 bg-black/50 rounded-full p-1 z-10"
-                                                                title={`Вчитель вже веде урок у: ${conflicts.join(', ')}`}
-                                                            >
-                                                                <AlertTriangle size={12} />
-                                                            </div>
-                                                        )}
-                                                        <div className="text-xs font-black text-white group-hover:text-indigo-400 transition-colors truncate relative z-0">
-                                                            {subject?.name}
-                                                        </div>
-                                                        <div className="flex justify-between items-end mt-2">
-                                                            <div className="text-[10px] font-bold text-[#a1a1aa] truncate mr-2">
-                                                                {teacher?.name.split(' ').slice(0, 2).join(' ')}
-                                                            </div>
-                                                            <div className={cn(
-                                                                "text-[8px] font-black px-1.5 py-0.5 rounded transition-colors uppercase tracking-tight",
-                                                                getRoomColor(lesson?.room || subject?.defaultRoom)
-                                                            )}>
-                                                                {lesson?.room || subject?.defaultRoom || '—'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div
-                                                        onClick={() => isEditMode
-                                                            ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
-                                                            : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
-                                                        }
-                                                        className="h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group"
-                                                    >
-                                                        <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover:text-white">
-                                                            {isEditMode ? (
-                                                                <>
-                                                                    <Plus size={14} className="mx-auto mb-1" />
-                                                                    Додати
-                                                                </>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {isCompact ? (
+                <div className="flex-1 overflow-hidden">
+                    <CompactMatrixSchedule
+                        data={data}
+                        lessons={lessons}
+                        periods={periods}
+                        apiDays={apiDays}
+                        days={days}
+                        getSubjectColor={getSubjectColor}
+                        getConflicts={getConflicts}
+                        isEditMode={isEditMode}
+                        onCellClick={(classId, day, period, lesson) => {
+                            if (isEditMode) {
+                                setEditingCell({ classId, day, period });
+                            } else if (lesson) {
+                                setViewingLesson({ classId, day, period });
+                            }
+                        }}
+                        draggedLesson={draggedLesson}
+                        setDraggedLesson={setDraggedLesson}
+                        dragOverCell={dragOverCell}
+                        setDragOverCell={setDragOverCell}
+                        processDrop={processDrop}
+                        isMonochrome={isMonochrome}
+                    />
                 </div>
-            </div>
+            ) : (
+
+                <div className="bento-card border-white/5 overflow-hidden">
+                    <div className="overflow-auto max-h-[70vh] custom-scrollbar">
+                        <table className="w-full border-collapse text-left">
+                            <thead>
+                                <tr className="border-b border-white/5">
+                                    <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 min-w-[80px]">
+                                        ЧАС
+                                    </th>
+                                    {filteredClasses.map(cls => (
+                                        <th key={cls.id} className="sticky top-0 z-20 bg-[#18181b] p-4 text-[12px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[160px]">
+                                            {cls.name}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {periods.map(p => (
+                                    <tr key={p} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+                                        <th className="sticky left-0 z-10 bg-[#18181b] p-4 border-r border-white/5 text-center">
+                                            <div className="text-lg font-black text-white leading-none">{p}</div>
+                                            <div className="text-[8px] text-[#a1a1aa] font-black mt-1 opacity-50 uppercase">УРОК</div>
+                                        </th>
+                                        {filteredClasses.map(cls => {
+                                            const lesson = findLesson(cls.id, matrixDay, p);
+                                            const subject = lesson ? data.subjects.find(s => s.id === lesson.subject_id) : null;
+                                            const teacher = lesson ? data.teachers.find(t => t.id === lesson.teacher_id) : null;
+                                            const subColor = getSubjectColor(lesson?.subject_id || '');
+                                            const conflicts = lesson ? getConflicts(lesson.teacher_id, matrixDay, p, cls.id) : [];
+
+                                            const isDragOver = dragOverCell?.day === matrixDay && dragOverCell?.period === p && dragOverCell?.classId === cls.id;
+                                            const isDragging = draggedLesson?.day === matrixDay && draggedLesson?.period === p && draggedLesson?.class_id === cls.id;
+
+                                            return (
+                                                <td
+                                                    key={cls.id}
+                                                    className={cn(
+                                                        "p-2 border-r border-white/5 last:border-r-0 h-24 transition-all",
+                                                        isDragOver && "bg-indigo-500/10"
+                                                    )}
+                                                    onDragOver={(e) => {
+                                                        if (isEditMode) {
+                                                            e.preventDefault();
+                                                            e.dataTransfer.dropEffect = 'move';
+                                                            setDragOverCell({ classId: cls.id, day: matrixDay, period: p });
+                                                        }
+                                                    }}
+                                                    onDragLeave={() => isEditMode && setDragOverCell(null)}
+                                                    onDrop={(e) => {
+                                                        if (isEditMode) {
+                                                            e.preventDefault();
+                                                            processDrop(cls.id, matrixDay, p);
+                                                        }
+                                                    }}
+                                                >
+                                                    {lesson ? (
+                                                        <div
+                                                            onClick={() => isEditMode
+                                                                ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
+                                                                : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
+                                                            }
+                                                            className={cn(
+                                                                "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-xl p-3 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
+                                                                isDragging ? "opacity-30 grayscale" : "opacity-100"
+                                                            )}
+                                                            style={{ borderLeftColor: subColor }}
+                                                            draggable={isEditMode}
+                                                            onDragStart={(e) => {
+                                                                if (isEditMode) {
+                                                                    setDraggedLesson(lesson);
+                                                                    e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
+                                                                    e.dataTransfer.effectAllowed = 'move';
+                                                                }
+                                                            }}
+                                                            onDragEnd={() => {
+                                                                setDraggedLesson(null);
+                                                                setDragOverCell(null);
+                                                            }}
+                                                        >
+                                                            {conflicts.length > 0 && (
+                                                                <div
+                                                                    className="absolute top-1 right-1 text-amber-500 bg-black/50 rounded-full p-1 z-10"
+                                                                    title={`Вчитель вже веде урок у: ${conflicts.join(', ')} `}
+                                                                >
+                                                                    <AlertTriangle size={12} />
+                                                                </div>
+                                                            )}
+                                                            <div className="text-xs font-black text-white group-hover:text-indigo-400 transition-colors truncate relative z-0">
+                                                                {subject?.name}
+                                                            </div>
+                                                            <div className="flex justify-between items-end mt-2">
+                                                                <div className="text-[10px] font-bold text-[#a1a1aa] truncate mr-2">
+                                                                    {teacher?.name.split(' ').slice(0, 2).join(' ')}
+                                                                </div>
+                                                                <div className={cn(
+                                                                    "text-[8px] font-black px-1.5 py-0.5 rounded transition-colors uppercase tracking-tight",
+                                                                    getRoomColor(lesson?.room || subject?.defaultRoom)
+                                                                )}>
+                                                                    {lesson?.room || subject?.defaultRoom || '—'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            onClick={() => isEditMode
+                                                                ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
+                                                                : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
+                                                            }
+                                                            className="h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group"
+                                                        >
+                                                            <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover:text-white">
+                                                                {isEditMode ? (
+                                                                    <>
+                                                                        <Plus size={14} className="mx-auto mb-1" />
+                                                                        Додати
+                                                                    </>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -517,6 +586,8 @@ interface TeachersMasterViewProps {
     setMasterDay: (day: string) => void;
     findAllLessonsByTeacher: (teacherId: string, day: string, period: number) => Lesson[];
     getRoomColor: (room: string | undefined) => string;
+    getSubjectColor: (subjectId: string) => string;
+    getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     periods: number[];
     days: string[];
     apiDays: string[];
@@ -526,18 +597,31 @@ interface TeachersMasterViewProps {
     getTeacherStats: (teacherId: string) => { totalHours: number, days: number };
     isCompact: boolean;
     setIsCompact: (val: boolean) => void;
+    isMonochrome: boolean;
+    setIsMonochrome: (val: boolean) => void;
+    lessons: Lesson[];
+    draggedLesson: Lesson | null;
+    setDraggedLesson: (l: Lesson | null) => void;
+    dragOverCell: any;
+    setDragOverCell: (c: any) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number) => void;
 }
 
-const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact }: TeachersMasterViewProps) => {
-    const getGradeGroup = (className: string) => {
-        const grade = parseInt(className);
-        if (grade >= 1 && grade <= 4) return 'junior';
-        if (grade >= 5 && grade <= 9) return 'mid';
-        if (grade >= 10 && grade <= 11) return 'senior';
-        return 'other';
-    };
-
+const TeachersMasterView = ({
+    data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts,
+    periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons,
+    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop
+}: TeachersMasterViewProps) => {
     const dayName = days[apiDays.indexOf(masterDay)];
+    // Access lessons from parent Scope (ScheduleGrid)
+    // Actually, we should pass lessons as a prop or rely on the fact that this is defined inside ScheduleGrid?
+    // Wait, TeachersMasterView IS defined OUTSIDE of ScheduleGrid in this file currently.
+    // I need to make sure the props are correct.
+
+    // I will check the props in TeachersMasterViewProps again.
+    // It doesn't have 'lessons'. I should add it or use the data we have.
+    // Actually, lessons are available in the ScheduleGrid scope, but this component is outside.
+    // I will modify the props to include lessons.
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
@@ -550,18 +634,42 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTea
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6">
-                    {/* Legend */}
-                    <div className="hidden lg:flex items-center gap-4">
-                        {[
-                            { label: '1-4 Класи', color: 'bg-orange-500' },
-                            { label: '5-9 Класи', color: 'bg-emerald-500' },
-                            { label: '10-11 Класи', color: 'bg-indigo-500' },
-                        ].map(item => (
-                            <div key={item.label} className="flex items-center gap-2">
-                                <div className={cn("w-2 h-2 rounded-full", item.color)} />
-                                <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">{item.label}</span>
+                    {/* Teacher Search & Stats */}
+                    <div className="flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md p-1 px-3 rounded-xl border border-white/5 shadow-2xl">
+                        <div className="flex items-center gap-2 border-r border-white/5 pr-3 mr-1">
+                            <div className="relative">
+                                <Users size={14} className="text-indigo-400" />
+                                <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                             </div>
-                        ))}
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+                                <span id="teacher-count-visible">{data.teachers.length}</span> / {data.teachers.length}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Search size={12} className="text-white/20" />
+                            <input
+                                type="text"
+                                placeholder="ПОШУК ВИКЛАДАЧА..."
+                                className="bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 w-[150px] uppercase tracking-widest"
+                                onChange={(e) => {
+                                    const val = e.target.value.toLowerCase();
+                                    const rows = document.querySelectorAll('tbody tr');
+                                    let visibleCount = 0;
+                                    rows.forEach(row => {
+                                        const nameCell = row.querySelector('td:first-child');
+                                        const name = nameCell?.querySelector('span')?.textContent?.toLowerCase() || '';
+                                        if (name.includes(val)) {
+                                            (row as HTMLElement).style.display = '';
+                                            visibleCount++;
+                                        } else {
+                                            (row as HTMLElement).style.display = 'none';
+                                        }
+                                    });
+                                    const counter = document.getElementById('teacher-count-visible');
+                                    if (counter) counter.textContent = visibleCount.toString();
+                                }}
+                            />
+                        </div>
                     </div>
 
                     {!isCompact && (
@@ -583,70 +691,82 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTea
 
                     <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
                         <button
+                            onClick={() => setIsMonochrome(!isMonochrome)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[130px]",
+                                isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
+                            )}
+                        >
+                            <Droplet size={14} />
+                            {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
+                        </button>
+                    </div>
+
+                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                        <button
                             onClick={() => setIsCompact(!isCompact)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[160px]",
                                 isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
                             )}
                         >
-                            <LayoutDashboard size={14} />
+                            <LayoutGrid size={14} />
                             {isCompact ? "КОМПАКТНО: УВІМК." : "КОМПАКТНО: ВИМК."}
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-auto custom-scrollbar flex-1">
-                    <table className="w-full border-separate border-spacing-0 text-left">
-                        <thead>
-                            <tr>
-                                <th className={cn(
-                                    "sticky top-0 left-0 z-50 bg-[#18181b] p-4 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5",
-                                    isCompact ? "min-w-[100px] w-[100px]" : "min-w-[180px]"
-                                )}>
-                                    ВИКЛАДАЧ
-                                </th>
-                                {isCompact ? (
-                                    apiDays.map((day, dIdx) => (
-                                        <React.Fragment key={day}>
-                                            {periods.map((p, pIdx) => (
-                                                <th
-                                                    key={`${day}-${p}`}
-                                                    className={cn(
-                                                        "sticky top-0 z-40 bg-[#18181b] p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/[0.02] text-center w-[45px] min-w-[45px] max-w-[45px]",
-                                                        pIdx === periods.length - 1 ? "border-r-4 border-indigo-500/50" : "border-r border-white/[0.02]"
-                                                    )}
-                                                >
-                                                    <div className="text-[6px] text-indigo-400 mb-0.5 opacity-70 leading-none">{days[dIdx]}</div>
-                                                    <span className="leading-none">{p}</span>
-                                                </th>
-                                            ))}
-                                        </React.Fragment>
-                                    ))
-                                ) : (
-                                    periods.map(p => (
+            {isCompact ? (
+                <CompactTeacherSchedule
+                    data={data}
+                    lessons={lessons}
+                    periods={periods}
+                    apiDays={apiDays}
+                    days={days}
+                    getSubjectColor={getSubjectColor}
+                    getConflicts={getConflicts}
+                    isEditMode={isEditMode}
+                    onCellClick={(teacherId, day, period, lesson) => {
+                        if (isEditMode) {
+                            setEditingTeacherCell({ teacherId, day, period });
+                        } else if (lesson) {
+                            setViewingLesson({ classId: lesson.class_id, day, period });
+                        }
+                    }}
+                    draggedLesson={draggedLesson}
+                    setDraggedLesson={setDraggedLesson}
+                    dragOverCell={dragOverCell}
+                    setDragOverCell={setDragOverCell}
+                    processTeacherDrop={processTeacherDrop}
+                    isMonochrome={isMonochrome}
+                />
+            ) : (
+                <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
+                    <div className="overflow-auto custom-scrollbar flex-1">
+                        <table className="w-full border-separate border-spacing-0 text-left">
+                            <thead>
+                                <tr>
+                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-4 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5 min-w-[180px]">
+                                        ВИКЛАДАЧ
+                                    </th>
+                                    {periods.map(p => (
                                         <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[120px] text-center">
                                             {p}<br />
                                             <span className="text-[8px] opacity-50 font-black">УРОК</span>
                                         </th>
-                                    ))
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.teachers.map(teacher => {
-                                const teacherPlan = data.plan.filter(p => p.teacher_id === teacher.id);
-                                const mainSubject = data.subjects.find(s => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.teachers.map(teacher => {
+                                    const teacherPlan = data.plan.filter(p => p.teacher_id === teacher.id);
+                                    const mainSubject = data.subjects.find(s => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
 
-                                return (
-                                    <tr key={teacher.id} className="group hover:bg-white/[0.01] transition-colors">
-                                        <td className={cn(
-                                            "sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors",
-                                            isCompact ? "p-1 h-[45px]" : "p-4"
-                                        )}>
-                                            <div className={cn("flex items-center h-full", isCompact ? "justify-center" : "gap-3")}>
-                                                {!isCompact && (
+                                    return (
+                                        <tr key={teacher.id} className="group hover:bg-white/[0.01] transition-colors">
+                                            <td className="sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors p-4">
+                                                <div className="flex items-center h-full gap-3">
                                                     <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white text-xs font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
                                                         {teacher.photo ? (
                                                             <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
@@ -654,75 +774,20 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTea
                                                             teacher.name.slice(0, 1)
                                                         )}
                                                     </div>
-                                                )}
-                                                <div className={cn("flex flex-col min-w-0 justify-center", isCompact ? "items-center w-full" : "")}>
-                                                    <span className={cn(
-                                                        "font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate",
-                                                        isCompact ? "text-[10px] leading-tight text-center whitespace-normal break-words w-full" : "text-sm"
-                                                    )}>{teacher.name}</span>
-                                                    {!isCompact && (
+                                                    <div className="flex flex-col min-w-0 justify-center">
+                                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-sm">
+                                                            {teacher.name}
+                                                        </span>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
                                                             <span className="text-[8px] px-1 bg-white/5 rounded text-[#a1a1aa] font-black uppercase tracking-tighter shrink-0">
                                                                 {getTeacherStats(teacher.id).totalHours}г / {getTeacherStats(teacher.id).days}д
                                                             </span>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        {isCompact ? (
-                                            apiDays.map((day) => (
-                                                <React.Fragment key={day}>
-                                                    {periods.map((p, pIdx) => {
-                                                        const teacherLessons = findAllLessonsByTeacher(teacher.id, day, p);
-                                                        const hasLessons = teacherLessons.length > 0;
-
-                                                        return (
-                                                            <td
-                                                                key={`${day}-${p}`}
-                                                                className={cn(
-                                                                    "p-0.5 border-b border-white/[0.02] h-[45px] w-[45px] min-w-[45px] max-w-[45px] transition-all",
-                                                                    pIdx === periods.length - 1 ? "border-r-4 border-indigo-500/50" : "border-r border-white/[0.02]"
-                                                                )}
-                                                            >
-                                                                {hasLessons ? (
-                                                                    <div className="flex flex-col gap-0.5 h-full justify-center">
-                                                                        {teacherLessons.map((lesson, idx) => {
-                                                                            const cls = data.classes.find(c => c.id === lesson.class_id);
-                                                                            const gradeGroup = cls ? getGradeGroup(cls.name) : 'other';
-                                                                            const colorClasses = {
-                                                                                junior: "border-orange-500 bg-orange-500/10 text-orange-200",
-                                                                                mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
-                                                                                senior: "border-indigo-500 bg-indigo-500/10 text-indigo-200",
-                                                                                other: "border-white/10 bg-white/5 text-white"
-                                                                            }[gradeGroup];
-
-                                                                            return (
-                                                                                <div
-                                                                                    key={idx}
-                                                                                    onClick={() => !isEditMode && setViewingLesson({ classId: lesson.class_id, day, period: p })}
-                                                                                    className={cn(
-                                                                                        "w-full rounded border-l-[2px] flex flex-col justify-center items-center transition-all cursor-pointer active:scale-95 overflow-hidden",
-                                                                                        colorClasses,
-                                                                                        teacherLessons.length > 1 ? "flex-1 text-[8px] leading-tight" : "h-[36px] text-[10px]"
-                                                                                    )}
-                                                                                >
-                                                                                    <span className="font-black tracking-tighter truncate leading-none">{cls?.name}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="h-full w-full min-w-[44px] flex items-center justify-center text-[7px] text-white/5 select-none">•</div>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </React.Fragment>
-                                            ))
-                                        ) : (
-                                            periods.map(p => {
+                                            </td>
+                                            {periods.map(p => {
                                                 const teacherLessons = findAllLessonsByTeacher(teacher.id, masterDay, p);
                                                 const hasLessons = teacherLessons.length > 0;
 
@@ -740,7 +805,12 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTea
                                                             <div className="flex flex-col gap-1 h-full justify-center">
                                                                 {teacherLessons.map((lesson, idx) => {
                                                                     const cls = data.classes.find(c => c.id === lesson.class_id);
-                                                                    const gradeGroup = cls ? getGradeGroup(cls.name) : 'other';
+                                                                    const grade = parseInt(cls?.name || '0');
+                                                                    let gradeGroup = 'other';
+                                                                    if (grade >= 1 && grade <= 4) gradeGroup = 'junior';
+                                                                    else if (grade >= 5 && grade <= 9) gradeGroup = 'mid';
+                                                                    else if (grade >= 10 && grade <= 11) gradeGroup = 'senior';
+
                                                                     const colorClasses = {
                                                                         junior: "border-orange-500 bg-orange-500/10 text-orange-200",
                                                                         mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
@@ -788,16 +858,16 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTea
                                                         )}
                                                     </td>
                                                 );
-                                            })
-                                        )}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </div >
+            )}
+        </div>
     );
 };
 
@@ -810,10 +880,16 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [isCompact, setIsCompact] = useState(false);
+    const [isMonochrome, setIsMonochrome] = useState(false);
 
     // Drag and Drop State
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
-    const [dragOverCell, setDragOverCell] = useState<{ classId: string, day: string, period: number } | null>(null);
+    const [dragOverCell, setDragOverCell] = useState<{
+        classId?: string,
+        teacherId?: string,
+        day: string,
+        period: number
+    } | null>(null);
 
     // Extract lessons safely from the response
     const lessons = (schedule.status === 'success' || schedule.status === 'conflict') ? schedule.schedule : [];
@@ -829,7 +905,14 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [dragConfirm, setDragConfirm] = useState<{
         type: 'swap' | 'move';
         source: Lesson;
-        target: { classId: string, day: string, period: number, lesson?: Lesson | null };
+        target: {
+            classId?: string,
+            teacherId?: string,
+            day: string,
+            period: number,
+            lesson?: Lesson | null,
+            lessons?: Lesson[]
+        };
         conflicts: string[]; // List of conflict messages
     } | null>(null);
     const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
@@ -990,15 +1073,17 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         );
 
         if (dragConfirm.type === 'swap') {
-            // Remove target (if swap)
+            // Remove target
             updatedLessons = updatedLessons.filter(l =>
                 !(l.class_id === target.classId && l.day === target.day && l.period === target.period)
             );
-            // Add target at source position (Swap)
-            if (target.lesson) { // Ensure target.lesson exists for a swap
+            // Add target at source position
+            if (target.lesson) {
                 updatedLessons.push({
                     ...target.lesson,
-                    class_id: source.class_id,
+                    teacher_id: source.teacher_id, // Keep source teacher if it was a teacher view move?
+                    // Wait, swap in ByClass view keeps teacher. Swap in Matrix view keeps class.
+                    // If target.teacherId is defined, it was a teacher move.
                     day: source.day,
                     period: source.period
                 });
@@ -1008,17 +1093,20 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         // Add source at target position
         updatedLessons.push({
             ...source,
-            class_id: target.classId,
+            class_id: target.classId || source.class_id,
+            teacher_id: target.teacherId || source.teacher_id,
             day: target.day,
-            period: target.period
+            period: target.period,
+            room: (target.teacherId && target.teacherId !== source.teacher_id)
+                ? (data.subjects.find(s => s.id === source.subject_id)?.defaultRoom || source.room)
+                : source.room
         });
 
-        const newResponse: ScheduleResponse = {
+        onScheduleChange({
             status: schedule.status === 'conflict' ? 'conflict' : 'success',
             schedule: updatedLessons,
             violations: schedule.status === 'conflict' ? schedule.violations : []
-        };
-        onScheduleChange(newResponse);
+        });
         setDragConfirm(null);
         setDraggedLesson(null);
     };
@@ -1035,11 +1123,10 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         const conflicts: string[] = [];
 
         // Check 1: Is source teacher busy at target time (excluding self)?
-        // Note: We need to check if the teacher has OTHER lessons at target time
         const sourceTeacherBusy = getConflicts(draggedLesson.teacher_id, targetDay, targetPeriod, targetClassId);
         if (sourceTeacherBusy.length > 0) {
             const teacherName = data.teachers.find(t => t.id === draggedLesson.teacher_id)?.name;
-            conflicts.push(`${teacherName} вже має урок у ${sourceTeacherBusy.join(', ')}`);
+            conflicts.push(`${teacherName} вже має урок у ${sourceTeacherBusy.join(', ')} `);
         }
 
         // Check 2: If swap, is target teacher busy at source time?
@@ -1047,7 +1134,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             const targetTeacherBusy = getConflicts(targetLesson.teacher_id, draggedLesson.day, draggedLesson.period, targetClassId);
             if (targetTeacherBusy.length > 0) {
                 const teacherName = data.teachers.find(t => t.id === targetLesson.teacher_id)?.name;
-                conflicts.push(`${teacherName} вже має урок у ${targetTeacherBusy.join(', ')}`);
+                conflicts.push(`${teacherName} вже має урок у ${targetTeacherBusy.join(', ')} `);
             }
         }
 
@@ -1059,14 +1146,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 conflicts
             });
         } else {
-            // Direct move if no target and no conflicts
+            // Direct move
             let updatedLessons = [...lessons];
-
-            // Remove old
             updatedLessons = updatedLessons.filter(l =>
                 !(l.class_id === draggedLesson.class_id && l.day === draggedLesson.day && l.period === draggedLesson.period)
             );
-            // Add new
             updatedLessons.push({
                 ...draggedLesson,
                 class_id: targetClassId,
@@ -1074,14 +1158,48 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 period: targetPeriod
             });
 
-            const newResponse: ScheduleResponse = {
+            onScheduleChange({
                 status: schedule.status === 'conflict' ? 'conflict' : 'success',
                 schedule: updatedLessons,
                 violations: schedule.status === 'conflict' ? schedule.violations : []
-            };
-            onScheduleChange(newResponse);
+            });
             setDraggedLesson(null);
         }
+        setDragOverCell(null);
+    };
+
+    const processTeacherDrop = (targetTeacherId: string, targetDay: string, targetPeriod: number) => {
+        if (!draggedLesson) return;
+
+        // Don't drop on same slot
+        if (draggedLesson.teacher_id === targetTeacherId && draggedLesson.day === targetDay && draggedLesson.period === targetPeriod) {
+            return;
+        }
+
+        const targetLessons = findAllLessonsByTeacher(targetTeacherId, targetDay, targetPeriod);
+        const conflicts: string[] = [];
+
+        // Check 1: Is the class busy at target time? (excluding itself if it was already there - though it's moving teacher)
+        const classBusy = getConflicts(targetTeacherId, targetDay, targetPeriod, draggedLesson.class_id);
+        if (classBusy.length > 0) {
+            const className = data.classes.find(c => c.id === draggedLesson.class_id)?.name;
+            conflicts.push(`Клас ${className} вже має урок у ${classBusy.join(', ')} `);
+        }
+
+        // Drop in Teachers view usually means moving a lesson to another teacher/time
+        // If there are already lessons in target cell, it's a 'move' but with potential merge
+        setDragConfirm({
+            type: 'move',
+            source: draggedLesson,
+            target: {
+                teacherId: targetTeacherId,
+                day: targetDay,
+                period: targetPeriod,
+                lessons: targetLessons
+            },
+            conflicts
+        });
+
         setDragOverCell(null);
     };
 
@@ -1215,6 +1333,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setEditingCell={setEditingCell}
                         setViewingLesson={setViewingLesson}
                         isEditMode={isEditMode}
+                        isCompact={isCompact}
+                        setIsCompact={setIsCompact}
+                        isMonochrome={isMonochrome}
+                        setIsMonochrome={setIsMonochrome}
+                        lessons={lessons}
                     />
                 ) : (
                     <TeachersMasterView
@@ -1223,6 +1346,8 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setMasterDay={setMasterDay}
                         findAllLessonsByTeacher={findAllLessonsByTeacher}
                         getRoomColor={getRoomColor}
+                        getSubjectColor={getSubjectColor}
+                        getConflicts={getConflicts}
                         periods={periods}
                         days={days}
                         apiDays={apiDays}
@@ -1232,6 +1357,14 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         getTeacherStats={getTeacherStats}
                         isCompact={isCompact}
                         setIsCompact={setIsCompact}
+                        isMonochrome={isMonochrome}
+                        setIsMonochrome={setIsMonochrome}
+                        lessons={lessons}
+                        draggedLesson={draggedLesson}
+                        setDraggedLesson={setDraggedLesson}
+                        dragOverCell={dragOverCell}
+                        setDragOverCell={setDragOverCell}
+                        processTeacherDrop={processTeacherDrop}
                     />
                 )}
             </div>
