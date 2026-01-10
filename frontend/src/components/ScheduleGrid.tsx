@@ -13,9 +13,13 @@ interface ScheduleGridProps {
     onScheduleChange: (newSchedule: ScheduleResponse) => void;
     isEditMode: boolean;
     setIsEditMode: (val: boolean) => void;
+    isCompact: boolean;
+    setIsCompact: (val: boolean) => void;
+    viewType: ViewType;
+    setViewType: (val: ViewType) => void;
 }
 
-type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
+export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
 
 // --- Sub-View Components ---
 
@@ -186,22 +190,24 @@ interface ByClassViewProps {
     setEditingCell: (c: { classId: string, day: string, period: number } | null) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
+    isCompact: boolean;
 }
 
 const ByClassView = ({
     data, selectedClassId, setSelectedClassId, sortedClasses, apiDays, days, periods,
     findLesson, getSubjectColor, getConflicts, dragOverCell, setDragOverCell,
-    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode
+    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact
 }: ByClassViewProps) => {
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap gap-2">
+        <div className={cn("animate-in fade-in duration-500", isCompact ? "space-y-2" : "space-y-6")}>
+            <div className={cn("flex flex-wrap", isCompact ? "gap-1" : "gap-2")}>
                 {sortedClasses.map(cls => (
                     <button
                         key={cls.id}
                         onClick={() => setSelectedClassId(cls.id)}
                         className={cn(
-                            "px-4 py-2 rounded-xl font-bold transition-all border",
+                            "font-bold transition-all border",
+                            isCompact ? "px-3 py-1 text-xs rounded-lg" : "px-4 py-2 rounded-xl",
                             selectedClassId === cls.id
                                 ? "bg-indigo-600 border-indigo-500 text-white"
                                 : "bg-[#18181b] border-white/5 text-[#a1a1aa] hover:border-white/20"
@@ -214,8 +220,8 @@ const ByClassView = ({
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {apiDays.map((day, dIdx) => (
-                    <div key={day} className="bento-card p-4 border-white/5 bg-[#1a1a1e]">
-                        <h4 className="text-[#a1a1aa] font-black text-center mb-4 uppercase tracking-widest">{days[dIdx]}</h4>
+                    <div key={day} className={cn("bento-card border-white/5 bg-[#1a1a1e]", isCompact ? "p-2" : "p-4")}>
+                        <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-1 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
                         <div className="space-y-3">
                             {periods.map(p => {
                                 const lesson = findLesson(selectedClassId, day, p);
@@ -346,18 +352,20 @@ const MatrixView = ({
     const dayName = days[apiDays.indexOf(matrixDay)];
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
+        <div className={cn("animate-in fade-in duration-500 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">
-                        Загальний розклад {isCompact && "(Компактно)"}
-                    </h2>
-                    <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                        {isCompact ? "Повна сітка школи • Весь тиждень" : `Вся школа • ${dayName}`}
+                {!isCompact && (
+                    <div>
+                        <h2 className="text-2xl font-black text-white tracking-tight">
+                            Загальний розклад
+                        </h2>
+                        <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
+                            Вся школа • {dayName}
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="flex flex-wrap items-center gap-4">
+                <div className={cn("flex flex-wrap items-center gap-4", isCompact ? "ml-auto" : "")}>
                     {!isCompact && (
                         <>
                             <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
@@ -396,11 +404,12 @@ const MatrixView = ({
                         <button
                             onClick={() => setIsMonochrome(!isMonochrome)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[130px]",
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                                isCompact ? "w-[100px] px-2 py-1" : "w-[130px] px-3 py-1.5",
                                 isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
                             )}
                         >
-                            <Droplet size={14} />
+                            <Droplet size={isCompact ? 12 : 14} />
                             {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
                         </button>
                     </div>
@@ -409,12 +418,12 @@ const MatrixView = ({
                         <button
                             onClick={() => setIsCompact(!isCompact)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[160px]",
-                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 w-[120px] px-2 py-1" : "text-[#a1a1aa] hover:text-white w-[160px] px-3 py-1.5"
                             )}
                         >
-                            <LayoutGrid size={14} />
-                            {isCompact ? "КОМПАКТНО: УВІМК." : "КОМПАКТНО: ВИМК."}
+                            <LayoutGrid size={isCompact ? 12 : 14} />
+                            {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
                         </button>
                     </div>
                 </div>
@@ -625,21 +634,23 @@ const TeachersMasterView = ({
     // I will modify the props to include lessons.
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col overflow-hidden">
+        <div className={cn("animate-in fade-in duration-500 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
-                    <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                        Всі викладачі • {dayName}
+                {!isCompact && (
+                    <div>
+                        <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
+                        <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
+                            Всі викладачі • {dayName}
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="flex flex-wrap items-center gap-6">
+                <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
                     {/* Teacher Search & Stats */}
-                    <div className="flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md p-1 px-3 rounded-xl border border-white/5 shadow-2xl">
+                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-2xl transition-all", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
                         <div className="flex items-center gap-2 border-r border-white/5 pr-3 mr-1">
                             <div className="relative">
-                                <Users size={14} className="text-indigo-400" />
+                                <Users size={isCompact ? 12 : 14} className="text-indigo-400" />
                                 <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                             </div>
                             <span className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
@@ -647,11 +658,11 @@ const TeachersMasterView = ({
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Search size={12} className="text-white/20" />
+                            <Search size={isCompact ? 10 : 12} className="text-white/20" />
                             <input
                                 type="text"
-                                placeholder="ПОШУК ВИКЛАДАЧА..."
-                                className="bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 w-[150px] uppercase tracking-widest"
+                                placeholder="ПОШУК..."
+                                className={cn("bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 uppercase tracking-widest transition-all", isCompact ? "w-[80px]" : "w-[150px]")}
                                 onChange={(e) => {
                                     const val = e.target.value.toLowerCase();
                                     const rows = document.querySelectorAll('tbody tr');
@@ -694,11 +705,12 @@ const TeachersMasterView = ({
                         <button
                             onClick={() => setIsMonochrome(!isMonochrome)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[130px]",
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                                isCompact ? "w-[100px] px-2 py-1" : "w-[130px] px-3 py-1.5",
                                 isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
                             )}
                         >
-                            <Droplet size={14} />
+                            <Droplet size={isCompact ? 12 : 14} />
                             {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
                         </button>
                     </div>
@@ -707,12 +719,12 @@ const TeachersMasterView = ({
                         <button
                             onClick={() => setIsCompact(!isCompact)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center w-[160px]",
-                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 w-[120px] px-2 py-1" : "text-[#a1a1aa] hover:text-white w-[160px] px-3 py-1.5"
                             )}
                         >
-                            <LayoutGrid size={14} />
-                            {isCompact ? "КОМПАКТНО: УВІМК." : "КОМПАКТНО: ВИМК."}
+                            <LayoutGrid size={isCompact ? 12 : 14} />
+                            {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
                         </button>
                     </div>
                 </div>
@@ -874,13 +886,11 @@ const TeachersMasterView = ({
 
 // --- Main ScheduleGrid Component ---
 
-export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode }: ScheduleGridProps) {
-    const [viewType, setViewType] = useState<ViewType>('dashboard');
+export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
-    const [isCompact, setIsCompact] = useState(false);
     const [isMonochrome, setIsMonochrome] = useState(false);
 
     // Drag and Drop State
@@ -1225,56 +1235,63 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     };
 
     return (
-        <div className="space-y-8 h-full flex flex-col overflow-hidden">
-            {/* View Selection Bar & Edit Mode Toggle */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                <div className="flex flex-wrap gap-2 p-1.5 bg-[#18181b] rounded-2xl w-fit border border-white/5">
-                    {[
-                        { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
-                        { id: 'byClass', label: 'По класах', icon: Columns },
-                        { id: 'matrix', label: 'Загальний', icon: TableIcon },
-                        { id: 'teachers', label: 'Вчителі', icon: Users },
-                    ].map(tab => (
+        <div className={cn(
+            "h-full flex flex-col overflow-hidden transition-all",
+            viewType === 'dashboard' ? (isCompact ? "gap-2" : "gap-8") : "gap-0"
+        )}>
+            {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
+            {viewType === 'dashboard' && (
+                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all", isCompact ? "mb-[-16px]" : "mb-0")}>
+                    <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", isCompact ? "p-1" : "p-1.5")}>
+                        {[
+                            { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
+                            { id: 'byClass', label: 'По класах', icon: Columns },
+                            { id: 'matrix', label: 'Загальний', icon: TableIcon },
+                            { id: 'teachers', label: 'Вчителі', icon: Users },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setViewType(tab.id as ViewType)}
+                                className={cn(
+                                    "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
+                                    isCompact ? "px-3 py-1 text-xs" : "px-5 py-2",
+                                    viewType === tab.id
+                                        ? "bg-white/10 text-white shadow-lg shadow-black/20"
+                                        : "text-[#a1a1aa] hover:text-white"
+                                )}
+                            >
+                                <tab.icon size={isCompact ? 14 : 18} />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", isCompact ? "p-1" : "p-1.5")}>
                         <button
-                            key={tab.id}
-                            onClick={() => setViewType(tab.id as ViewType)}
+                            onClick={() => setIsEditMode(!isEditMode)}
                             className={cn(
-                                "flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all duration-200",
-                                viewType === tab.id
-                                    ? "bg-white/10 text-white shadow-lg shadow-black/20"
+                                "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group",
+                                isCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
+                                isEditMode
+                                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
                                     : "text-[#a1a1aa] hover:text-white"
                             )}
                         >
-                            <tab.icon size={18} />
-                            {tab.label}
+                            {isEditMode ? (
+                                <>
+                                    <Unlock size={isCompact ? 14 : 18} className="animate-pulse" />
+                                    <span>{isCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Lock size={isCompact ? 14 : 18} />
+                                    <span>{isCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                                </>
+                            )}
                         </button>
-                    ))}
+                    </div>
                 </div>
-
-                <div className="flex items-center gap-2 p-1.5 bg-[#18181b] rounded-2xl border border-white/5">
-                    <button
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all duration-300 group",
-                            isEditMode
-                                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                                : "text-[#a1a1aa] hover:text-white"
-                        )}
-                    >
-                        {isEditMode ? (
-                            <>
-                                <Unlock size={18} className="animate-pulse" />
-                                <span>Редагування УВІМК.</span>
-                            </>
-                        ) : (
-                            <>
-                                <Lock size={18} />
-                                <span>Редагування ВИМК.</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-            </div>
+            )}
 
 
             <div className={cn("flex-1 min-h-0", viewType === 'teachers' ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}>
@@ -1310,6 +1327,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setEditingCell={setEditingCell}
                         setViewingLesson={setViewingLesson}
                         isEditMode={isEditMode}
+                        isCompact={isCompact}
                     />
                 ) : viewType === 'matrix' ? (
                     <MatrixView

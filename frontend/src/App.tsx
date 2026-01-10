@@ -1,19 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson } from './types';
 import { generateSchedule } from './api';
-import {
-  Calendar,
-  LayoutDashboard,
-  Loader2,
-  BookOpen,
-  Settings,
-  LogOut,
-  Bell,
-  RotateCcw
-} from 'lucide-react';
+import { Calendar, LayoutDashboard, Settings, LogOut, Bell, RotateCcw, BookOpen, Loader2, Columns, Table, Users, Lock, Unlock } from 'lucide-react';
 import { DataEntry } from './components/DataEntry';
 import { ScheduleGrid } from './components/ScheduleGrid';
+import type { ViewType } from './components/ScheduleGrid';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { cn } from './utils/cn';
 import { CircleAlert, CheckCircle2 } from 'lucide-react';
@@ -167,6 +158,11 @@ function App() {
   const [history, setHistory] = useState<ScheduleResponse[]>([]);
   const [conflictData, setConflictData] = useState<{ schedule: Lesson[], violations: string[] } | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isCompact, setIsCompact] = useState(() => {
+    const saved = localStorage.getItem('school_os_compact');
+    return saved === 'true';
+  });
+  const [viewType, setViewType] = useState<ViewType>('dashboard');
 
   const pushToHistory = (currentState: ScheduleResponse) => {
     setHistory(prev => [JSON.parse(JSON.stringify(currentState)), ...prev].slice(0, 10));
@@ -189,6 +185,10 @@ function App() {
       localStorage.setItem('school_os_schedule', JSON.stringify(schedule));
     }
   }, [schedule]);
+
+  useEffect(() => {
+    localStorage.setItem('school_os_compact', String(isCompact));
+  }, [isCompact]);
 
   const handleReset = () => {
     setShowResetConfirm(true);
@@ -243,10 +243,16 @@ function App() {
   return (
     <div className="flex h-screen bg-[#0f0f11] text-white">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#18181b] border-r border-white/5 flex flex-col p-6 m-4 rounded-[24px]">
-        <div className="mb-10 pl-2">
-          <div className="text-2xl font-black bg-gradient-to-br from-[#6366f1] to-[#a855f7] bg-clip-text text-transparent tracking-tighter">
-            УРОКОВИЧОК
+      <aside className={cn(
+        "bg-[#18181b] border-r border-white/5 flex flex-col transition-all duration-300 rounded-[24px]",
+        isCompact ? "w-20 p-3 m-2" : "w-64 p-6 m-4"
+      )}>
+        <div className={cn("mb-10 transition-all", isCompact ? "pl-0 flex justify-center" : "pl-2")}>
+          <div className={cn(
+            "font-black bg-gradient-to-br from-[#6366f1] to-[#a855f7] bg-clip-text text-transparent tracking-tighter transition-all",
+            isCompact ? "text-[8px] leading-tight text-center" : "text-2xl"
+          )}>
+            {isCompact ? "УРОК ОВ" : "УРОКОВИЧОК"}
           </div>
         </div>
 
@@ -256,43 +262,109 @@ function App() {
               key={item.id}
               onClick={() => setActiveTab(item.id as Tab)}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold transition-all duration-200",
+                "w-full flex items-center gap-3 rounded-xl font-bold transition-all duration-200",
+                isCompact ? "px-0 justify-center py-4" : "px-4 py-3.5",
                 activeTab === item.id
                   ? "bg-white/5 text-white"
                   : "text-[#a1a1aa] hover:bg-white/5 hover:text-white"
               )}
+              title={isCompact ? item.label : undefined}
             >
-              <item.icon size={20} />
-              {item.label}
+              <item.icon size={isCompact ? 24 : 20} />
+              {!isCompact && item.label}
             </button>
           ))}
         </nav>
 
-        <button className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-red-500 hover:bg-red-500/10 transition-all duration-200 mt-auto">
-          <LogOut size={20} />
-          Вийти
+        <button className={cn(
+          "flex items-center gap-3 rounded-xl font-bold text-red-500 hover:bg-red-500/10 transition-all duration-200 mt-auto",
+          isCompact ? "px-0 justify-center py-4" : "px-4 py-3.5"
+        )}>
+          <LogOut size={isCompact ? 24 : 20} />
+          {!isCompact && "Вийти"}
         </button>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden px-4 py-6">
+      <main className={cn(
+        "flex-1 flex flex-col overflow-hidden transition-all",
+        isCompact ? (viewType === 'dashboard' ? "px-2 py-3" : "px-2 py-1") : "px-4 py-6"
+      )}>
         {/* Header */}
-        <header className="flex justify-between items-center mb-8 px-2">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">Привіт👋</h1>
-            <div className="text-[#a1a1aa] font-medium mt-1">{formattedDate}</div>
+        <header className={cn("flex justify-between items-center px-2 transition-all",
+          isCompact ? (viewType === 'dashboard' ? "mb-4" : "mb-1") : (viewType === 'dashboard' ? "mb-8" : "mb-4")
+        )}>
+          <div className="flex items-center gap-4">
+            <div className={cn("transition-all duration-300", (activeTab !== 'schedule' || viewType !== 'dashboard') && "opacity-0 invisible w-0 overflow-hidden")}>
+              <h1 className={cn("font-black tracking-tight transition-all", isCompact ? "text-xl" : "text-3xl")}>Привіт👋</h1>
+              {!isCompact && <div className="text-[#a1a1aa] font-medium mt-1 uppercase text-[10px] tracking-widest">{formattedDate}</div>}
+            </div>
+
+            {activeTab === 'schedule' && viewType !== 'dashboard' && (
+              <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all animate-in fade-in slide-in-from-left-4 duration-500", isCompact ? "p-1" : "p-1.5")}>
+                {[
+                  { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
+                  { id: 'byClass', label: 'По класах', icon: Columns },
+                  { id: 'matrix', label: 'Загальний', icon: Table },
+                  { id: 'teachers', label: 'Вчителі', icon: Users },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setViewType(tab.id as ViewType)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
+                      isCompact ? "px-3 py-1 text-[10px]" : "px-4 py-2 text-xs",
+                      viewType === tab.id
+                        ? "bg-white/10 text-white shadow-lg shadow-black/20"
+                        : "text-[#a1a1aa] hover:text-white"
+                    )}
+                  >
+                    <tab.icon size={isCompact ? 14 : 16} />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
+            {activeTab === 'schedule' && viewType !== 'dashboard' && (
+              <button
+                onClick={() => setIsEditMode(!isEditMode)}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group animate-in fade-in slide-in-from-right-4",
+                  isCompact ? "px-3 py-1.5 text-[10px]" : "px-4 py-2.5 text-xs",
+                  isEditMode
+                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
+                    : "bg-[#18181b] border border-white/5 text-[#a1a1aa] hover:text-white"
+                )}
+              >
+                {isEditMode ? (
+                  <>
+                    <Unlock size={isCompact ? 14 : 16} className="animate-pulse" />
+                    <span>{isCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock size={isCompact ? 14 : 16} />
+                    <span>{isCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {activeTab === 'schedule' && schedule && (
               <button
                 onClick={handleUndo}
                 disabled={history.length === 0 || !isEditMode}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#18181b] border border-white/5 rounded-xl text-[#a1a1aa] hover:text-white transition-all disabled:opacity-20 active:scale-95 group"
+                className={cn(
+                  "flex items-center gap-2 bg-[#18181b] border border-white/5 rounded-xl text-[#a1a1aa] hover:text-white transition-all disabled:opacity-20 active:scale-95 group",
+                  isCompact ? "px-3 py-1.5" : "px-4 py-2.5"
+                )}
                 title={!isEditMode ? "Увімкніть редагування для скасування" : "Скасувати останню дію"}
               >
-                <RotateCcw size={18} className="group-hover:-rotate-45 transition-transform" />
-                <span className="font-bold text-sm">Скасувати {history.length > 0 && `(${history.length})`}</span>
+                <RotateCcw size={isCompact ? 16 : 18} className="group-hover:-rotate-45 transition-transform" />
+                <span className={cn("font-bold", isCompact ? "text-xs" : "text-sm")}>Скасувати {history.length > 0 && `(${history.length})`}</span>
               </button>
             )}
             {activeTab === 'data' && (
@@ -313,10 +385,16 @@ function App() {
                 </button>
               </>
             )}
-            <button className="p-2.5 rounded-xl bg-[#18181b] border border-white/5 text-[#a1a1aa] hover:text-white transition-colors">
-              <Bell size={22} />
+            <button className={cn(
+              "rounded-xl bg-[#18181b] border border-white/5 text-[#a1a1aa] hover:text-white transition-all",
+              isCompact ? "p-1.5" : "p-2.5"
+            )}>
+              <Bell size={isCompact ? 18 : 22} />
             </button>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white/10 shadow-lg shadow-indigo-500/10"></div>
+            <div className={cn(
+              "rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white/10 shadow-lg shadow-indigo-500/10 transition-all",
+              isCompact ? "w-8 h-8" : "w-10 h-10"
+            )}></div>
           </div>
         </header>
 
@@ -413,6 +491,10 @@ function App() {
                     }}
                     isEditMode={isEditMode}
                     setIsEditMode={setIsEditMode}
+                    isCompact={isCompact}
+                    setIsCompact={setIsCompact}
+                    viewType={viewType}
+                    setViewType={setViewType}
                   />
                 </div>
               ) : (
