@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup } from '../types';
 import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, LayoutDashboard, Table as TableIcon, Columns, ArrowRightLeft, Video, ChevronRight, Lock, Unlock, Info } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -515,7 +515,7 @@ interface TeachersMasterViewProps {
     data: ScheduleRequest;
     masterDay: string;
     setMasterDay: (day: string) => void;
-    findLessonByTeacher: (teacherId: string, day: string, period: number) => Lesson | null;
+    findAllLessonsByTeacher: (teacherId: string, day: string, period: number) => Lesson[];
     getRoomColor: (room: string | undefined) => string;
     periods: number[];
     days: string[];
@@ -523,9 +523,12 @@ interface TeachersMasterViewProps {
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
     setEditingTeacherCell: (c: { teacherId: string, day: string, period: number } | null) => void;
+    getTeacherStats: (teacherId: string) => { totalHours: number, days: number };
+    isCompact: boolean;
+    setIsCompact: (val: boolean) => void;
 }
 
-const TeachersMasterView = ({ data, masterDay, setMasterDay, findLessonByTeacher, getRoomColor, periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell }: TeachersMasterViewProps) => {
+const TeachersMasterView = ({ data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact }: TeachersMasterViewProps) => {
     const getGradeGroup = (className: string) => {
         const grade = parseInt(className);
         if (grade >= 1 && grade <= 4) return 'junior';
@@ -561,19 +564,34 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findLessonByTeacher
                         ))}
                     </div>
 
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                        {apiDays.map((day, idx) => (
-                            <button
-                                key={day}
-                                onClick={() => setMasterDay(day)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                    masterDay === day ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
-                                )}
-                            >
-                                {days[idx].toUpperCase()}
-                            </button>
-                        ))}
+                    {!isCompact && (
+                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                            {apiDays.map((day, idx) => (
+                                <button
+                                    key={day}
+                                    onClick={() => setMasterDay(day)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                        masterDay === day ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
+                                    )}
+                                >
+                                    {days[idx].toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                        <button
+                            onClick={() => setIsCompact(!isCompact)}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                            )}
+                        >
+                            <LayoutDashboard size={14} />
+                            {isCompact ? "КОМПАКТНО: УВІМК." : "КОМПАКТНО: ВИМК."}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -583,15 +601,37 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findLessonByTeacher
                     <table className="w-full border-separate border-spacing-0 text-left">
                         <thead>
                             <tr>
-                                <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-4 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5 min-w-[250px]">
+                                <th className={cn(
+                                    "sticky top-0 left-0 z-50 bg-[#18181b] p-4 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5",
+                                    isCompact ? "min-w-[100px] w-[100px]" : "min-w-[180px]"
+                                )}>
                                     ВИКЛАДАЧ
                                 </th>
-                                {periods.map(p => (
-                                    <th key={p} className="sticky top-0 z-20 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[120px] text-center">
-                                        {p}<br />
-                                        <span className="text-[8px] opacity-50 font-black">УРОК</span>
-                                    </th>
-                                ))}
+                                {isCompact ? (
+                                    apiDays.map((day, dIdx) => (
+                                        <React.Fragment key={day}>
+                                            {periods.map((p, pIdx) => (
+                                                <th
+                                                    key={`${day}-${p}`}
+                                                    className={cn(
+                                                        "sticky top-0 z-40 bg-[#18181b] p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/[0.02] text-center w-[45px] min-w-[45px] max-w-[45px]",
+                                                        pIdx === periods.length - 1 ? "border-r-4 border-indigo-500/50" : "border-r border-white/[0.02]"
+                                                    )}
+                                                >
+                                                    <div className="text-[6px] text-indigo-400 mb-0.5 opacity-70 leading-none">{days[dIdx]}</div>
+                                                    <span className="leading-none">{p}</span>
+                                                </th>
+                                            ))}
+                                        </React.Fragment>
+                                    ))
+                                ) : (
+                                    periods.map(p => (
+                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-4 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[120px] text-center">
+                                            {p}<br />
+                                            <span className="text-[8px] opacity-50 font-black">УРОК</span>
+                                        </th>
+                                    ))
+                                )}
                             </tr>
                         </thead>
                         <tbody>
@@ -601,75 +641,155 @@ const TeachersMasterView = ({ data, masterDay, setMasterDay, findLessonByTeacher
 
                                 return (
                                     <tr key={teacher.id} className="group hover:bg-white/[0.01] transition-colors">
-                                        <td className="sticky left-0 z-10 bg-[#18181b] p-4 border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white text-xs font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
-                                                    {teacher.photo ? (
-                                                        <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
-                                                    ) : (
-                                                        teacher.name.slice(0, 1)
+                                        <td className={cn(
+                                            "sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors",
+                                            isCompact ? "p-1 h-[45px]" : "p-4"
+                                        )}>
+                                            <div className={cn("flex items-center h-full", isCompact ? "justify-center" : "gap-3")}>
+                                                {!isCompact && (
+                                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white text-xs font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
+                                                        {teacher.photo ? (
+                                                            <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
+                                                        ) : (
+                                                            teacher.name.slice(0, 1)
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className={cn("flex flex-col min-w-0 justify-center", isCompact ? "items-center w-full" : "")}>
+                                                    <span className={cn(
+                                                        "font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate",
+                                                        isCompact ? "text-[10px] leading-tight text-center whitespace-normal break-words w-full" : "text-sm"
+                                                    )}>{teacher.name}</span>
+                                                    {!isCompact && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
+                                                            <span className="text-[8px] px-1 bg-white/5 rounded text-[#a1a1aa] font-black uppercase tracking-tighter shrink-0">
+                                                                {getTeacherStats(teacher.id).totalHours}г / {getTeacherStats(teacher.id).days}д
+                                                            </span>
+                                                        </div>
                                                     )}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-white group-hover:text-indigo-400 transition-colors uppercase">{teacher.name}</span>
-                                                    <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70">{mainSubject}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        {periods.map(p => {
-                                            const lesson = findLessonByTeacher(teacher.id, masterDay, p);
-                                            const cls = lesson ? data.classes.find(c => c.id === lesson.class_id) : null;
-                                            const gradeGroup = cls ? getGradeGroup(cls.name) : 'other';
+                                        {isCompact ? (
+                                            apiDays.map((day) => (
+                                                <React.Fragment key={day}>
+                                                    {periods.map((p, pIdx) => {
+                                                        const teacherLessons = findAllLessonsByTeacher(teacher.id, day, p);
+                                                        const hasLessons = teacherLessons.length > 0;
 
-                                            const colorClasses = {
-                                                junior: "border-orange-500 bg-orange-500/10 text-orange-200",
-                                                mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
-                                                senior: "border-indigo-500 bg-indigo-500/10 text-indigo-200",
-                                                other: "border-white/10 bg-white/5 text-white"
-                                            }[gradeGroup];
+                                                        return (
+                                                            <td
+                                                                key={`${day}-${p}`}
+                                                                className={cn(
+                                                                    "p-0.5 border-b border-white/[0.02] h-[45px] w-[45px] min-w-[45px] max-w-[45px] transition-all",
+                                                                    pIdx === periods.length - 1 ? "border-r-4 border-indigo-500/50" : "border-r border-white/[0.02]"
+                                                                )}
+                                                            >
+                                                                {hasLessons ? (
+                                                                    <div className="flex flex-col gap-0.5 h-full justify-center">
+                                                                        {teacherLessons.map((lesson, idx) => {
+                                                                            const cls = data.classes.find(c => c.id === lesson.class_id);
+                                                                            const gradeGroup = cls ? getGradeGroup(cls.name) : 'other';
+                                                                            const colorClasses = {
+                                                                                junior: "border-orange-500 bg-orange-500/10 text-orange-200",
+                                                                                mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
+                                                                                senior: "border-indigo-500 bg-indigo-500/10 text-indigo-200",
+                                                                                other: "border-white/10 bg-white/5 text-white"
+                                                                            }[gradeGroup];
 
-                                            const room = lesson?.room || (lesson ? data.subjects.find(s => s.id === lesson.subject_id)?.defaultRoom : undefined);
+                                                                            return (
+                                                                                <div
+                                                                                    key={idx}
+                                                                                    onClick={() => !isEditMode && setViewingLesson({ classId: lesson.class_id, day, period: p })}
+                                                                                    className={cn(
+                                                                                        "w-full rounded border-l-[2px] flex flex-col justify-center items-center transition-all cursor-pointer active:scale-95 overflow-hidden",
+                                                                                        colorClasses,
+                                                                                        teacherLessons.length > 1 ? "flex-1 text-[8px] leading-tight" : "h-[36px] text-[10px]"
+                                                                                    )}
+                                                                                >
+                                                                                    <span className="font-black tracking-tighter truncate leading-none">{cls?.name}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="h-full w-full min-w-[44px] flex items-center justify-center text-[7px] text-white/5 select-none">•</div>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </React.Fragment>
+                                            ))
+                                        ) : (
+                                            periods.map(p => {
+                                                const teacherLessons = findAllLessonsByTeacher(teacher.id, masterDay, p);
+                                                const hasLessons = teacherLessons.length > 0;
 
-                                            const handleClick = () => {
-                                                if (isEditMode) {
-                                                    setEditingTeacherCell({ teacherId: teacher.id, day: masterDay, period: p });
-                                                } else if (lesson) {
-                                                    setViewingLesson({ classId: lesson.class_id, day: masterDay, period: p });
-                                                }
-                                            };
+                                                const handleClick = (lesson?: Lesson) => {
+                                                    if (isEditMode) {
+                                                        setEditingTeacherCell({ teacherId: teacher.id, day: masterDay, period: p });
+                                                    } else if (lesson) {
+                                                        setViewingLesson({ classId: lesson.class_id, day: masterDay, period: p });
+                                                    }
+                                                };
 
-                                            return (
-                                                <td key={p} className="p-2 border-b border-r border-white/5 h-[80px]">
-                                                    {lesson ? (
-                                                        <div
-                                                            onClick={handleClick}
-                                                            className={cn(
-                                                                "h-full w-full rounded-xl border-l-[3px] p-2 flex flex-col justify-center items-center gap-1 transition-all duration-300 hover:scale-110 hover:z-50 hover:shadow-2xl cursor-pointer active:scale-95 group/pill relative overflow-hidden",
-                                                                colorClasses
-                                                            )}
-                                                        >
-                                                            <span className="text-xs font-black tracking-widest relative z-10">{cls?.name}</span>
-                                                            <div className={cn(
-                                                                "text-[8px] font-black px-1.5 py-0.5 rounded uppercase relative z-10",
-                                                                getRoomColor(room)
-                                                            )}>
-                                                                {room || '—'}
+                                                return (
+                                                    <td key={p} className="p-2 border-b border-r border-white/5 h-[80px]">
+                                                        {hasLessons ? (
+                                                            <div className="flex flex-col gap-1 h-full justify-center">
+                                                                {teacherLessons.map((lesson, idx) => {
+                                                                    const cls = data.classes.find(c => c.id === lesson.class_id);
+                                                                    const gradeGroup = cls ? getGradeGroup(cls.name) : 'other';
+                                                                    const colorClasses = {
+                                                                        junior: "border-orange-500 bg-orange-500/10 text-orange-200",
+                                                                        mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
+                                                                        senior: "border-indigo-500 bg-indigo-500/10 text-indigo-200",
+                                                                        other: "border-white/10 bg-white/5 text-white"
+                                                                    }[gradeGroup];
+                                                                    const room = lesson.room || data.subjects.find(s => s.id === lesson.subject_id)?.defaultRoom;
+                                                                    const subjectName = data.subjects.find(s => s.id === lesson.subject_id)?.name || "";
+
+                                                                    return (
+                                                                        <div
+                                                                            key={idx}
+                                                                            onClick={() => handleClick(lesson)}
+                                                                            className={cn(
+                                                                                "w-full rounded-lg border-l-[3px] px-2 py-1 flex items-center justify-between gap-2 transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-95",
+                                                                                colorClasses,
+                                                                                teacherLessons.length > 1 ? "flex-1 text-[10px]" : "h-full text-xs"
+                                                                            )}
+                                                                        >
+                                                                            <div className="flex flex-col min-w-0">
+                                                                                <span className="font-black tracking-widest leading-none mb-0.5">{cls?.name}</span>
+                                                                                <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter truncate leading-none">{subjectName}</span>
+                                                                            </div>
+                                                                            <div className={cn(
+                                                                                "px-1 rounded font-black shrink-0",
+                                                                                teacherLessons.length > 1 ? "text-[8px]" : "text-[9px]",
+                                                                                getRoomColor(room)
+                                                                            )}>
+                                                                                {room || '—'}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div
-                                                            onClick={handleClick}
-                                                            className={cn(
-                                                                "h-full w-full flex items-center justify-center transition-all",
-                                                                isEditMode ? "cursor-pointer hover:bg-white/5" : "text-white/5 select-none"
-                                                            )}
-                                                        >
-                                                            {isEditMode ? <Plus size={14} className="text-indigo-500/30 group-hover:text-indigo-500" /> : "·"}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
+                                                        ) : (
+                                                            <div
+                                                                onClick={() => handleClick()}
+                                                                className={cn(
+                                                                    "h-full w-full flex items-center justify-center transition-all",
+                                                                    isEditMode ? "cursor-pointer hover:bg-white/5" : "text-white/5 select-none"
+                                                                )}
+                                                            >
+                                                                {isEditMode ? <Plus size={14} className="text-indigo-500/30 group-hover:text-indigo-500" /> : "·"}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -689,6 +809,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
+    const [isCompact, setIsCompact] = useState(false);
 
     // Drag and Drop State
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
@@ -820,11 +941,6 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
 
         return { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod };
     }, [now]);
-
-    // Check if period 0 is used
-    const hasPeriod0 = useMemo(() => {
-        return lessons.some(l => l.period === 0);
-    }, [lessons]);
 
     const periods = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -973,12 +1089,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     // Redundant MatrixView internal definition removed
     // Redundant TeachersMasterView internal definition removed
 
-    const findLessonByTeacher = (teacherId: string, day: string, period: number): Lesson | null => {
-        return lessons.find(l =>
+    const findAllLessonsByTeacher = (teacherId: string, day: string, period: number): Lesson[] => {
+        return lessons.filter(l =>
             l.teacher_id === teacherId &&
             l.day === day &&
             l.period === period
-        ) || null;
+        );
     };
 
     const getTeacherStats = (teacherId: string) => {
@@ -1041,78 +1157,84 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 </div>
             </div>
 
-            {viewType === 'dashboard' ? (
-                <DashboardView
-                    data={data}
-                    selectedClassId={selectedClassId}
-                    setSelectedClassId={setSelectedClassId}
-                    timeInfo={timeInfo}
-                    findLesson={findLesson}
-                    periods={periods}
-                    getRoomColor={getRoomColor}
-                    sortedClasses={sortedClasses}
-                />
-            ) : viewType === 'byClass' ? (
-                /* ... ByClassView remains here for now as it doesn't have internal state bugs reported yet, but I'll stabilize it if needed ... */
-                <ByClassView
-                    data={data}
-                    selectedClassId={selectedClassId}
-                    setSelectedClassId={setSelectedClassId}
-                    sortedClasses={sortedClasses}
-                    apiDays={apiDays}
-                    days={days}
-                    periods={periods}
-                    findLesson={findLesson}
-                    getSubjectColor={getSubjectColor}
-                    getConflicts={getConflicts}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
-                    draggedLesson={draggedLesson}
-                    setDraggedLesson={setDraggedLesson}
-                    processDrop={processDrop}
-                    setEditingCell={setEditingCell}
-                    setViewingLesson={setViewingLesson}
-                    isEditMode={isEditMode}
-                />
-            ) : viewType === 'matrix' ? (
-                <MatrixView
-                    data={data}
-                    activeGradeGroup={activeGradeGroup}
-                    setActiveGradeGroup={setActiveGradeGroup}
-                    matrixDay={matrixDay}
-                    setMatrixDay={setMatrixDay}
-                    findLesson={findLesson}
-                    getConflicts={getConflicts}
-                    getSubjectColor={getSubjectColor}
-                    getRoomColor={getRoomColor}
-                    periods={periods}
-                    days={days}
-                    apiDays={apiDays}
-                    sortedClasses={sortedClasses}
-                    draggedLesson={draggedLesson}
-                    setDraggedLesson={setDraggedLesson}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
-                    processDrop={processDrop}
-                    setEditingCell={setEditingCell}
-                    setViewingLesson={setViewingLesson}
-                    isEditMode={isEditMode}
-                />
-            ) : (
-                <TeachersMasterView
-                    data={data}
-                    masterDay={masterDay}
-                    setMasterDay={setMasterDay}
-                    findLessonByTeacher={findLessonByTeacher}
-                    getRoomColor={getRoomColor}
-                    periods={periods}
-                    days={days}
-                    apiDays={apiDays}
-                    setViewingLesson={setViewingLesson}
-                    isEditMode={isEditMode}
-                    setEditingTeacherCell={setEditingTeacherCell}
-                />
-            )}
+
+            <div className={cn("flex-1 min-h-0", viewType === 'teachers' ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}>
+                {viewType === 'dashboard' ? (
+                    <DashboardView
+                        data={data}
+                        selectedClassId={selectedClassId}
+                        setSelectedClassId={setSelectedClassId}
+                        timeInfo={timeInfo}
+                        findLesson={findLesson}
+                        periods={periods}
+                        getRoomColor={getRoomColor}
+                        sortedClasses={sortedClasses}
+                    />
+                ) : viewType === 'byClass' ? (
+                    /* ... ByClassView remains here for now as it doesn't have internal state bugs reported yet, but I'll stabilize it if needed ... */
+                    <ByClassView
+                        data={data}
+                        selectedClassId={selectedClassId}
+                        setSelectedClassId={setSelectedClassId}
+                        sortedClasses={sortedClasses}
+                        apiDays={apiDays}
+                        days={days}
+                        periods={periods}
+                        findLesson={findLesson}
+                        getSubjectColor={getSubjectColor}
+                        getConflicts={getConflicts}
+                        dragOverCell={dragOverCell}
+                        setDragOverCell={setDragOverCell}
+                        draggedLesson={draggedLesson}
+                        setDraggedLesson={setDraggedLesson}
+                        processDrop={processDrop}
+                        setEditingCell={setEditingCell}
+                        setViewingLesson={setViewingLesson}
+                        isEditMode={isEditMode}
+                    />
+                ) : viewType === 'matrix' ? (
+                    <MatrixView
+                        data={data}
+                        activeGradeGroup={activeGradeGroup}
+                        setActiveGradeGroup={setActiveGradeGroup}
+                        matrixDay={matrixDay}
+                        setMatrixDay={setMatrixDay}
+                        findLesson={findLesson}
+                        getConflicts={getConflicts}
+                        getSubjectColor={getSubjectColor}
+                        getRoomColor={getRoomColor}
+                        periods={periods}
+                        days={days}
+                        apiDays={apiDays}
+                        sortedClasses={sortedClasses}
+                        draggedLesson={draggedLesson}
+                        setDraggedLesson={setDraggedLesson}
+                        dragOverCell={dragOverCell}
+                        setDragOverCell={setDragOverCell}
+                        processDrop={processDrop}
+                        setEditingCell={setEditingCell}
+                        setViewingLesson={setViewingLesson}
+                        isEditMode={isEditMode}
+                    />
+                ) : (
+                    <TeachersMasterView
+                        data={data}
+                        masterDay={masterDay}
+                        setMasterDay={setMasterDay}
+                        findAllLessonsByTeacher={findAllLessonsByTeacher}
+                        getRoomColor={getRoomColor}
+                        periods={periods}
+                        days={days}
+                        apiDays={apiDays}
+                        setViewingLesson={setViewingLesson}
+                        isEditMode={isEditMode}
+                        setEditingTeacherCell={setEditingTeacherCell}
+                        getTeacherStats={getTeacherStats}
+                        isCompact={isCompact}
+                        setIsCompact={setIsCompact}
+                    />
+                )}
+            </div>
 
             {editingCell && (
                 <EditLessonModal
