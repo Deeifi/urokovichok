@@ -466,6 +466,7 @@ const MatrixView = memo(({
                         setDragOverCell={setDragOverCell}
                         processDrop={processDrop}
                         isMonochrome={isMonochrome}
+                        perfSettings={perfSettings}
                     />
                 </div>
             ) : (

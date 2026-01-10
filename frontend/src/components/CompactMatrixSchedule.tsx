@@ -1,5 +1,5 @@
 import React, { useState, useMemo, memo, useEffect } from 'react';
-import type { Lesson, ScheduleRequest, Subject } from '../types';
+import type { Lesson, ScheduleRequest, Subject, PerformanceSettings } from '../types';
 import { cn } from '../utils/cn';
 import { Users, Search, Clock, AlertTriangle } from 'lucide-react';
 
@@ -21,12 +21,13 @@ interface MemoizedCellProps {
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     processDrop: (classId: string, day: string, period: number) => void;
     subjects: Subject[];
+    perfSettings: PerformanceSettings;
 }
 
 const MemoizedCell = memo(({
     classId, day, period, lesson, hoveredPos, setHoveredPos,
     dragOverCell, setDragOverCell, draggedLesson, setDraggedLesson,
-    onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects
+    onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects, perfSettings
 }: MemoizedCellProps) => {
     const isHovered = hoveredPos?.classId === classId && hoveredPos?.day === day && hoveredPos?.period === period;
     const isCrosshair = hoveredPos?.classId === classId || (hoveredPos?.day === day && hoveredPos?.period === period);
@@ -41,7 +42,7 @@ const MemoizedCell = memo(({
         <td
             className={cn(
                 "p-0 border-b border-r border-white/10 transition-all duration-200 relative h-[32px]",
-                isCrosshair && !isHovered && "bg-white/[0.02]",
+                isCrosshair && !isHovered && !perfSettings.disableAnimations && "bg-white/[0.02]",
                 isDragOver && "bg-indigo-500/30 scale-105 z-10 shadow-xl",
                 isDragging && "opacity-30"
             )}
@@ -128,13 +129,14 @@ interface CompactMatrixScheduleProps {
     setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
     processDrop: (classId: string, day: string, period: number) => void;
     isMonochrome?: boolean;
+    perfSettings: PerformanceSettings;
 }
 
 export const CompactMatrixSchedule = ({
     data, lessons, periods, apiDays, days,
     getSubjectColor, getConflicts, isEditMode, onCellClick,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
-    isMonochrome = false
+    isMonochrome = false, perfSettings
 }: CompactMatrixScheduleProps) => {
     const [hoveredPos, setHoveredPos] = useState<{ classId: string; day: string; period: number } | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -238,7 +240,7 @@ export const CompactMatrixSchedule = ({
                                             key={p}
                                             className={cn(
                                                 "sticky top-[37px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-200",
-                                                hoveredPos?.day === day && hoveredPos?.period === p ? "bg-indigo-500/20 text-indigo-400" : "bg-[#121214] text-[#a1a1aa]"
+                                                hoveredPos?.day === day && hoveredPos?.period === p && !perfSettings.disableAnimations ? "bg-indigo-500/20 text-indigo-400" : "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
                                             {p}
@@ -256,14 +258,14 @@ export const CompactMatrixSchedule = ({
                                 className={cn(
                                     "group transition-colors h-[32px]",
                                     cIdx % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent",
-                                    "hover:bg-indigo-500/[0.05]"
+                                    !perfSettings.disableAnimations && "hover:bg-indigo-500/[0.05]"
                                 )}
                             >
                                 {/* Sticky Class Name */}
                                 <td className={cn(
                                     "sticky left-0 z-20 p-1 border-b border-r border-white/10 transition-colors w-[80px] min-w-[80px] text-center font-black text-white group-hover:text-indigo-400 uppercase text-[10px]",
                                     cIdx % 2 === 0 ? "bg-[#0c0c0e]" : "bg-[#08080a]",
-                                    "group-hover:bg-[#1a1a1e]"
+                                    !perfSettings.disableAnimations && "group-hover:bg-[#1a1a1e]"
                                 )}>
                                     {cls.name}
                                 </td>
@@ -290,6 +292,7 @@ export const CompactMatrixSchedule = ({
                                                 getConflicts={getConflicts}
                                                 processDrop={processDrop}
                                                 subjects={data.subjects}
+                                                perfSettings={perfSettings}
                                             />
                                         ))}
                                         <td className="w-[4px] min-w-[4px] bg-[#050507] border-b border-white/5"></td>

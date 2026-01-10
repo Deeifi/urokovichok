@@ -69,6 +69,7 @@
     /* IE and Edge */
     scrollbar-width: none;
     /* Firefox */
+
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -77,27 +78,48 @@
 }
 
 /* Performance Mode Overrides */
+
+/* 1. ANIMATIONS: Kill interactions and pulsing */
 [data-perf-animations="false"] * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
 }
 
+[data-perf-animations="false"] .animate-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+}
+
+[data-perf-animations="false"] *:hover {
+    transform: none !important;
+}
+
+/* 2. BLUR: Flat Design (No Gradients) */
 [data-perf-blur="false"] * {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    background-image: none !important;
+    /* Kills gradients */
 }
 
 [data-perf-blur="false"] .bento-card,
-[data-perf-blur="false"] .status-badge {
+[data-perf-blur="false"] .status-badge,
+[data-perf-blur="false"] nav button:hover,
+[data-perf-blur="false"] nav button.bg-indigo-600\/10 {
     background-color: #1a1a1e !important;
+    background-image: none !important;
 }
 
+/* 3. SHADOWS: Geometric Simplicity (No Radius) */
 [data-perf-shadows="false"] * {
     box-shadow: none !important;
     text-shadow: none !important;
+    border-radius: 0 !important;
+    /* SQUARE CORNERS */
 }
 
+/* Ensure buttons remain visible */
 [data-perf-shadows="false"] .bento-card,
 [data-perf-shadows="false"] .btn-premium {
     border-color: rgba(255, 255, 255, 0.1) !important;
