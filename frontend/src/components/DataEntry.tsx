@@ -572,6 +572,16 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                     dragOverCell={dragOverCell}
                                     setDragOverCell={setDragOverCell}
                                     processTeacherDrop={processTeacherDrop}
+                                    perfSettings={{
+                                        disableAnimations: false,
+                                        hidePhotos: false,
+                                        lowFrequencyClock: false,
+                                        disableBlur: false,
+                                        disableShadows: false
+                                    }}
+                                    getClassConflicts={() => []}
+                                    hoveredLesson={null}
+                                    setHoveredLesson={() => { }}
                                 />
                             </div>
 

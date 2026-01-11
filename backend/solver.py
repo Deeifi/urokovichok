@@ -6,6 +6,14 @@ import collections
 from ortools.sat.python import cp_model
 
 def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
+    # Pass 0: Pre-validation
+    validation_errors = validate_workloads(data)
+    if validation_errors:
+        return {
+            "status": "error",
+            "message": "Помилка валідації вхідних даних:\n" + "\n".join(validation_errors)
+        }
+
     # Pass 1: Strict Solve (Periods 1-7, Hard Constraints)
     # If this succeeds, we get a perfect schedule.
     print("Attempting STRICT solve (Periods 1-7)...")
@@ -51,6 +59,46 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
         }
 
     return {"status": "error", "message": "Неможливо згенерувати навіть частковий розклад. Перевірте вхідні дані."}
+
+def validate_workloads(data: ScheduleRequest) -> List[str]:
+    errors = []
+    
+    # 1. Calculate loads
+    teacher_loads = {} # t_id -> hours
+    class_loads = {}   # c_id -> hours
+    
+    MAX_WEEKLY_SLOTS = 40 # 5 days * 8 periods (0-7)
+    
+    teacher_names = {t.id: t.name for t in data.teachers}
+    class_names = {c.id: c.name for c in data.classes}
+    
+    for plan in data.plan:
+        if plan.hours_per_week <= 0: continue
+        
+        # Check integrity
+        if plan.teacher_id not in teacher_names:
+            errors.append(f"• План посилається на невідомого вчителя (ID: {plan.teacher_id})")
+            continue
+        if plan.class_id not in class_names:
+            errors.append(f"• План посилається на невідомий клас (ID: {plan.class_id})")
+            continue
+            
+        teacher_loads[plan.teacher_id] = teacher_loads.get(plan.teacher_id, 0) + plan.hours_per_week
+        class_loads[plan.class_id] = class_loads.get(plan.class_id, 0) + plan.hours_per_week
+        
+    # 2. Check Teacher Overload
+    for t_id, load in teacher_loads.items():
+        if load > MAX_WEEKLY_SLOTS:
+            name = teacher_names.get(t_id, t_id)
+            errors.append(f"• Вчитель {name} має {load} год/тиждень (максимум {MAX_WEEKLY_SLOTS})")
+            
+    # 3. Check Class Overload
+    for c_id, load in class_loads.items():
+        if load > MAX_WEEKLY_SLOTS:
+            name = class_names.get(c_id, c_id)
+            errors.append(f"• Клас {name} має {load} уроків/тиждень (максимум {MAX_WEEKLY_SLOTS})")
+            
+    return errors
 
 def analyze_violations(schedule: List[Dict[str, Any]], data: ScheduleRequest) -> List[str]:
     violations = []
@@ -169,8 +217,8 @@ def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True
         for d in range(len(days)):
             day_load = sum(class_busy[(c, d, p)] for p in periods)
             
-            # Max daily load constraint (always useful)
-            model.Add(day_load <= 7)
+            # Max daily load constraint (dynamic based on available periods)
+            model.Add(day_load <= len(periods))
 
             has_lessons = model.NewBoolVar(f'has_lessons_{c}_{d}')
             model.Add(day_load > 0).OnlyEnforceIf(has_lessons)

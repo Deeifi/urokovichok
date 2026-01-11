@@ -1,6 +1,27 @@
-import { useState, useMemo, useEffect, memo, useDeferredValue, useCallback } from 'react';
+import { useCallback, useState, useMemo, useEffect, memo, useDeferredValue } from 'react';
+import { createPortal } from 'react-dom';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup, PerformanceSettings } from '../types';
-import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, ChevronRight, LayoutDashboard, LayoutGrid, ArrowRightLeft, Video, Table as TableIcon, Columns, Lock, Unlock, Info, Search, Droplet } from 'lucide-react';
+import {
+    Plus,
+    X,
+    Check,
+    Search,
+    Trash2,
+    LayoutDashboard,
+    Users,
+    Table as TableIcon,
+    Columns,
+    ArrowRightLeft,
+    Info,
+    Unlock,
+    Lock,
+    LayoutGrid,
+    Droplet,
+    Pencil,
+    AlertTriangle,
+    ChevronRight,
+    Video
+} from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
 import { BELL_SCHEDULE } from '../constants';
@@ -1496,7 +1517,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 )}
             </div>
 
-            {editingCell && (
+            {editingCell && createPortal(
                 <EditLessonModal
                     data={data}
                     schedule={lessons}
@@ -1508,10 +1529,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                     currentRoom={findLesson(editingCell.classId, editingCell.day, editingCell.period)?.room}
                     onSave={handleSaveLesson}
                     onClose={() => setEditingCell(null)}
-                />
+                />,
+                document.body
             )}
 
-            {viewingLesson && (
+            {viewingLesson && createPortal(
                 <LessonDetailsModal
                     data={data}
                     lesson={findLesson(viewingLesson.classId, viewingLesson.day, viewingLesson.period)}
@@ -1525,10 +1547,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setEditingCell(cell);
                     }}
                     isEditMode={isEditMode}
-                />
+                />,
+                document.body
             )}
 
-            {dragConfirm && (
+            {dragConfirm && createPortal(
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200" onClick={() => setDragConfirm(null)}>
                     <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-4">
@@ -1562,11 +1585,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Teacher Edit Modal */}
-            {editingTeacherCell && (
+            {editingTeacherCell && createPortal(
                 <TeacherEditModal
                     data={data}
                     schedule={lessons}
@@ -1578,7 +1602,8 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setEditingTeacherCell(null);
                     }}
                     onClose={() => setEditingTeacherCell(null)}
-                />
+                />,
+                document.body
             )}
         </div>
     );

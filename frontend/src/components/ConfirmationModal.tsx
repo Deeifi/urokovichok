@@ -1,5 +1,6 @@
 
 import { Trash2, X, AlertTriangle } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
 
 interface ConfirmationModalProps {
@@ -25,7 +26,7 @@ export function ConfirmationModal({
 }: ConfirmationModalProps) {
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200" onClick={onClose}>
             <div
                 className="bg-[#18181b] w-full max-w-sm rounded-[32px] border border-white/10 shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"
@@ -78,6 +79,7 @@ export function ConfirmationModal({
                     <X size={20} />
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
