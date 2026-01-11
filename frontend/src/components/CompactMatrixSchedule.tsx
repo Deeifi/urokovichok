@@ -8,9 +8,7 @@ interface MemoizedCellProps {
     day: string;
     period: number;
     lesson: Lesson | undefined;
-    hoveredPos: { classId: string; day: string; period: number } | null;
-    setHoveredPos: (pos: { classId: string; day: string; period: number } | null) => void;
-    dragOverCell: { classId: string; day: string; period: number } | null;
+    isDragOver: boolean;
     setDragOverCell: (pos: { classId: string; day: string; period: number } | null) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
@@ -22,32 +20,41 @@ interface MemoizedCellProps {
     processDrop: (classId: string, day: string, period: number) => void;
     subjects: Subject[];
     perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const MemoizedCell = memo(({
-    classId, day, period, lesson, hoveredPos, setHoveredPos,
-    dragOverCell, setDragOverCell, draggedLesson, setDraggedLesson,
-    onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects, perfSettings
+    classId, day, period, lesson,
+    isDragOver, setDragOverCell, draggedLesson, setDraggedLesson,
+    onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects,
+    getClassConflicts, hoveredLesson, setHoveredLesson
 }: MemoizedCellProps) => {
-    const isHovered = hoveredPos?.classId === classId && hoveredPos?.day === day && hoveredPos?.period === period;
-    const isCrosshair = hoveredPos?.classId === classId || (hoveredPos?.day === day && hoveredPos?.period === period);
-    const isDragOver = dragOverCell?.day === day && dragOverCell?.period === period && dragOverCell?.classId === classId;
     const isDragging = draggedLesson?.day === day && draggedLesson?.period === period && draggedLesson?.class_id === classId;
 
     const subject = lesson ? subjects.find(s => s.id === lesson.subject_id) : null;
     const subColor = lesson ? getSubjectColor(lesson.subject_id) : 'transparent';
-    const conflicts = lesson ? getConflicts(lesson.teacher_id, day, period, classId) : [];
+    const teacherConflicts = lesson ? getConflicts(lesson.teacher_id, day, period, classId) : [];
+    const classConflicts = getClassConflicts(classId, day, period, lesson?.teacher_id);
+
+    const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
+    const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && period === hoveredLesson.period && teacherConflicts.length > 0;
 
     return (
         <td
             className={cn(
-                "p-0 border-b border-r border-white/10 transition-all duration-200 relative h-[32px]",
-                isCrosshair && !isHovered && !perfSettings.disableAnimations && "bg-white/[0.02]",
-                isDragOver && "bg-indigo-500/30 scale-105 z-10 shadow-xl",
-                isDragging && "opacity-30"
+                "p-0 border-b border-r border-white/10 relative h-[32px] transition-all duration-300",
+                isDragOver && "bg-indigo-500/40 z-10 ring-2 ring-inset ring-indigo-500",
+                isDragging && "opacity-30",
+                isTeacherHighlighted && "bg-white/20 z-10"
             )}
-            onMouseEnter={() => setHoveredPos({ classId, day, period })}
-            onMouseLeave={() => setHoveredPos(null)}
+            onMouseEnter={() => {
+                if (lesson) setHoveredLesson(lesson);
+            }}
+            onMouseLeave={() => {
+                setHoveredLesson(null);
+            }}
             onClick={() => onCellClick(classId, day, period, lesson)}
             onDragOver={(e) => {
                 if (isEditMode) {
@@ -66,7 +73,12 @@ const MemoizedCell = memo(({
                 <div
                     className={cn(
                         "w-full h-full flex flex-col items-center justify-center relative overflow-hidden group/cell transition-all cursor-pointer shadow-sm active:scale-95 hover:brightness-125 hover:z-10",
-                        conflicts.length > 0 ? " ring-inset ring-1 ring-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]" : ""
+                        teacherConflicts.length > 0 ? " ring-inset ring-1 ring-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]" : "",
+                        classConflicts.length > 0 ? " ring-inset ring-1 ring-violet-500/50 shadow-[inset_0_0_10px_rgba(139,92,246,0.2)]" : "",
+                        isTeacherHighlighted && (isTeacherConflict
+                            ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-125 bg-amber-500/20"
+                            : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-110"
+                        )
                     )}
                     style={{
                         backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`,
@@ -92,8 +104,11 @@ const MemoizedCell = memo(({
                             ? 'Ф-РА'
                             : subject?.name.slice(0, 3)}
                     </span>
-                    {conflicts.length > 0 && (
-                        <div className="absolute top-0 right-0 text-red-500 bg-black/40 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center">
+                    {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
+                        <div className={cn(
+                            "absolute top-0 right-0 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center",
+                            classConflicts.length > 0 ? "text-violet-400 bg-violet-950/60" : "text-red-500 bg-black/40"
+                        )} title={classConflicts.length > 0 ? `Клас вже має іншого вчителя: ${classConflicts.join(', ')}` : `Вчитель вже веде урок у: ${teacherConflicts.join(', ')}`}>
                             <AlertTriangle size={8} />
                         </div>
                     )}
@@ -130,15 +145,18 @@ interface CompactMatrixScheduleProps {
     processDrop: (classId: string, day: string, period: number) => void;
     isMonochrome?: boolean;
     perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 export const CompactMatrixSchedule = ({
     data, lessons, periods, apiDays, days,
     getSubjectColor, getConflicts, isEditMode, onCellClick,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
-    isMonochrome = false, perfSettings
+    isMonochrome = false, perfSettings,
+    getClassConflicts, hoveredLesson, setHoveredLesson
 }: CompactMatrixScheduleProps) => {
-    const [hoveredPos, setHoveredPos] = useState<{ classId: string; day: string; period: number } | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -239,8 +257,8 @@ export const CompactMatrixSchedule = ({
                                         <th
                                             key={p}
                                             className={cn(
-                                                "sticky top-[37px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-200",
-                                                hoveredPos?.day === day && hoveredPos?.period === p && !perfSettings.disableAnimations ? "bg-indigo-500/20 text-indigo-400" : "bg-[#121214] text-[#a1a1aa]"
+                                                "sticky top-[37px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75",
+                                                "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
                                             {p}
@@ -257,15 +275,13 @@ export const CompactMatrixSchedule = ({
                                 key={cls.id}
                                 className={cn(
                                     "group transition-colors h-[32px]",
-                                    cIdx % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent",
-                                    !perfSettings.disableAnimations && "hover:bg-indigo-500/[0.05]"
+                                    cIdx % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent"
                                 )}
                             >
                                 {/* Sticky Class Name */}
                                 <td className={cn(
                                     "sticky left-0 z-20 p-1 border-b border-r border-white/10 transition-colors w-[80px] min-w-[80px] text-center font-black text-white group-hover:text-indigo-400 uppercase text-[10px]",
-                                    cIdx % 2 === 0 ? "bg-[#0c0c0e]" : "bg-[#08080a]",
-                                    !perfSettings.disableAnimations && "group-hover:bg-[#1a1a1e]"
+                                    cIdx % 2 === 0 ? "bg-[#0c0c0e]" : "bg-[#08080a]"
                                 )}>
                                     {cls.name}
                                 </td>
@@ -279,9 +295,7 @@ export const CompactMatrixSchedule = ({
                                                 day={day}
                                                 period={p}
                                                 lesson={findLesson(cls.id, day, p)}
-                                                hoveredPos={hoveredPos}
-                                                setHoveredPos={setHoveredPos}
-                                                dragOverCell={dragOverCell}
+                                                isDragOver={dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.classId === cls.id}
                                                 setDragOverCell={setDragOverCell}
                                                 draggedLesson={draggedLesson}
                                                 setDraggedLesson={setDraggedLesson}
@@ -293,6 +307,9 @@ export const CompactMatrixSchedule = ({
                                                 processDrop={processDrop}
                                                 subjects={data.subjects}
                                                 perfSettings={perfSettings}
+                                                getClassConflicts={getClassConflicts}
+                                                hoveredLesson={hoveredLesson}
+                                                setHoveredLesson={setHoveredLesson}
                                             />
                                         ))}
                                         <td className="w-[4px] min-w-[4px] bg-[#050507] border-b border-white/5"></td>

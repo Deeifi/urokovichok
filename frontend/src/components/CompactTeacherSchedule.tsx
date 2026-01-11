@@ -1,42 +1,42 @@
 import React, { useMemo, useState, memo } from 'react';
 import { AlertTriangle, Plus } from 'lucide-react';
 import { cn } from '../utils/cn';
-import type { ScheduleRequest, Lesson } from '../types';
+import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
+const EMPTY_ARRAY: Lesson[] = [];
 
 interface MemoizedTeacherCellProps {
     teacherId: string;
     day: string;
     period: number;
     lessons: Lesson[];
-    hoveredPos: { day: string, period: number } | null;
-    setHoveredPos: (pos: { day: string, period: number } | null) => void;
     isEditMode: boolean;
     isMonochrome: boolean;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
+    isDragOver: boolean;
     setDragOverCell: (c: any) => void;
     onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number) => void;
     getSubjectColor: (id: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     setActiveGroupPicker: (p: any) => void;
     data: ScheduleRequest;
+    perfSettings: PerformanceSettings;
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const MemoizedTeacherCell = memo(({
-    teacherId, day, period, lessons, hoveredPos, setHoveredPos, isEditMode, isMonochrome,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, onCellClick, processTeacherDrop,
-    getSubjectColor, getConflicts, setActiveGroupPicker, data
+    teacherId, day, period, lessons, isEditMode, isMonochrome,
+    draggedLesson, setDraggedLesson, isDragOver, setDragOverCell, onCellClick, processTeacherDrop,
+    getSubjectColor, getConflicts, getClassConflicts, setActiveGroupPicker, data,
+    hoveredLesson, setHoveredLesson
 }: MemoizedTeacherCellProps) => {
     const hasLessons = lessons.length > 0;
-    const isHoveredCol = hoveredPos?.day === day && hoveredPos?.period === period;
-    const isDragOver = dragOverCell?.day === day && dragOverCell?.period === period && dragOverCell?.teacherId === teacherId;
 
     return (
         <td
-            onMouseEnter={() => setHoveredPos({ day, period })}
-            onMouseLeave={() => setHoveredPos(null)}
             onDragOver={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
@@ -51,9 +51,8 @@ const MemoizedTeacherCell = memo(({
                 }
             }}
             className={cn(
-                "p-0 border-b border-r border-white/10 w-[32px] min-w-[32px] transition-all relative",
-                isHoveredCol && "bg-indigo-500/[0.03]",
-                isDragOver && "bg-indigo-500/20 scale-105 z-10 box-border border-2 border-indigo-500"
+                "p-0 border-b border-r border-white/10 w-[32px] min-w-[32px] relative",
+                isDragOver && "bg-indigo-500/40 z-10 box-border ring-2 ring-inset ring-indigo-500"
             )}
             style={{ height: '32px' }}
         >
@@ -66,14 +65,22 @@ const MemoizedTeacherCell = memo(({
                         const cls = data.classes.find(c => c.id === lesson.class_id);
                         const sub = data.subjects.find(s => s.id === lesson.subject_id);
                         const subColor = getSubjectColor(lesson.subject_id);
-                        const conflicts = getConflicts(teacherId, day, period, lesson.class_id);
+                        const teacherConflicts = getConflicts(teacherId, day, period, lesson.class_id);
+                        const classConflicts = getClassConflicts(lesson.class_id, day, period, teacherId);
+                        const hasConflicts = teacherConflicts.length > 0 || classConflicts.length > 0;
                         const room = lesson.room || sub?.defaultRoom || "—";
                         const isDragging = draggedLesson?.teacher_id === teacherId && draggedLesson.day === day && draggedLesson.period === period && draggedLesson.class_id === lesson.class_id;
+                        const isTeacherHighlighted = hoveredLesson && lesson && (
+                            (lesson.teacher_id === hoveredLesson.teacher_id && day === hoveredLesson.day && period === hoveredLesson.period) ||
+                            (lesson.class_id === hoveredLesson.class_id && day === hoveredLesson.day && period === hoveredLesson.period)
+                        );
 
                         return (
                             <div
                                 key={idx}
                                 draggable={isEditMode}
+                                onMouseEnter={() => lesson && setHoveredLesson(lesson)}
+                                onMouseLeave={() => setHoveredLesson(null)}
                                 onDragStart={(e) => {
                                     if (isEditMode) {
                                         setDraggedLesson(lesson);
@@ -101,26 +108,34 @@ const MemoizedTeacherCell = memo(({
                                     "flex-1 flex flex-col justify-center items-center transition-all cursor-pointer active:scale-95 overflow-hidden relative group/cell shadow-sm",
                                     "hover:brightness-125 hover:z-10",
                                     lessons.length === 2 && idx === 0 && "border-r border-white/10",
-                                    isDragging && "opacity-30"
+                                    isDragging && "opacity-30",
+                                    isTeacherHighlighted && ((lessons.length > 1 || teacherConflicts.length > 0 || classConflicts.length > 0)
+                                        ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-110 bg-amber-500/20"
+                                        : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-110"
+                                    )
                                 )}
                                 style={{
                                     borderLeft: lessons.length === 2 ? `1px solid ${isMonochrome ? '#52525b' : subColor}` : `2px solid ${isMonochrome ? '#52525b' : subColor}`,
-                                    backgroundColor: isMonochrome ? 'transparent' : `${subColor}15`
+                                    backgroundColor: isMonochrome ? 'transparent' : (classConflicts.length > 0 ? 'rgba(139, 92, 246, 0.15)' : (isTeacherHighlighted ? 'rgba(255, 255, 255, 0.4)' : `${subColor}15`))
                                 }}
                             >
                                 {lessons.length <= 2 && (
                                     <div className="invisible group-hover/cell:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-[100] w-max max-w-[150px] p-1.5 bg-[#18181b] border border-white/10 rounded-md shadow-2xl pointer-events-none animate-in fade-in zoom-in duration-100">
                                         <div className="text-[9px] font-black text-white uppercase">{cls?.name} • {sub?.name}</div>
                                         <div className="text-[7px] font-bold text-[#a1a1aa] mt-0.5">Каб: {room}</div>
-                                        {conflicts.length > 0 && (
-                                            <div className="mt-1 pt-1 border-t border-white/5 text-[7px] text-amber-500 font-bold">
-                                                КОНФЛІКТ: {conflicts.join(', ')}
+                                        {hasConflicts && (
+                                            <div className="mt-1 pt-1 border-t border-white/5 text-[7px] font-bold">
+                                                {classConflicts.length > 0 && <div className="text-violet-400">КЛАС: {classConflicts.join(', ')}</div>}
+                                                {teacherConflicts.length > 0 && <div className="text-amber-500">ВИКЛ.: {teacherConflicts.join(', ')}</div>}
                                             </div>
                                         )}
                                     </div>
                                 )}
-                                {conflicts.length > 0 && (
-                                    <div className="absolute top-0 right-0 text-amber-500 bg-black/60 rounded-bl-[4px] p-[1px] z-10">
+                                {hasConflicts && (
+                                    <div className={cn(
+                                        "absolute top-0 right-0 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center",
+                                        classConflicts.length > 0 ? "text-violet-400 bg-violet-950/60" : "text-amber-500 bg-black/40"
+                                    )}>
                                         <AlertTriangle size={8} />
                                     </div>
                                 )}
@@ -180,6 +195,10 @@ interface CompactTeacherScheduleProps {
     processTeacherDrop: (teacherId: string, day: string, period: number) => void;
     isMonochrome?: boolean;
     searchQuery?: string;
+    perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
@@ -198,9 +217,12 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
     setDragOverCell,
     processTeacherDrop,
     isMonochrome = false,
-    searchQuery = ''
+    searchQuery = '',
+    perfSettings,
+    getClassConflicts,
+    hoveredLesson,
+    setHoveredLesson
 }) => {
-    const [hoveredPos, setHoveredPos] = useState<{ day: string, period: number } | null>(null);
     const [activeGroupPicker, setActiveGroupPicker] = useState<{
         teacherId: string,
         day: string,
@@ -276,8 +298,8 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                         <th
                                             key={`${day}-${p}`}
                                             className={cn(
-                                                "sticky top-[30px] z-30 p-0 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-200",
-                                                hoveredPos?.day === day && hoveredPos?.period === p ? "bg-indigo-500/20 text-indigo-400" : "bg-[#121214] text-[#a1a1aa]"
+                                                "sticky top-[30px] z-30 p-0 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75",
+                                                "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
                                             {p}
@@ -294,15 +316,13 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                 key={teacher.id}
                                 className={cn(
                                     "group transition-colors h-[32px]",
-                                    tIdx % 2 === 0 ? "bg-white/[0.03]" : "bg-transparent",
-                                    "hover:bg-indigo-500/[0.05]"
+                                    tIdx % 2 === 0 ? "bg-white/[0.03]" : "bg-transparent"
                                 )}
                             >
                                 {/* Teacher Sticky Name */}
                                 <td className={cn(
                                     "sticky left-0 z-20 p-1 border-b border-r border-white/20 transition-colors w-[90px] min-w-[90px]",
-                                    tIdx % 2 === 0 ? "bg-[#121214]" : "bg-[#0c0c0e]",
-                                    "group-hover:bg-[#1a1a1e]"
+                                    tIdx % 2 === 0 ? "bg-[#121214]" : "bg-[#0c0c0e]"
                                 )}>
                                     <div className="flex flex-col justify-center min-w-0 h-full text-left">
                                         <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-[8px] leading-none">
@@ -319,21 +339,23 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                                 teacherId={teacher.id}
                                                 day={day}
                                                 period={p}
-                                                lessons={indexedLessons[teacher.id]?.[day]?.[p] || []}
-                                                hoveredPos={hoveredPos}
-                                                setHoveredPos={setHoveredPos}
+                                                lessons={indexedLessons[teacher.id]?.[day]?.[p] || EMPTY_ARRAY}
                                                 isEditMode={isEditMode}
                                                 isMonochrome={isMonochrome}
                                                 draggedLesson={draggedLesson}
                                                 setDraggedLesson={setDraggedLesson}
-                                                dragOverCell={dragOverCell}
+                                                isDragOver={dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.teacherId === teacher.id}
                                                 setDragOverCell={setDragOverCell}
                                                 onCellClick={onCellClick}
                                                 processTeacherDrop={processTeacherDrop}
                                                 getSubjectColor={getSubjectColor}
                                                 getConflicts={getConflicts}
+                                                getClassConflicts={getClassConflicts}
                                                 setActiveGroupPicker={setActiveGroupPicker}
                                                 data={data}
+                                                perfSettings={perfSettings}
+                                                hoveredLesson={hoveredLesson}
+                                                setHoveredLesson={setHoveredLesson}
                                             />
                                         ))}
                                         {/* Vertical divider column */}

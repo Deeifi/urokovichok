@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, memo, useDeferredValue } from 'react';
+import { useState, useMemo, useEffect, memo, useDeferredValue, useCallback } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup, PerformanceSettings } from '../types';
 import { Trash2, Plus, Pencil, X, Check, AlertTriangle, Users, ChevronRight, LayoutDashboard, LayoutGrid, ArrowRightLeft, Video, Table as TableIcon, Columns, Lock, Unlock, Info, Search, Droplet } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -202,15 +202,19 @@ interface ByClassViewProps {
     isEditMode: boolean;
     isCompact: boolean;
     perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const ByClassView = memo(({
     data, selectedClassId, setSelectedClassId, sortedClasses, apiDays, days, periods,
     findLesson, getSubjectColor, getConflicts, dragOverCell, setDragOverCell,
-    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact, perfSettings
+    draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact, perfSettings,
+    getClassConflicts, hoveredLesson, setHoveredLesson
 }: ByClassViewProps) => {
     return (
-        <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-500", isCompact ? "space-y-2" : "space-y-6")}>
+        <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-300", isCompact ? "space-y-2" : "space-y-6")}>
             <div className={cn("flex flex-wrap", isCompact ? "gap-1" : "gap-2")}>
                 {sortedClasses.map(cls => (
                     <button
@@ -240,20 +244,31 @@ const ByClassView = memo(({
 
                                 const subColor = lesson ? getSubjectColor(lesson.subject_id) : 'transparent';
                                 const teacher = lesson ? data.teachers.find(t => t.id === lesson.teacher_id) : null;
-                                const conflicts = lesson ? getConflicts(lesson.teacher_id, day, p, selectedClassId) : [];
+                                const teacherConflicts = lesson ? getConflicts(lesson.teacher_id, day, p, selectedClassId) : [];
+                                const classConflicts = lesson ? getClassConflicts(selectedClassId, day, p, lesson.teacher_id) : [];
 
                                 const isDragOver = dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.classId === selectedClassId;
                                 const isDragging = draggedLesson?.day === day && draggedLesson?.period === p && draggedLesson?.class_id === selectedClassId;
+                                const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
+                                const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && p === hoveredLesson.period && (teacherConflicts.length > 0 || classConflicts.length > 0);
 
                                 return (
                                     <div
                                         key={p}
+                                        onMouseEnter={() => lesson && setHoveredLesson(lesson)}
+                                        onMouseLeave={() => setHoveredLesson(null)}
                                         className={cn(
                                             "relative group cursor-pointer transition-all -mx-2 border-2",
                                             isCompact ? "p-1 rounded-md" : "p-2 rounded-lg",
-                                            isDragOver ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent hover:bg-white/5",
+                                            isDragOver ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent",
+                                            classConflicts.length > 0 && "ring-1 ring-violet-500/50 bg-violet-500/[0.02]",
+                                            !perfSettings.disableAnimations && "hover:bg-white/5",
                                             isDragging ? "opacity-50" : "opacity-100",
-                                            !isUsed && !isEditMode && "opacity-40"
+                                            !isUsed && !isEditMode && "opacity-40",
+                                            isTeacherHighlighted && (isTeacherConflict
+                                                ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-110 bg-amber-500/20"
+                                                : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-105 bg-white/10"
+                                            )
                                         )}
                                         onClick={() => isEditMode
                                             ? setEditingCell({ classId: selectedClassId, day, period: p })
@@ -287,8 +302,14 @@ const ByClassView = memo(({
                                         <div className={isCompact ? "pl-2" : "pl-3"}>
                                             <div className="text-[10px] text-[#a1a1aa] font-black flex items-center gap-2 leading-tight">
                                                 <span>{p} УРОК</span>
-                                                {conflicts.length > 0 && (
-                                                    <div className="text-amber-500" title={`Вчитель вже веде урок у: ${conflicts.join(', ')} `}>
+                                                {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
+                                                    <div
+                                                        className={classConflicts.length > 0 ? "text-violet-400" : "text-amber-500"}
+                                                        title={classConflicts.length > 0
+                                                            ? `Клас вже має іншого вчителя: ${classConflicts.join(', ')}`
+                                                            : `Вчитель вже веде урок у: ${teacherConflicts.join(', ')} `
+                                                        }
+                                                    >
                                                         <AlertTriangle size={10} />
                                                     </div>
                                                 )}
@@ -297,7 +318,10 @@ const ByClassView = memo(({
                                                 {lesson ? data.subjects.find(s => s.id === lesson.subject_id)?.name : (isEditMode && <span className="text-white/20 italic text-[9px] lowercase opacity-50">Вільне вікно</span>)}
                                             </div>
                                             {teacher && (
-                                                <div className="text-[10px] text-[#a1a1aa] font-bold truncate opacity-70 leading-tight">
+                                                <div className={cn(
+                                                    "text-[10px] font-bold truncate opacity-70 leading-tight",
+                                                    classConflicts.length > 0 ? "text-violet-300" : "text-[#a1a1aa]"
+                                                )}>
                                                     {teacher.name}
                                                 </div>
                                             )}
@@ -346,13 +370,17 @@ interface MatrixViewProps {
     setIsMonochrome: (v: boolean) => void;
     lessons: Lesson[];
     perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const MatrixView = memo(({
     data, activeGradeGroup, setActiveGradeGroup, matrixDay, setMatrixDay,
-    findLesson, getConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
+    findLesson, getConflicts, getClassConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode,
-    isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons, perfSettings
+    isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons, perfSettings,
+    hoveredLesson, setHoveredLesson
 }: MatrixViewProps) => {
     const filteredClasses = sortedClasses.filter(cls => {
         const grade = parseInt(cls.name);
@@ -365,7 +393,7 @@ const MatrixView = memo(({
     const dayName = days[apiDays.indexOf(matrixDay)];
 
     return (
-        <div className={cn("animate-in fade-in duration-500 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
+        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 {!isCompact && (
                     <div>
@@ -467,6 +495,9 @@ const MatrixView = memo(({
                         processDrop={processDrop}
                         isMonochrome={isMonochrome}
                         perfSettings={perfSettings}
+                        getClassConflicts={getClassConflicts}
+                        hoveredLesson={hoveredLesson}
+                        setHoveredLesson={setHoveredLesson}
                     />
                 </div>
             ) : (
@@ -488,7 +519,10 @@ const MatrixView = memo(({
                             </thead>
                             <tbody>
                                 {periods.map(p => (
-                                    <tr key={p} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+                                    <tr key={p} className={cn(
+                                        "border-b border-white/5 last:border-0 transition-colors",
+                                        !perfSettings.disableAnimations && "hover:bg-white/[0.01]"
+                                    )}>
                                         <th className="sticky left-0 z-10 bg-[#18181b] p-4 border-r border-white/5 text-center">
                                             <div className="text-lg font-black text-white leading-none">{p}</div>
                                             <div className="text-[8px] text-[#a1a1aa] font-black mt-1 opacity-50 uppercase">УРОК</div>
@@ -498,10 +532,13 @@ const MatrixView = memo(({
                                             const subject = lesson ? data.subjects.find(s => s.id === lesson.subject_id) : null;
                                             const teacher = lesson ? data.teachers.find(t => t.id === lesson.teacher_id) : null;
                                             const subColor = getSubjectColor(lesson?.subject_id || '');
-                                            const conflicts = lesson ? getConflicts(lesson.teacher_id, matrixDay, p, cls.id) : [];
+                                            const teacherConflicts = lesson ? getConflicts(lesson.teacher_id, matrixDay, p, cls.id) : [];
+                                            const classConflicts = lesson ? getClassConflicts(cls.id, matrixDay, p, lesson.teacher_id) : [];
 
                                             const isDragOver = dragOverCell?.day === matrixDay && dragOverCell?.period === p && dragOverCell?.classId === cls.id;
                                             const isDragging = draggedLesson?.day === matrixDay && draggedLesson?.period === p && draggedLesson?.class_id === cls.id;
+                                            const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
+                                            const isTeacherConflict = isTeacherHighlighted && hoveredLesson && matrixDay === hoveredLesson.day && p === hoveredLesson.period && (teacherConflicts.length > 0 || classConflicts.length > 0);
 
                                             return (
                                                 <td
@@ -527,13 +564,20 @@ const MatrixView = memo(({
                                                 >
                                                     {lesson ? (
                                                         <div
+                                                            onMouseEnter={() => lesson && setHoveredLesson(lesson)}
+                                                            onMouseLeave={() => setHoveredLesson(null)}
                                                             onClick={() => isEditMode
                                                                 ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
                                                                 : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
                                                             }
                                                             className={cn(
                                                                 "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
-                                                                isDragging ? "opacity-30 grayscale" : "opacity-100"
+                                                                isDragging ? "opacity-30 grayscale" : "opacity-100",
+                                                                classConflicts.length > 0 && "ring-1 ring-inset ring-violet-500/30 bg-violet-500/[0.03]",
+                                                                isTeacherHighlighted && (isTeacherConflict
+                                                                    ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
+                                                                    : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
+                                                                ),
                                                             )}
                                                             style={{ borderLeftColor: subColor }}
                                                             draggable={isEditMode}
@@ -549,10 +593,16 @@ const MatrixView = memo(({
                                                                 setDragOverCell(null);
                                                             }}
                                                         >
-                                                            {conflicts.length > 0 && (
+                                                            {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
                                                                 <div
-                                                                    className="absolute top-1 right-1 text-amber-500 bg-black/50 rounded-full p-1 z-10"
-                                                                    title={`Вчитель вже веде урок у: ${conflicts.join(', ')} `}
+                                                                    className={cn(
+                                                                        "absolute top-1 right-1 rounded-full p-1 z-10",
+                                                                        classConflicts.length > 0 ? "text-violet-400 bg-violet-950/60" : "text-amber-500 bg-black/50"
+                                                                    )}
+                                                                    title={classConflicts.length > 0
+                                                                        ? `Клас вже має іншого вчителя: ${classConflicts.join(', ')}`
+                                                                        : `Вчитель вже веде урок у: ${teacherConflicts.join(', ')} `
+                                                                    }
                                                                 >
                                                                     <AlertTriangle size={12} />
                                                                 </div>
@@ -630,12 +680,16 @@ interface TeachersMasterViewProps {
     setDragOverCell: (c: any) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number) => void;
     perfSettings: PerformanceSettings;
+    getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const TeachersMasterView = memo(({
-    data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts,
+    data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts, getClassConflicts,
     periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop, perfSettings
+    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop, perfSettings,
+    hoveredLesson, setHoveredLesson
 }: TeachersMasterViewProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -658,7 +712,7 @@ const TeachersMasterView = memo(({
     // I will modify the props to include lessons.
 
     return (
-        <div className={cn("animate-in fade-in duration-500 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
+        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 {!isCompact && (
                     <div>
@@ -762,6 +816,10 @@ const TeachersMasterView = memo(({
                     processTeacherDrop={processTeacherDrop}
                     isMonochrome={isMonochrome}
                     searchQuery={deferredSearchQuery}
+                    perfSettings={perfSettings}
+                    getClassConflicts={getClassConflicts}
+                    hoveredLesson={hoveredLesson}
+                    setHoveredLesson={setHoveredLesson}
                 />
             ) : (
                 <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
@@ -786,7 +844,10 @@ const TeachersMasterView = memo(({
                                     const mainSubject = data.subjects.find(s => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
 
                                     return (
-                                        <tr key={teacher.id} className="group hover:bg-white/[0.01] transition-colors">
+                                        <tr key={teacher.id} className={cn(
+                                            "group transition-colors",
+                                            !perfSettings.disableAnimations && "hover:bg-white/[0.01]"
+                                        )}>
                                             <td className="sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors p-3">
                                                 <div className="flex items-center h-full gap-2">
                                                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white text-[10px] font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
@@ -821,8 +882,23 @@ const TeachersMasterView = memo(({
                                                     }
                                                 };
 
+                                                const isTeacherHighlighted = hoveredLesson && (
+                                                    (teacherLessons.some(l => l.teacher_id === hoveredLesson.teacher_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period) ||
+                                                    (teacherLessons.some(l => l.class_id === hoveredLesson.class_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period)
+                                                );
+
+                                                const hasOtherClasses = teacherLessons.some(l => getConflicts(l.teacher_id, masterDay, p, l.class_id).length > 0);
+                                                const hasOtherTeachers = teacherLessons.some(l => getClassConflicts(l.class_id, masterDay, p, l.teacher_id).length > 0);
+                                                const isActualConflict = isTeacherHighlighted && (teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers);
+
                                                 return (
-                                                    <td key={p} className="p-2 border-b border-r border-white/5 h-[80px]">
+                                                    <td key={p} className={cn(
+                                                        "p-2 border-b border-r border-white/5 h-[80px] transition-all",
+                                                        isTeacherHighlighted && (isActualConflict
+                                                            ? "bg-amber-500/20 ring-2 ring-inset ring-amber-400 animate-pulse z-30 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-105"
+                                                            : "bg-white/10 ring-2 ring-inset ring-white animate-pulse z-20 shadow-[0_0_25px_rgba(255,255,255,0.4)] scale-105"
+                                                        )
+                                                    )}>
                                                         {hasLessons ? (
                                                             <div className="flex flex-col gap-1 h-full justify-center">
                                                                 {teacherLessons.map((lesson, idx) => {
@@ -845,11 +921,17 @@ const TeachersMasterView = memo(({
                                                                     return (
                                                                         <div
                                                                             key={idx}
+                                                                            onMouseEnter={() => lesson && setHoveredLesson(lesson)}
+                                                                            onMouseLeave={() => setHoveredLesson(null)}
                                                                             onClick={() => handleClick(lesson)}
                                                                             className={cn(
                                                                                 "w-full rounded-lg border-l-[3px] px-2 py-1 flex items-center justify-between gap-2 transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-95",
                                                                                 colorClasses,
-                                                                                teacherLessons.length > 1 ? "flex-1 text-[10px]" : "h-full text-xs"
+                                                                                teacherLessons.length > 1 ? "flex-1 text-[10px]" : "h-full text-xs",
+                                                                                isTeacherHighlighted && (isActualConflict
+                                                                                    ? "brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] bg-amber-500/30 ring-1 ring-amber-400 scale-105"
+                                                                                    : "brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] bg-white/20 ring-1 ring-white/50 scale-105"
+                                                                                )
                                                                             )}
                                                                         >
                                                                             <div className="flex flex-col min-w-0">
@@ -901,6 +983,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [isMonochrome, setIsMonochrome] = useState(false);
+    const [hoveredLesson, setHoveredLesson] = useState<Lesson | null>(null);
 
     // Drag and Drop State
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
@@ -916,13 +999,13 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
     // Helper to find a lesson
-    const findLesson = (classId: string, day: string, period: number): Lesson | null => {
+    const findLesson = useCallback((classId: string, day: string, period: number): Lesson | null => {
         return lessons.find(l =>
             l.class_id === classId &&
             l.day === day &&
             l.period === period
         ) || null;
-    };
+    }, [lessons]);
     const [dragConfirm, setDragConfirm] = useState<{
         type: 'swap' | 'move';
         source: Lesson;
@@ -973,11 +1056,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             });
         }
 
-        const newResponse: ScheduleResponse = {
-            status: schedule.status === 'conflict' ? 'conflict' : 'success', // Preserve conflict status if it exists, otherwise success
-            schedule: updatedLessons,
-            violations: schedule.status === 'conflict' ? schedule.violations : [] // Preserve violations if conflict, otherwise empty
-        };
+        const newResponse: ScheduleResponse = schedule.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
         onScheduleChange(newResponse);
         setEditingCell(null);
     };
@@ -1054,7 +1135,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         if (!masterDay && timeInfo.todayApiDay) setMasterDay(timeInfo.todayApiDay);
     }, [timeInfo.todayApiDay]);
 
-    const getConflicts = (teacherId: string, day: string, period: number, excludeClassId?: string): string[] => {
+    const getConflicts = useCallback((teacherId: string, day: string, period: number, excludeClassId?: string): string[] => {
         return lessons
             .filter(l =>
                 l.teacher_id === teacherId &&
@@ -1063,15 +1144,26 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 l.class_id !== excludeClassId
             )
             .map(l => data.classes.find(c => c.id === l.class_id)?.name || '???');
-    };
+    }, [lessons, data.classes]);
 
-    const getSubjectColor = (subjectId: string) => {
+    const getClassConflicts = useCallback((classId: string, day: string, period: number, excludeTeacherId?: string): string[] => {
+        return lessons
+            .filter(l =>
+                l.class_id === classId &&
+                l.day === day &&
+                l.period === period &&
+                l.teacher_id !== excludeTeacherId
+            )
+            .map(l => data.teachers.find(t => t.id === l.teacher_id)?.name || '???');
+    }, [lessons, data.teachers]);
+
+    const getSubjectColor = useCallback((subjectId: string) => {
         const subject = data.subjects.find(s => s.id === subjectId);
         if (subject?.color) return subject.color;
         const palette = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
         const index = data.subjects.findIndex(s => s.id === subjectId);
         return palette[index % palette.length];
-    };
+    }, [data.subjects]);
 
     const days = ["Пн", "Вт", "Ср", "Чт", "Пт"];
     const apiDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -1084,7 +1176,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
 
     // --- Drag and Drop Logic ---
 
-    const executeDragAction = () => {
+    const executeDragAction = useCallback(() => {
         if (!dragConfirm) return;
         const { source, target } = dragConfirm;
         let updatedLessons = [...lessons];
@@ -1103,9 +1195,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             if (target.lesson) {
                 updatedLessons.push({
                     ...target.lesson,
-                    teacher_id: source.teacher_id, // Keep source teacher if it was a teacher view move?
-                    // Wait, swap in ByClass view keeps teacher. Swap in Matrix view keeps class.
-                    // If target.teacherId is defined, it was a teacher move.
+                    teacher_id: source.teacher_id,
                     day: source.day,
                     period: source.period
                 });
@@ -1124,19 +1214,18 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 : source.room
         });
 
-        onScheduleChange({
-            status: schedule.status === 'conflict' ? 'conflict' : 'success',
-            schedule: updatedLessons,
-            violations: schedule.status === 'conflict' ? schedule.violations : []
-        });
+        const newResponse: ScheduleResponse = schedule.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+
+        onScheduleChange(newResponse);
         setDragConfirm(null);
         setDraggedLesson(null);
-    };
+    }, [dragConfirm, lessons, data.subjects, onScheduleChange, schedule]);
 
-    const processDrop = (targetClassId: string, targetDay: string, targetPeriod: number) => {
+    const processDrop = useCallback((targetClassId: string, targetDay: string, targetPeriod: number) => {
         if (!draggedLesson) return;
 
-        // Don't drop on self
         if (draggedLesson.class_id === targetClassId && draggedLesson.day === targetDay && draggedLesson.period === targetPeriod) {
             return;
         }
@@ -1144,14 +1233,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         const targetLesson = findLesson(targetClassId, targetDay, targetPeriod);
         const conflicts: string[] = [];
 
-        // Check 1: Is source teacher busy at target time (excluding self)?
         const sourceTeacherBusy = getConflicts(draggedLesson.teacher_id, targetDay, targetPeriod, targetClassId);
         if (sourceTeacherBusy.length > 0) {
             const teacherName = data.teachers.find(t => t.id === draggedLesson.teacher_id)?.name;
             conflicts.push(`${teacherName} вже має урок у ${sourceTeacherBusy.join(', ')} `);
         }
 
-        // Check 2: If swap, is target teacher busy at source time?
         if (targetLesson) {
             const targetTeacherBusy = getConflicts(targetLesson.teacher_id, draggedLesson.day, draggedLesson.period, targetClassId);
             if (targetTeacherBusy.length > 0) {
@@ -1168,7 +1255,6 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 conflicts
             });
         } else {
-            // Direct move
             let updatedLessons = [...lessons];
             updatedLessons = updatedLessons.filter(l =>
                 !(l.class_id === draggedLesson.class_id && l.day === draggedLesson.day && l.period === draggedLesson.period)
@@ -1180,20 +1266,19 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                 period: targetPeriod
             });
 
-            onScheduleChange({
-                status: schedule.status === 'conflict' ? 'conflict' : 'success',
-                schedule: updatedLessons,
-                violations: schedule.status === 'conflict' ? schedule.violations : []
-            });
+            const newResponse: ScheduleResponse = schedule.status === 'conflict'
+                ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+                : { status: 'success', schedule: updatedLessons };
+
+            onScheduleChange(newResponse);
             setDraggedLesson(null);
         }
         setDragOverCell(null);
-    };
+    }, [draggedLesson, lessons, data.teachers, getConflicts, schedule, onScheduleChange]);
 
-    const processTeacherDrop = (targetTeacherId: string, targetDay: string, targetPeriod: number) => {
+    const processTeacherDrop = useCallback((targetTeacherId: string, targetDay: string, targetPeriod: number) => {
         if (!draggedLesson) return;
 
-        // Don't drop on same slot
         if (draggedLesson.teacher_id === targetTeacherId && draggedLesson.day === targetDay && draggedLesson.period === targetPeriod) {
             return;
         }
@@ -1201,15 +1286,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         const targetLessons = findAllLessonsByTeacher(targetTeacherId, targetDay, targetPeriod);
         const conflicts: string[] = [];
 
-        // Check 1: Is the class busy at target time? (excluding itself if it was already there - though it's moving teacher)
         const classBusy = getConflicts(targetTeacherId, targetDay, targetPeriod, draggedLesson.class_id);
         if (classBusy.length > 0) {
             const className = data.classes.find(c => c.id === draggedLesson.class_id)?.name;
             conflicts.push(`Клас ${className} вже має урок у ${classBusy.join(', ')} `);
         }
 
-        // Drop in Teachers view usually means moving a lesson to another teacher/time
-        // If there are already lessons in target cell, it's a 'move' but with potential merge
         setDragConfirm({
             type: 'move',
             source: draggedLesson,
@@ -1223,7 +1305,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         });
 
         setDragOverCell(null);
-    };
+    }, [draggedLesson, data.classes, getConflicts, lessons]);
 
     // Redundant DashboardView internal definition removed
     // Redundant MatrixView internal definition removed
@@ -1236,6 +1318,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             l.period === period
         );
     };
+
 
     const getTeacherStats = (teacherId: string) => {
         if (!lessons) return { totalHours: 0, days: 0 };
@@ -1342,6 +1425,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         isEditMode={isEditMode}
                         isCompact={false}
                         perfSettings={perfSettings}
+                        getClassConflicts={getClassConflicts}
+                        hoveredLesson={hoveredLesson}
+                        setHoveredLesson={setHoveredLesson}
                     />
                 ) : viewType === 'matrix' ? (
                     <MatrixView
@@ -1372,6 +1458,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setIsMonochrome={setIsMonochrome}
                         lessons={lessons}
                         perfSettings={perfSettings}
+                        getClassConflicts={getClassConflicts}
+                        hoveredLesson={hoveredLesson}
+                        setHoveredLesson={setHoveredLesson}
                     />
                 ) : (
                     <TeachersMasterView
@@ -1400,6 +1489,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         setDragOverCell={setDragOverCell}
                         processTeacherDrop={processTeacherDrop}
                         perfSettings={perfSettings}
+                        getClassConflicts={getClassConflicts}
+                        hoveredLesson={hoveredLesson}
+                        setHoveredLesson={setHoveredLesson}
                     />
                 )}
             </div>
