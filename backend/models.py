@@ -12,7 +12,9 @@ class Teacher(BaseModel):
     name: str
     subjects: List[str]  # List of Subject IDs
     is_primary: bool = False
+    prefers_period_zero: bool = False  # Teacher prefers early morning lessons
     photo: Optional[str] = None
+    availability: Optional[dict[str, List[int]]] = None # Blocked periods per day
 
 class ClassGroup(BaseModel):
     id: str

@@ -1,12 +1,109 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
-import { Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap } from 'lucide-react';
+import {
+    Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap,
+    LayoutGrid, List, Filter, Clock
+} from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
 import { TeacherDetails } from './TeacherDetails';
 import { CompactTeacherSchedule } from './CompactTeacherSchedule';
 import { TeacherEditModal } from './ScheduleGrid';
-import type { Lesson } from '../types';
+import type { Lesson, Teacher } from '../types';
+import { PlanSubjectCard } from './PlanSubjectCard';
+import { TeacherDrawer } from './TeacherDrawer';
+
+interface BulkEditModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (subjects: string[], workload?: number) => void;
+    allSubjects: Subject[];
+    selectedCount: number;
+}
+
+function BulkEditModal({ isOpen, onClose, onSave, allSubjects, selectedCount }: BulkEditModalProps) {
+    const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+    const [workload, setWorkload] = useState<number | undefined>(undefined);
+
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-xl animate-in fade-in duration-300" onClick={onClose} />
+            <div className="bg-[#1a1a1c] border border-white/10 w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-300">
+                <div className="p-10">
+                    <div className="flex justify-between items-start mb-10">
+                        <div>
+                            <h2 className="text-3xl font-black text-white tracking-tighter mb-2 leading-none italic uppercase">
+                                Редагувати групу
+                            </h2>
+                            <p className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em]">Меню масових налаштувань • {selectedCount} вчителів</p>
+                        </div>
+                        <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-2xl transition-all text-[#a1a1aa] hover:text-white">
+                            <X size={24} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-10">
+                        <div>
+                            <label className="block text-[10px] font-black text-[#a1a1aa] mb-6 uppercase tracking-widest">ДОДАТИ ДИСЦИПЛІНИ:</label>
+                            <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto pr-4 custom-scrollbar">
+                                {allSubjects.map(sub => (
+                                    <button
+                                        key={sub.id}
+                                        onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
+                                        className={cn(
+                                            "px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all duration-300",
+                                            selectedSubjects.includes(sub.id)
+                                                ? "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20"
+                                                : "bg-white/5 border-white/5 text-[#a1a1aa] hover:border-indigo-400/50"
+                                        )}
+                                    >
+                                        {sub.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-[#a1a1aa] mb-4 uppercase tracking-widest italic">Годин на КОЖЕН предмет:</label>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="number"
+                                    value={workload || ''}
+                                    onChange={(e) => setWorkload(e.target.value ? parseInt(e.target.value) : undefined)}
+                                    placeholder="Напр. 18"
+                                    className="w-32 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-black outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+                                />
+                                <p className="text-[9px] font-bold text-indigo-400 uppercase leading-tight bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
+                                    ВАЖЛИВО: Це змінить години<br />для всіх предметів вчителя
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-8 bg-white/5 border-t border-white/5 flex gap-4">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-5 rounded-[24px] font-black text-[10px] uppercase tracking-widest text-[#a1a1aa] hover:bg-white/5 transition-all"
+                    >
+                        Скасувати
+                    </button>
+                    <button
+                        onClick={() => onSave(selectedSubjects, workload)}
+                        disabled={selectedSubjects.length === 0 && workload === undefined}
+                        className="flex-[2] py-5 rounded-[24px] bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-30 flex items-center justify-center gap-2"
+                    >
+                        Застосувати до {selectedCount} вчителів
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
 
 interface DataEntryProps {
     data: ScheduleRequest;
@@ -266,7 +363,7 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
 
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-6">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 shadow-inner" style={{ backgroundColor: `${color}20`, color: color }}>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 shadow-inner" style={{ backgroundColor: `${color} 20`, color: color }}>
                                         {subject.id}
                                     </div>
                                     <div className="flex gap-1">
@@ -355,7 +452,7 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                 onClose={() => setDeleteId(null)}
                 onConfirm={confirmDelete}
                 title="Видалити предмет?"
-                description={`Ви впевнені, що хочете видалити "${data.subjects.find(s => s.id === deleteId)?.name}"? Це також видалить його з планів та вчителів.`}
+                description={`Ви впевнені, що хочете видалити "${data.subjects.find(s => s.id === deleteId)?.name}" ? Це також видалить його з планів та вчителів.`}
             />
         </div>
     );
@@ -378,6 +475,73 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
     const [dragOverCell, setDragOverCell] = useState<any>(null);
+    const [listMode, setListMode] = useState<'grid' | 'table'>('grid');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [draggedSubjectId, setDraggedSubjectId] = useState<string | null>(null);
+
+    const handleSubjectDrop = (teacherId: string, subjectId: string) => {
+        onChange({
+            ...data,
+            teachers: data.teachers.map(t => {
+                if (t.id !== teacherId) return t;
+                if (t.subjects.includes(subjectId)) return t;
+                return { ...t, subjects: [...t.subjects, subjectId] };
+            })
+        });
+    };
+    const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
+    const [filterWorkload, setFilterWorkload] = useState<'all' | 'under' | 'over' | 'normal'>('all');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+
+    const handleBulkDelete = () => {
+        setIsBulkDeleteModalOpen(true);
+    };
+
+    const confirmBulkDelete = () => {
+        onChange({
+            ...data,
+            teachers: data.teachers.filter(t => !selectedIds.includes(t.id)),
+            plan: data.plan.filter(p => !selectedIds.includes(p.teacher_id))
+        });
+        setSelectedIds([]);
+        setIsBulkDeleteModalOpen(false);
+    };
+
+    const handleBulkEditAction = (subjectsToAdd: string[], newWorkload?: number) => {
+        onChange({
+            ...data,
+            teachers: data.teachers.map(t => {
+                if (!selectedIds.includes(t.id)) return t;
+
+                let updatedTeacher = { ...t };
+
+                // Add unique subjects if any
+                if (subjectsToAdd.length > 0) {
+                    updatedTeacher.subjects = [...new Set([...updatedTeacher.subjects, ...subjectsToAdd])];
+                }
+
+                return updatedTeacher;
+            }),
+            // If workload is set, we need to find or create plan items for these teachers
+            // Simplified for now: we'll only update existing plan items if we had a single subject,
+            // but for bulk it's complex. Let's just update the teachers' list and maybe handle workload differently?
+            // Actually, the user likely wants to set the limit in the plan.
+            plan: data.plan.map(p => {
+                if (selectedIds.includes(p.teacher_id) && newWorkload !== undefined) {
+                    return { ...p, hours_per_week: newWorkload };
+                }
+                return p;
+            })
+        });
+        setIsBulkEditModalOpen(false);
+        setSelectedIds([]);
+    };
+
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [teacherToEdit, setTeacherToEdit] = useState<Teacher | null>(null);
 
     const periods = [0, 1, 2, 3, 4, 5, 6, 7];
     const days = ["Пн", "Вт", "Ср", "Чт", "Пт"];
@@ -429,22 +593,31 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
     const [name, setName] = useState('');
     const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
     const [photo, setPhoto] = useState<string | null>(null);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editingName, setEditingName] = useState('');
-    const [editingSubjects, setEditingSubjects] = useState<string[]>([]);
-    const [editingPhoto, setEditingPhoto] = useState<string | null>(null);
     const [is_primary, setIsPrimary] = useState(false);
-    const [editingIsPrimary, setEditingIsPrimary] = useState(false);
+    const [prefersPeriodZero, setPrefersPeriodZero] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
+    const handleOpenDrawer = (teacher: Teacher) => {
+        setTeacherToEdit(teacher);
+        setIsDrawerOpen(true);
+    };
+
+    const handleSaveFromDrawer = (updatedTeacher: Teacher) => {
+        onChange({
+            ...data,
+            teachers: data.teachers.map(t => t.id === updatedTeacher.id ? updatedTeacher : t)
+        });
+        setIsDrawerOpen(false);
+        setTeacherToEdit(null);
+    };
+
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onloadend = () => {
             const result = reader.result as string;
-            if (isEditing) setEditingPhoto(result);
-            else setPhoto(result);
+            setPhoto(result);
         };
         reader.readAsDataURL(file);
     };
@@ -453,22 +626,13 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
         if (!name.trim()) return;
         onChange({
             ...data,
-            teachers: [...data.teachers, { id: nextId(), name: name.trim(), subjects: selectedSubjects, is_primary, photo: photo || undefined }]
+            teachers: [...data.teachers, { id: nextId(), name: name.trim(), subjects: selectedSubjects, is_primary, prefers_period_zero: prefersPeriodZero, photo: photo || undefined }]
         });
         setName('');
         setSelectedSubjects([]);
         setIsPrimary(false);
+        setPrefersPeriodZero(false);
         setPhoto(null);
-    };
-
-    const handleSaveEdit = () => {
-        if (!editingId || !editingName.trim()) return;
-        onChange({
-            ...data,
-            teachers: data.teachers.map(t => t.id === editingId ? { ...t, name: editingName.trim(), subjects: editingSubjects, is_primary: editingIsPrimary, photo: editingPhoto || undefined } : t)
-        });
-        setEditingId(null);
-        setEditingPhoto(null);
     };
 
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -487,10 +651,32 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
         setDeleteId(null);
     };
 
-    const filteredTeachers = useMemo(() =>
-        [...data.teachers].sort((a, b) => a.name.localeCompare(b.name, 'uk')).filter(t =>
-            t.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ), [data.teachers, searchQuery]);
+    const filteredTeachers = useMemo(() => {
+        let result = [...data.teachers];
+
+        // Name Search
+        if (searchQuery) {
+            result = result.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+
+        // Subject Filter
+        if (filterSubjects.length > 0) {
+            result = result.filter(t => filterSubjects.some(sid => t.subjects.includes(sid)));
+        }
+
+        // Workload Filter
+        if (filterWorkload !== 'all') {
+            result = result.filter(t => {
+                const hours = data.plan.filter(p => p.teacher_id === t.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+                if (filterWorkload === 'under') return hours < 15;
+                if (filterWorkload === 'over') return hours > 22;
+                if (filterWorkload === 'normal') return hours >= 15 && hours <= 22;
+                return true;
+            });
+        }
+
+        return result.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+    }, [data.teachers, searchQuery, filterSubjects, filterWorkload, data.plan]);
 
     if (selectedTeacherId) {
         const teacher = data.teachers.find(t => t.id === selectedTeacherId);
@@ -625,7 +811,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                             />
                             <div className="flex items-center gap-3">
                                 <label className="cursor-pointer group/upload">
-                                    <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e, false)} />
+                                    <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
                                     <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-[#a1a1aa] group-hover/upload:bg-white/10 group-hover/upload:text-white transition-all">
                                         {photo ? <Check size={14} className="text-emerald-500" /> : <Plus size={14} />}
                                         {photo ? 'Фото завантажено' : 'Завантажити фото'}
@@ -665,6 +851,26 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                         </div>
                     </button>
 
+                    <button
+                        onClick={() => setPrefersPeriodZero(!prefersPeriodZero)}
+                        className={cn(
+                            "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
+                            prefersPeriodZero
+                                ? "bg-violet-500/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
+                                : "bg-white/5 border-white/10 hover:bg-white/10"
+                        )}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", prefersPeriodZero ? "bg-violet-500 border-violet-500" : "border-white/20")}>
+                                {prefersPeriodZero && <Check size={14} className="text-white" />}
+                            </div>
+                            <div className="text-left">
+                                <div className="font-bold text-white text-sm">Віддає перевагу нульовому уроку</div>
+                                <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки цього вчителя будуть частіше в періоді 0 (ранок)</div>
+                            </div>
+                        </div>
+                    </button>
+
                     <div>
                         <label className="block text-[10px] font-black text-[#a1a1aa] mb-3 uppercase tracking-widest">Дисципліни:</label>
                         <div className="flex flex-wrap gap-2">
@@ -687,140 +893,556 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-emerald-400 transition-colors" size={20} />
-                <input
-                    type="text"
-                    placeholder="Пошук вчителів..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-white placeholder:text-white/20 transition-all"
-                />
+            {/* Search, Filter and View Toggle */}
+            <div className="flex gap-4">
+                <div className="relative group flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400 transition-colors" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Пошук вчителів за ім'ям..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-white placeholder:text-white/20 transition-all font-black"
+                    />
+                </div>
+
+                <div className="relative">
+                    <button
+                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                        className={cn(
+                            "h-full px-6 rounded-2xl border flex items-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest whitespace-nowrap",
+                            isFilterOpen || filterSubjects.length > 0 || filterWorkload !== 'all'
+                                ? "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20"
+                                : "bg-white/5 border-white/10 text-[#a1a1aa] hover:bg-white/10 border-white/10"
+                        )}
+                    >
+                        <Filter size={18} />
+                        Фільтри
+                        {(filterSubjects.length > 0 || filterWorkload !== 'all') && (
+                            <span className="w-5 h-5 bg-white text-indigo-600 rounded-lg flex items-center justify-center text-[10px] font-black">
+                                {(filterSubjects.length > 0 ? 1 : 0) + (filterWorkload !== 'all' ? 1 : 0)}
+                            </span>
+                        )}
+                    </button>
+
+                    {isFilterOpen && (
+                        <>
+                            <div className="fixed inset-0 z-[70]" onClick={() => setIsFilterOpen(false)} />
+                            <div className="absolute right-0 mt-4 w-[360px] bg-[#1a1c1e] border border-white/10 rounded-[32px] p-8 shadow-2xl z-[80] animate-in zoom-in-95 fade-in duration-300">
+                                <div className="space-y-8">
+                                    {/* Subject Filter */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <label className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Дисципліни:</label>
+                                            {filterSubjects.length > 0 && (
+                                                <button onClick={() => setFilterSubjects([])} className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase underline">Скинути</button>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {data.subjects.map(sub => (
+                                                <button
+                                                    key={sub.id}
+                                                    onClick={() => setFilterSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                                                        filterSubjects.includes(sub.id)
+                                                            ? "bg-indigo-500 border-indigo-400 text-white"
+                                                            : "bg-white/5 border-white/5 text-[#a1a1aa] hover:border-indigo-400/30"
+                                                    )}
+                                                >
+                                                    {sub.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Workload Filter */}
+                                    <div>
+                                        <label className="block text-[10px] font-black text-[#a1a1aa] mb-4 uppercase tracking-widest leading-none">Навантаження:</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: 'all', label: 'Всі' },
+                                                { id: 'under', label: '< 15 год' },
+                                                { id: 'normal', label: '15-22 год' },
+                                                { id: 'over', label: '> 22 год' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    onClick={() => setFilterWorkload(opt.id as any)}
+                                                    className={cn(
+                                                        "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                                        filterWorkload === opt.id
+                                                            ? "bg-indigo-500 border-indigo-400 text-white"
+                                                            : "bg-white/5 border-white/5 text-[#a1a1aa] hover:border-indigo-400/30"
+                                                    )}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setFilterSubjects([]);
+                                            setFilterWorkload('all');
+                                            setIsFilterOpen(false);
+                                        }}
+                                        className="w-full py-4 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/10 transition-all"
+                                    >
+                                        Очистити все
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="flex p-1 bg-white/[0.03] rounded-2xl border border-white/5 h-fit self-center">
+                    <button
+                        onClick={() => setListMode('grid')}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            listMode === 'grid' ? "bg-white/10 text-white shadow-xl" : "text-[#a1a1aa] hover:text-white"
+                        )}
+                        title="Сітка"
+                    >
+                        <LayoutGrid size={20} />
+                    </button>
+                    <button
+                        onClick={() => setListMode('table')}
+                        className={cn(
+                            "p-3 rounded-xl transition-all",
+                            listMode === 'table' ? "bg-white/10 text-white shadow-xl" : "text-[#a1a1aa] hover:text-white"
+                        )}
+                        title="Таблиця"
+                    >
+                        <List size={20} />
+                    </button>
+                    {!isSidebarOpen && (
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all border border-indigo-500/20 flex items-center gap-2 px-4 shadow-lg shadow-indigo-500/10"
+                            title="Призначити предмети (Drop)"
+                        >
+                            <BookOpen size={20} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">DND Панель</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* List */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredTeachers.map(teacher => {
-                    const isEditing = editingId === teacher.id;
-                    const hours = data.plan.filter(p => p.teacher_id === teacher.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+            {/* List and Sidebar Container */}
+            <div className="flex gap-8 items-start relative pb-20">
+                <div className="flex-1 min-w-0">
+                    {listMode === 'grid' ? (
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {filteredTeachers.map(teacher => {
+                                const hours = data.plan.filter(p => p.teacher_id === teacher.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+                                const isSelected = selectedIds.includes(teacher.id);
 
-                    return (
-                        <div key={teacher.id} className={cn(
-                            "bento-card p-6 border-white/5 transition-all duration-300 group relative overflow-hidden",
-                            isEditing ? "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-2xl shadow-emerald-500/10" : "bg-white/[0.04] hover:bg-white/[0.08]"
-                        )}>
-                            <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700 pointer-events-none">
-                                <Users size={160} />
-                            </div>
-
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-[24px] flex items-center justify-center font-black overflow-hidden border border-white/10 shadow-xl group-hover:scale-110 transition-transform">
-                                        {teacher.photo ? (
-                                            <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
-                                        ) : (
-                                            <span className="text-2xl">{teacher.name.slice(0, 1).toUpperCase()}</span>
+                                return (
+                                    <div
+                                        key={teacher.id}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            e.currentTarget.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-4', 'ring-offset-[#09090b]');
+                                        }}
+                                        onDragLeave={(e) => {
+                                            e.currentTarget.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-4', 'ring-offset-[#09090b]');
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.currentTarget.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-4', 'ring-offset-[#09090b]');
+                                            const sid = e.dataTransfer.getData('subjectId');
+                                            if (sid) handleSubjectDrop(teacher.id, sid);
+                                        }}
+                                        onClick={() => {
+                                            setSelectedTeacherId(teacher.id);
+                                            setViewMode('details');
+                                        }}
+                                        className={cn(
+                                            "bento-card p-0 border-white/5 transition-all duration-500 group relative overflow-hidden flex flex-col cursor-pointer",
+                                            isSelected ? "bg-indigo-500/10 border-indigo-500/30 scale-[0.98]" : "bg-white/[0.04] hover:bg-white/[0.08]"
                                         )}
-                                    </div>
-                                    <div className="flex gap-1.5">
-                                        {isEditing ? (
-                                            <>
-                                                <button onClick={handleSaveEdit} className="p-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 shadow-lg shadow-green-500/20"><Check size={18} /></button>
-                                                <button onClick={() => setEditingId(null)} className="p-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 shadow-lg shadow-red-500/20"><X size={18} /></button>
-                                            </>
-                                        ) : (
-                                            <>
+                                    >
+                                        {/* Top Actions: Selection (Left) & Edit/Delete (Right) */}
+                                        <div className="flex justify-between items-center p-5 relative z-20">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedIds(prev => isSelected ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id]);
+                                                }}
+                                                className={cn(
+                                                    "w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center",
+                                                    isSelected
+                                                        ? "bg-indigo-500 border-indigo-400 text-white scale-110 shadow-lg shadow-indigo-500/30"
+                                                        : "bg-black/20 border-white/10 text-transparent hover:border-white/30"
+                                                )}
+                                            >
+                                                <Check size={12} strokeWidth={4} className={cn(isSelected ? "opacity-100" : "opacity-0")} />
+                                            </button>
+
+                                            <div className="flex gap-2">
                                                 <button
-                                                    onClick={() => {
-                                                        setSelectedTeacherId(teacher.id);
-                                                        setViewMode('details');
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenDrawer(teacher);
                                                     }}
-                                                    className="p-2.5 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 shadow-lg shadow-indigo-500/20 transition-all"
-                                                    title="Статистика та розклад"
+                                                    className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100 border border-white/5"
+                                                    title="Редагувати"
                                                 >
-                                                    <ClipboardList size={18} />
+                                                    <Pencil size={16} />
                                                 </button>
-                                                <button onClick={() => { setEditingId(teacher.id); setEditingName(teacher.name); setEditingSubjects(teacher.subjects); setEditingIsPrimary(teacher.is_primary || false); setEditingPhoto(teacher.photo || null); }} className="p-2.5 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100"><Pencil size={18} /></button>
-                                                <button onClick={() => handleDelete(teacher.id)} className="p-2.5 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {isEditing ? (
-                                    <div className="space-y-4">
-                                        <input
-                                            value={editingName}
-                                            onChange={e => setEditingName(e.target.value)}
-                                            className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-2xl focus:border-emerald-500 outline-none font-black text-white text-xl"
-                                            placeholder="Прізвище І.О."
-                                        />
-                                        <div className="space-y-3">
-                                            <label className="block text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em]">Дисципліни</label>
-                                            <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                                                {data.subjects.map(sub => (
+                                                {!isSelected && (
                                                     <button
-                                                        key={sub.id}
-                                                        onClick={() => setEditingSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(teacher.id);
+                                                        }}
+                                                        className="p-2 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 border border-rose-500/5"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Main Content */}
+                                        <div className="px-6 pb-6 pt-2 flex-col flex flex-1">
+                                            <div className="flex items-center gap-5 mb-6">
+                                                <div className="w-16 h-16 bg-gradient-to-br from-[#1e293b] to-[#0f172a] rounded-[22px] flex items-center justify-center font-black overflow-hidden border border-white/10 shadow-2xl group-hover:scale-105 transition-transform shrink-0">
+                                                    {teacher.photo ? (
+                                                        <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
+                                                    ) : (
+                                                        <span className="text-2xl text-white/50">{teacher.name.slice(0, 1).toUpperCase()}</span>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xl font-black text-white tracking-tighter truncate leading-tight mb-1">
+                                                        {teacher.name}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {teacher.is_primary && (
+                                                            <div className="bg-emerald-500/10 text-emerald-400 p-1 rounded-lg border border-emerald-500/20" title="Початкові класи">
+                                                                <GraduationCap size={14} />
+                                                            </div>
+                                                        )}
+                                                        {teacher.prefers_period_zero && (
+                                                            <div className="bg-violet-500/10 text-violet-400 p-1 rounded-lg border border-violet-500/20" title="Нульовий урок">
+                                                                <Clock size={14} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3 mt-auto">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em] italic">Load Factor</span>
+                                                    <span className={cn("text-xs font-black", hours > 30 ? "text-rose-400" : "text-emerald-400")}>{hours}h/week</span>
+                                                </div>
+                                                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[2px]">
+                                                    <div
+                                                        className={cn("h-full rounded-full transition-all duration-1000 delay-100", hours > 30 ? "bg-rose-500" : "bg-emerald-500")}
+                                                        style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }}
+                                                    />
+                                                </div>
+
+                                                {/* Subject Tags */}
+                                                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+                                                    {teacher.subjects.slice(0, 3).map(sid => {
+                                                        const sub = data.subjects.find(s => s.id === sid);
+                                                        return (
+                                                            <span key={sid} className="px-2.5 py-1 bg-white/[0.03] text-[9px] font-black text-white/70 rounded-lg border border-white/5 uppercase tracking-tight flex items-center gap-1.5">
+                                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sub?.color || '#6366f1' }} />
+                                                                {sub?.name.slice(0, 8) || sid}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                    {teacher.subjects.length > 3 && (
+                                                        <div className="relative group/tooltip">
+                                                            <span className="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[9px] font-black rounded-lg border border-indigo-500/20 uppercase cursor-help">
+                                                                +{teacher.subjects.length - 3}
+                                                            </span>
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 bg-[#1a1a1c] border border-white/10 p-3 rounded-2xl shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all z-[100]">
+                                                                <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Усі дисципліни</div>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    {teacher.subjects.map(sid => {
+                                                                        const sub = data.subjects.find(s => s.id === sid);
+                                                                        return (
+                                                                            <div key={sid} className="flex items-center gap-2">
+                                                                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6366f1' }} />
+                                                                                <span className="text-[10px] font-bold text-white/80">{sub?.name}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1a1a1c] rotate-45 border-r border-b border-white/10 -mt-1.5" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="bg-white/[0.04] rounded-3xl border border-white/5 overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-white/5 border-b border-white/5">
+                                        <th className="p-5 w-12 text-center">
+                                            <button
+                                                onClick={() => setSelectedIds(selectedIds.length === filteredTeachers.length ? [] : filteredTeachers.map(t => t.id))}
+                                                className={cn(
+                                                    "w-5 h-5 rounded border transition-all flex items-center justify-center mx-auto",
+                                                    selectedIds.length === filteredTeachers.length ? "bg-indigo-500 border-indigo-400" : "bg-white/10 border-white/10"
+                                                )}
+                                            >
+                                                {selectedIds.length === filteredTeachers.length && <Check size={12} strokeWidth={4} className="text-white" />}
+                                            </button>
+                                        </th>
+                                        <th className="p-5 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Вчитель</th>
+                                        <th className="p-5 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Дисципліни</th>
+                                        <th className="p-5 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center">Нав-ня</th>
+                                        <th className="p-5 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-right">Дії</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {filteredTeachers.map(teacher => {
+                                        const hours = data.plan.filter(p => p.teacher_id === teacher.id).reduce((acc, p) => acc + p.hours_per_week, 0);
+                                        const isSelected = selectedIds.includes(teacher.id);
+
+                                        return (
+                                            <tr
+                                                key={teacher.id}
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    const sid = e.dataTransfer.getData('subjectId');
+                                                    if (sid) handleSubjectDrop(teacher.id, sid);
+                                                }}
+                                                onClick={() => {
+                                                    setSelectedTeacherId(teacher.id);
+                                                    setViewMode('details');
+                                                }}
+                                                className={cn("border-b border-white/5 transition-colors group cursor-pointer", isSelected ? "bg-indigo-500/5" : "hover:bg-white/5")}
+                                            >
+                                                <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => setSelectedIds(prev => isSelected ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id])}
                                                         className={cn(
-                                                            "px-3 py-2 rounded-xl text-[10px] font-bold border transition-all text-left",
-                                                            editingSubjects.includes(sub.id) ? "bg-emerald-500 border-emerald-400 text-white" : "bg-white/5 border-white/10 text-[#a1a1aa]"
+                                                            "w-5 h-5 rounded border transition-all flex items-center justify-center mx-auto",
+                                                            isSelected ? "bg-indigo-500 border-indigo-400" : "bg-white/5 border-white/10 group-hover:border-white/20"
                                                         )}
                                                     >
-                                                        {sub.name}
+                                                        {isSelected && <Check size={12} strokeWidth={4} className="text-white" />}
                                                     </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="text-3xl font-black text-white tracking-tighter mb-4 leading-[1.1]">
-                                            {teacher.name.split(' ').map((p, i) => <div key={i}>{p}</div>)}
-                                        </div>
-
-                                        <div className="space-y-3 mt-auto">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Load</span>
-                                                <span className={cn("text-xs font-black", hours > 30 ? "text-red-400" : "text-emerald-400")}>{hours}h / week</span>
-                                            </div>
-                                            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
-                                                <div
-                                                    className={cn("h-full rounded-full transition-all duration-1000 delay-100", hours > 30 ? "bg-red-500" : "bg-emerald-500")}
-                                                    style={{ width: `${Math.min(hours / 35 * 100, 100)}%` }}
-                                                />
-                                            </div>
-                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                {teacher.subjects.slice(0, 3).map(sid => (
-                                                    <span key={sid} className="px-2 py-0.5 bg-white/5 text-[9px] font-black text-[#a1a1aa] rounded-md border border-white/5 uppercase">
-                                                        {data.subjects.find(s => s.id === sid)?.name.slice(0, 6) || sid}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-white/5 overflow-hidden flex items-center justify-center text-indigo-400 font-black">
+                                                            {teacher.photo ? <img src={teacher.photo} className="w-full h-full object-cover" /> : teacher.name[0]}
+                                                        </div>
+                                                        <div className="font-black text-white">{teacher.name}</div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {teacher.subjects.map(sid => (
+                                                            <span key={sid} className="px-2 py-0.5 bg-white/5 text-[9px] font-black text-[#a1a1aa] rounded border border-white/5 uppercase">
+                                                                {data.subjects.find(s => s.id === sid)?.name || sid}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={cn("text-xs font-black", hours > 30 ? "text-rose-400" : "text-indigo-400")}>
+                                                        {hours} год
                                                     </span>
-                                                ))}
-                                                {teacher.subjects.length > 3 && <span className="text-[9px] font-black text-white/20">+{teacher.subjects.length - 3}</span>}
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                                                </td>
+                                                <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => { setSelectedTeacherId(teacher.id); setViewMode('details'); }}
+                                                            className="p-2 bg-white/5 text-[#a1a1aa] rounded-lg hover:bg-indigo-500 hover:text-white transition-all"
+                                                        >
+                                                            <ClipboardList size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenDrawer(teacher)}
+                                                            className="p-2 bg-white/5 text-[#a1a1aa] rounded-lg hover:bg-white/10 hover:text-white transition-all outline-none"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(teacher.id)}
+                                                            className="p-2 bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
-                    );
-                })}
-                {filteredTeachers.length === 0 && (
-                    <div className="text-center py-20 bg-white/5 rounded-3xl border-2 border-dashed border-white/5">
-                        <Users size={48} className="mx-auto mb-4 text-white/10" />
-                        <p className="font-black text-white/30 uppercase tracking-widest text-sm">
-                            {searchQuery ? 'Вчителів не знайдено' : 'Вчителі ще не додані'}
+                    )}
+
+                    {filteredTeachers.length === 0 && (
+                        <div className="text-center py-20 bg-white/5 rounded-3xl border-2 border-dashed border-white/5">
+                            <Users size={48} className="mx-auto mb-4 text-white/10" />
+                            <p className="font-black text-white/30 uppercase tracking-widest text-sm">
+                                {searchQuery ? 'Вчителів не знайдено' : 'Вчителі ще не додані'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Subject Sidebar for DND */}
+                <div
+                    className={cn(
+                        "w-72 bg-[#1a1c1e] border border-white/10 rounded-[32px] p-6 sticky top-8 transition-all duration-500 flex flex-col gap-6 shadow-2xl overflow-hidden",
+                        isSidebarOpen ? "translate-x-0 opacity-100" : "translate-x-12 opacity-0 pointer-events-none w-0 p-0 overflow-hidden border-none"
+                    )}
+                >
+                    <div className="flex justify-between items-center mb-2">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <BookOpen size={16} />
+                            </div>
+                            <h4 className="text-[10px] font-black text-white uppercase tracking-widest italic">Предмети (Drag)</h4>
+                        </div>
+                        <button onClick={() => setIsSidebarOpen(false)} className="text-[#a1a1aa] hover:text-white p-2">
+                            <X size={16} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-1 min-h-0">
+                        {data.subjects.length > 0 ? getSortedSubjects(data.subjects).map(sub => (
+                            <div
+                                key={sub.id}
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData('subjectId', sub.id);
+                                    setDraggedSubjectId(sub.id);
+                                }}
+                                onDragEnd={() => setDraggedSubjectId(null)}
+                                className={cn(
+                                    "p-4 bg-white/[0.03] border border-white/5 rounded-2xl cursor-grab active:cursor-grabbing transition-all hover:bg-white/[0.08] hover:border-indigo-500/30 group/item flex items-center gap-3",
+                                    draggedSubjectId === sub.id && "ring-2 ring-indigo-500 opacity-50"
+                                )}
+                            >
+                                <div
+                                    className="w-1.5 h-6 rounded-full"
+                                    style={{ backgroundColor: sub.color || '#6366f1' }}
+                                />
+                                <span className="text-[11px] font-black text-white uppercase tracking-tight group-hover/item:text-indigo-300 transition-colors">
+                                    {sub.name}
+                                </span>
+                            </div>
+                        )) : (
+                            <div className="text-[10px] font-bold text-[#a1a1aa] text-center py-10 opacity-50 uppercase italic">
+                                Предметів не знайдено
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
+                        <p className="text-[9px] font-bold text-indigo-300/60 uppercase tracking-widest text-center leading-relaxed">
+                            ПЕРЕТЯГНІТЬ ПРЕДМЕТ<br />НА КАРТКУ ВЧИТЕЛЯ<br />ДЛЯ ПРИЗНАЧЕННЯ
                         </p>
                     </div>
+                </div>
+
+                {!isSidebarOpen && (
+                    <button
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="fixed right-10 top-1/2 -translate-y-1/2 z-40 bg-indigo-600 text-white w-14 h-14 rounded-2xl shadow-xl shadow-indigo-600/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest group"
+                        title="Відкрити панель предметів"
+                    >
+                        <BookOpen size={24} className="group-hover:rotate-12 transition-transform" />
+                    </button>
                 )}
             </div>
+
+            {/* Bulk Action Bar */}
+            {selectedIds.length > 0 && createPortal(
+                <div
+                    className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[90] bg-[#1a1a1c]/90 backdrop-blur-2xl border border-white/10 px-8 py-5 rounded-[40px] shadow-2xl flex items-center gap-8 animate-in slide-in-from-bottom-20 fade-in duration-700"
+                    style={{ minWidth: 'fit-content' }}
+                >
+                    <div className="flex items-center gap-4 border-r border-white/5 pr-8">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-600/30">
+                            {selectedIds.length}
+                        </div>
+                        <div>
+                            <div className="text-sm font-black text-white leading-tight italic uppercase tracking-tighter">Вчителів обрано</div>
+                            <div className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-[0.2em]">Масові дії</div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsBulkEditModalOpen(true)}
+                            className="px-8 py-4 rounded-[20px] bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+                        >
+                            <Pencil size={18} /> Редагувати групу
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds([])}
+                            className="px-8 py-4 rounded-[20px] bg-white/5 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5"
+                        >
+                            Скасувати
+                        </button>
+                        <button
+                            onClick={handleBulkDelete}
+                            className="px-8 py-4 rounded-[20px] bg-rose-500/10 text-rose-500 border border-rose-500/20 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all flex items-center gap-3"
+                        >
+                            <Trash2 size={18} /> Видалити
+                        </button>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            <ConfirmationModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                onConfirm={confirmBulkDelete}
+                title="Видалити обраних?"
+                description={`Ви впевнені, що хочете видалити ${selectedIds.length} обраних вчителів? Цю дію неможливо скасувати.`}
+            />
+
+            {isBulkEditModalOpen && (
+                <BulkEditModal
+                    isOpen={isBulkEditModalOpen}
+                    onClose={() => setIsBulkEditModalOpen(false)}
+                    onSave={handleBulkEditAction}
+                    allSubjects={data.subjects}
+                    selectedCount={selectedIds.length}
+                />
+            )}
             <ConfirmationModal
                 isOpen={deleteId !== null}
                 onClose={() => setDeleteId(null)}
                 onConfirm={confirmDelete}
                 title="Видалити вчителя?"
-                description={`Ви впевнені, що хочете видалити вчителя "${data.teachers.find(t => t.id === deleteId)?.name}"?`}
+                description={`Ви впевнені, що хочете видалити вчителя "${data.teachers.find(t => t.id === deleteId)?.name}" ? `}
+            />
+
+            <TeacherDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                teacher={teacherToEdit}
+                allSubjects={data.subjects}
+                data={data}
+                onSave={handleSaveFromDrawer}
             />
         </div>
     );
@@ -855,7 +1477,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
         if (!selectedGrade || selectedLetters.length === 0) return;
         let newClasses = [...data.classes];
         selectedLetters.forEach(letter => {
-            const className = `${selectedGrade}-${letter}`;
+            const className = `${selectedGrade} -${letter} `;
             if (!newClasses.some(c => c.name === className)) {
                 newClasses.push({ id: getNextId(newClasses), name: className });
             }
@@ -896,9 +1518,22 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
         setEditingPlanSubjectId(null);
     };
 
+    const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'plan'>('overview');
+
+    // Generate mock students
+    const mockStudents = useMemo(() => {
+        if (!viewingClassId) return [];
+        return Array.from({ length: 25 }, (_, i) => ({
+            id: `s - ${i + 1} `,
+            name: `Учень ${i + 1} (${viewingClass?.name})`,
+            email: `student${i + 1} @school.com`
+        }));
+    }, [viewingClassId, viewingClass]);
+
     if (viewingClassId && viewingClass) {
         return (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                {/* Header */}
                 <div className="flex items-center justify-between bg-white/5 p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
                     <div className="absolute -top-12 -right-12 p-4 opacity-[0.03] group-hover:scale-110 transition-transform pointer-events-none">
                         <GraduationCap size={160} />
@@ -909,7 +1544,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                         </button>
                         <div>
                             <h3 className="text-3xl font-black text-white tracking-tight">Клас {viewingClass.name}</h3>
-                            <p className="text-sm font-black text-[#a1a1aa] uppercase tracking-widest">Навчальний план</p>
+                            <p className="text-sm font-black text-[#a1a1aa] uppercase tracking-widest">Детальна інформація</p>
                         </div>
                     </div>
                     <div className="bg-violet-500/20 text-violet-400 px-5 py-2 rounded-xl text-lg font-black border border-violet-500/10">
@@ -917,67 +1552,180 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {getSortedSubjects(data.subjects).map(subject => {
-                        const planItem = classPlan.find(p => p.subject_id === subject.id);
-                        const teacher = planItem ? data.teachers.find(t => t.id === planItem.teacher_id) : null;
-                        const isEditing = editingPlanSubjectId === subject.id;
+                {/* Tabs */}
+                <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+                    {(['overview', 'plan', 'students'] as const).map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={cn(
+                                "flex-1 py-3 rounded-lg text-sm font-black uppercase tracking-widest transition-all",
+                                activeTab === tab
+                                    ? "bg-violet-500 text-white shadow-lg shadow-violet-500/20"
+                                    : "text-[#a1a1aa] hover:bg-white/5 hover:text-white"
+                            )}
+                        >
+                            {tab === 'overview' && 'Огляд'}
+                            {tab === 'plan' && 'Навчальний План'}
+                            {tab === 'students' && 'Учні'}
+                        </button>
+                    ))}
+                </div>
 
-                        const grade = parseInt(viewingClass.name);
-                        const isPrimaryGrade = !isNaN(grade) && grade >= 1 && grade <= 4;
-
-                        const subjectTeachers = data.teachers.filter(t => {
-                            if (t.subjects.includes(subject.id)) return true;
-                            if (isPrimaryGrade && t.is_primary) return true;
-                            return false;
-                        });
-
-                        return (
-                            <div key={subject.id} className={cn(
-                                "bento-card p-5 border-white/5 transition-all duration-300",
-                                isEditing ? "ring-2 ring-violet-500/50 bg-white/5" : planItem ? "bg-white/[0.04]" : "bg-white/[0.01] opacity-50"
-                            )}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn(
-                                            "w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg",
-                                            planItem ? "bg-violet-500/20 text-violet-400" : "bg-white/5 text-white/20"
-                                        )}>
-                                            {planItem?.hours_per_week || 0}
-                                        </div>
-                                        <div>
-                                            <div className="font-black text-white text-lg tracking-tight">{subject.name}</div>
-                                            {isEditing ? (
-                                                <div className="flex gap-2 mt-3">
-                                                    <select value={tempTeacherId} onChange={e => setTempTeacherId(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-3 py-1 outline-none focus:ring-1 focus:ring-violet-500 max-w-[150px]">
-                                                        <option value="" className="bg-[#18181b]">Вчитель</option>
-                                                        {subjectTeachers.map(t => (
-                                                            <option key={t.id} value={t.id} className="bg-[#18181b]">
-                                                                {t.name} {t.is_primary && !t.subjects.includes(subject.id) ? "(Поч.)" : ""}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <input type="number" min={0} value={tempHours} onChange={e => setTempHours(parseInt(e.target.value) || 0)} className="w-16 bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-2 py-1 outline-none text-center focus:ring-1 focus:ring-violet-500" />
+                {/* Content */}
+                <div className="min-h-[400px]">
+                    {activeTab === 'overview' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-300">
+                            {/* Summary Card */}
+                            <div className="bento-card p-6 border-white/5 space-y-4">
+                                <h4 className="flex items-center gap-2 text-xl font-black text-white">
+                                    <ClipboardList className="text-violet-400" />
+                                    Навантаження
+                                </h4>
+                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {getSortedSubjects(data.subjects)
+                                        .filter(s => classPlan.some(p => p.subject_id === s.id && p.hours_per_week > 0))
+                                        .sort((a, b) => {
+                                            const hA = classPlan.find(p => p.subject_id === a.id)?.hours_per_week || 0;
+                                            const hB = classPlan.find(p => p.subject_id === b.id)?.hours_per_week || 0;
+                                            return hB - hA;
+                                        })
+                                        .map(subject => {
+                                            const hours = classPlan.find(p => p.subject_id === subject.id)?.hours_per_week || 0;
+                                            return (
+                                                <div key={subject.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-8 rounded-full" style={{ backgroundColor: subject.color || '#6366f1' }} />
+                                                        <span className="font-bold text-white/90">{subject.name}</span>
+                                                    </div>
+                                                    <span className="font-black text-violet-400 text-lg">{hours} год</span>
                                                 </div>
-                                            ) : (
-                                                <div className="text-xs text-[#a1a1aa] font-black uppercase tracking-widest">{teacher?.name || 'Вчителя не призначено'}</div>
-                                            )}
+                                            );
+                                        })}
+                                    {classPlan.length === 0 && (
+                                        <div className="text-center text-white/30 py-10 font-bold">План пустий</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Students Preview (Placeholder) */}
+                            <div className="bento-card p-6 border-white/5 space-y-4 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
+                                    <Users size={120} />
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <h4 className="flex items-center gap-2 text-xl font-black text-white">
+                                        <Users className="text-emerald-400" />
+                                        Учні
+                                    </h4>
+                                    <span className="text-xs font-bold bg-white/10 text-white px-2 py-1 rounded-md">{mockStudents.length} учнів</span>
+                                </div>
+                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {mockStudents.slice(0, 8).map(student => (
+                                        <div key={student.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-white">
+                                                {student.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-white text-sm">{student.name}</div>
+                                                <div className="text-[10px] text-white/40">{student.email}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {isEditing ? (
-                                            <>
-                                                <button onClick={() => handleSavePlanEdit(subject.id)} className="p-2 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-all"><Check size={20} /></button>
-                                                <button onClick={() => setEditingPlanSubjectId(null)} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all"><X size={20} /></button>
-                                            </>
-                                        ) : (
-                                            <button onClick={() => { setEditingPlanSubjectId(subject.id); setTempTeacherId(planItem?.teacher_id || ''); setTempHours(planItem?.hours_per_week || 1); }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all"><Pencil size={18} /></button>
-                                        )}
+                                    ))}
+                                    <div className="text-center p-2 text-xs font-bold text-white/30 uppercase tracking-widest bg-white/5 rounded-lg">
+                                        + ще {mockStudents.length - 8} учнів...
                                     </div>
                                 </div>
                             </div>
-                        );
-                    })}
+                        </div>
+                    )}
+
+                    {activeTab === 'students' && (
+                        <div className="bento-card p-6 border-white/5 animate-in fade-in zoom-in-95 duration-300">
+                            <div className="flex items-center justify-between mb-6">
+                                <h4 className="text-2xl font-black text-white">Список Учнів</h4>
+                                <button className="btn-premium px-4 py-2 text-sm">Додати учня</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {mockStudents.map(student => (
+                                    <div key={student.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all cursor-pointer group">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-lg font-black text-white shadow-lg group-hover:scale-110 transition-transform">
+                                            {student.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-white">{student.name}</div>
+                                            <div className="text-xs text-white/50">{student.email}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'plan' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in zoom-in-95 duration-300">
+                            {getSortedSubjects(data.subjects).map(subject => {
+                                const planItem = classPlan.find(p => p.subject_id === subject.id);
+                                const teacher = planItem ? data.teachers.find(t => t.id === planItem.teacher_id) : null;
+                                const isEditing = editingPlanSubjectId === subject.id;
+
+                                const grade = parseInt(viewingClass.name);
+                                const isPrimaryGrade = !isNaN(grade) && grade >= 1 && grade <= 4;
+
+                                const subjectTeachers = data.teachers.filter(t => {
+                                    if (t.subjects.includes(subject.id)) return true;
+                                    if (isPrimaryGrade && t.is_primary) return true;
+                                    return false;
+                                });
+
+                                return (
+                                    <div key={subject.id} className={cn(
+                                        "bento-card p-5 border-white/5 transition-all duration-300",
+                                        isEditing ? "ring-2 ring-violet-500/50 bg-white/5" : planItem ? "bg-white/[0.04]" : "bg-white/[0.01] opacity-50"
+                                    )}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className={cn(
+                                                    "w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg",
+                                                    planItem ? "bg-violet-500/20 text-violet-400" : "bg-white/5 text-white/20"
+                                                )}>
+                                                    {planItem?.hours_per_week || 0}
+                                                </div>
+                                                <div>
+                                                    <div className="font-black text-white text-lg tracking-tight">{subject.name}</div>
+                                                    {isEditing ? (
+                                                        <div className="flex gap-2 mt-3">
+                                                            <select value={tempTeacherId} onChange={e => setTempTeacherId(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-3 py-1 outline-none focus:ring-1 focus:ring-violet-500 max-w-[150px]">
+                                                                <option value="" className="bg-[#18181b]">Вчитель</option>
+                                                                {subjectTeachers.map(t => (
+                                                                    <option key={t.id} value={t.id} className="bg-[#18181b]">
+                                                                        {t.name} {t.is_primary && !t.subjects.includes(subject.id) ? "(Поч.)" : ""}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <input type="number" min={0} value={tempHours} onChange={e => setTempHours(parseInt(e.target.value) || 0)} className="w-16 bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-2 py-1 outline-none text-center focus:ring-1 focus:ring-violet-500" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-[#a1a1aa] font-black uppercase tracking-widest">{teacher?.name || 'Вчителя не призначено'}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {isEditing ? (
+                                                    <>
+                                                        <button onClick={() => handleSavePlanEdit(subject.id)} className="p-2 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-all"><Check size={20} /></button>
+                                                        <button onClick={() => setEditingPlanSubjectId(null)} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all"><X size={20} /></button>
+                                                    </>
+                                                ) : (
+                                                    <button onClick={() => { setEditingPlanSubjectId(subject.id); setTempTeacherId(planItem?.teacher_id || ''); setTempHours(planItem?.hours_per_week || 1); }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all"><Pencil size={18} /></button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -1039,7 +1787,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                         disabled={!selectedGrade || selectedLetters.length === 0}
                         className="btn-premium from-violet-500 to-purple-600 w-full flex items-center justify-center gap-2 shadow-violet-500/20 py-4"
                     >
-                        <Plus size={20} /> Додати {selectedLetters.length > 0 ? `${selectedGrade}-${selectedLetters.join(', ')}` : 'класи'}
+                        <Plus size={20} /> Додати {selectedLetters.length > 0 ? `${selectedGrade} -${selectedLetters.join(', ')} ` : 'класи'}
                     </button>
                 </div>
             </div>
@@ -1076,7 +1824,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                             <div className="mt-4 w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
                                 <div
                                     className={cn("h-full rounded-full transition-all duration-500", hours > 30 ? "bg-red-500" : "bg-violet-500")}
-                                    style={{ width: `${Math.min(hours / 35 * 100, 100)}%` }}
+                                    style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }}
                                 />
                             </div>
                         </div>
@@ -1094,7 +1842,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                 onClose={() => setDeleteId(null)}
                 onConfirm={confirmDelete}
                 title="Видалити клас?"
-                description={`Ви впевнені, що хочете видалити клас "${data.classes.find(c => c.id === deleteId)?.name}"? Це також видалить весь його навчальний план.`}
+                description={`Ви впевнені, що хочете видалити клас "${data.classes.find(c => c.id === deleteId)?.name}" ? Це також видалить весь його навчальний план.`}
             />
         </div>
     );
@@ -1194,7 +1942,7 @@ function PlanEditor({ data, onChange }: PlanEditorProps) {
                                     </div>
                                 </div>
                                 <div className="mt-4 w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                    <div className={cn("h-full rounded-full", hours > 30 ? "bg-red-500" : "bg-amber-500")} style={{ width: `${Math.min(hours / 35 * 100, 100)}%` }} />
+                                    <div className={cn("h-full rounded-full", hours > 30 ? "bg-red-500" : "bg-amber-500")} style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }} />
                                 </div>
                             </button>
                         );
@@ -1205,8 +1953,7 @@ function PlanEditor({ data, onChange }: PlanEditorProps) {
     }
 
     // View 2: Class Details (Matrix)
-    const grade = parseInt(selectedClass.name);
-    const isPrimaryGrade = !isNaN(grade) && grade >= 1 && grade <= 4;
+
     const sortedSubjects = getSortedSubjects(data.subjects);
 
     return (
@@ -1231,109 +1978,19 @@ function PlanEditor({ data, onChange }: PlanEditorProps) {
             </div>
 
             {/* Matrix */}
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sortedSubjects.map(subject => {
                     const planItem = data.plan.find(p => p.class_id === selectedClassId && p.subject_id === subject.id);
-                    const hours = planItem?.hours_per_week || 0;
-                    const teacherId = planItem?.teacher_id || "";
-                    const room = planItem?.room || "";
-                    const active = hours > 0;
-                    const color = subject.color || "#f59e0b"; // Default amber-500
-
-                    // Filter teachers relevant for this subject + grade
-                    const relevantTeachers = data.teachers.filter(t => {
-                        if (t.subjects.includes(subject.id)) return true; // Specialist
-                        if (isPrimaryGrade && t.is_primary) return true; // Primary generalist
-                        return false;
-                    });
 
                     return (
-                        <div key={subject.id}
-                            className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
-                                !active && "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] opacity-70 hover:opacity-100"
-                            )}
-                            style={active ? {
-                                backgroundColor: `${color}10`, // 10% opacity
-                                borderColor: `${color}30`,
-                                boxShadow: `0 0 15px -3px ${color}20`
-                            } : undefined}
-                        >
-                            {/* Subject Info */}
-                            <div className="w-1/3 flex items-center gap-4">
-                                <div
-                                    className="w-3 h-12 rounded-full"
-                                    style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.1)' }}
-                                />
-                                <div>
-                                    <div
-                                        className="font-bold text-lg"
-                                        style={{ color: active ? 'white' : 'rgba(255,255,255,0.6)' }}
-                                    >
-                                        {subject.name}
-                                    </div>
-                                    <div className="text-xs font-medium text-[#a1a1aa]">
-                                        {subject.defaultRoom ? `Стандартний каб. ${subject.defaultRoom}` : 'Без стандартного кабінету'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Controls */}
-                            <div className="flex-1 flex items-center gap-4 justify-end">
-                                {/* Room Input */}
-                                <input
-                                    type="text"
-                                    placeholder={subject.defaultRoom || "Каб."}
-                                    value={room}
-                                    onChange={(e) => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", hours || 1, e.target.value)}
-                                    className={cn(
-                                        "bg-[#0f0f11] border rounded-lg text-sm font-bold px-3 py-2 outline-none transition-all w-24 text-center",
-                                        active ? "text-white" : "border-white/10 text-[#a1a1aa]"
-                                    )}
-                                    style={active ? { borderColor: `${color}50` } : undefined}
-                                />
-
-                                {/* Teacher Selector */}
-                                <select
-                                    value={teacherId}
-                                    onChange={(e) => handleUpdatePlan(selectedClassId!, subject.id, e.target.value, hours || 1, room)}
-                                    className={cn(
-                                        "bg-[#0f0f11] border rounded-lg text-sm font-bold px-3 py-2 outline-none transition-all w-64",
-                                        active ? "text-white" : "border-white/10 text-[#a1a1aa]"
-                                    )}
-                                    style={active ? { borderColor: `${color}50` } : undefined}
-                                >
-                                    <option value="">-- Оберіть вчителя --</option>
-                                    {relevantTeachers.map(t => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name} {t.is_primary && !t.subjects.includes(subject.id) ? "(Поч.)" : ""}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {/* Hours Stepper */}
-                                <div className="flex items-center gap-2 bg-[#0f0f11] p-1 rounded-lg border border-white/10">
-                                    <button
-                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", Math.max(0, hours - 1), room)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                                    >
-                                        -
-                                    </button>
-                                    <div
-                                        className="w-8 text-center font-black text-lg"
-                                        style={{ color: active ? color : 'rgba(255,255,255,0.3)' }}
-                                    >
-                                        {hours}
-                                    </div>
-                                    <button
-                                        onClick={() => handleUpdatePlan(selectedClassId!, subject.id, teacherId || relevantTeachers[0]?.id || "", hours + 1, room)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <PlanSubjectCard
+                            key={subject.id}
+                            subject={subject}
+                            planItem={planItem}
+                            classGrade={parseInt(selectedClass?.name || "0")}
+                            teachers={data.teachers}
+                            onUpdate={(h, tId, r) => handleUpdatePlan(selectedClassId!, subject.id, tId, h, r)}
+                        />
                     );
                 })}
             </div>

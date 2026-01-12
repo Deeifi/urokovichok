@@ -27,6 +27,8 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
             return {"status": "success", "schedule": result}
         else:
             print(f"Strict solve produced result but with violations (Model Loophole?): {violations}")
+            if not violations:
+                violations = ["• Solver не зміг знайти ідеальне рішення, але конкретні порушення не виявлені. Спробуйте зменшити навантаження або збільшити гнучкість плану."]
             return {
                 "status": "conflict", 
                 "schedule": result, 
@@ -39,8 +41,17 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
     result, error = ortools_solve(data, list(range(1, 8)), strict=False)
     
     if result:
+        # Optimize period 0 usage (move lessons to periods 1-7 if possible)
+        result = optimize_period_zero(result, data)
+        
         # Analyze violations in the result
         violations = analyze_violations(result, data)
+        print(f"Diagnostic solve returned {len(result)} lessons, found {len(violations)} violations")
+        
+        # Fallback: if no violations found but we're in conflict state, add generic message
+        if not violations:
+            violations = ["• Solver не зміг знайти ідеальне рішення, але конкретні порушення не виявлені. Спробуйте зменшити навантаження або збільшити гнучкість плану."]
+        
         return {
             "status": "conflict", 
             "schedule": result, 
@@ -51,7 +62,12 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
     print("Diagnostic failed for 1-7. Trying 0-7...")
     result, error = ortools_solve(data, list(range(0, 8)), strict=False)
     if result:
+        # Optimize period 0 usage (move lessons to periods 1-7 if possible)
+        result = optimize_period_zero(result, data)
+        
         violations = analyze_violations(result, data)
+        if not violations:
+            violations = ["• Solver не зміг знайти ідеальне рішення, але конкретні порушення не виявлені. Спробуйте зменшити навантаження або збільшити гнучкість плану."]
         return {
             "status": "conflict",
             "schedule": result,
@@ -63,71 +79,369 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
 def validate_workloads(data: ScheduleRequest) -> List[str]:
     errors = []
     
-    # 1. Calculate loads
-    teacher_loads = {} # t_id -> hours
-    class_loads = {}   # c_id -> hours
-    
-    MAX_WEEKLY_SLOTS = 40 # 5 days * 8 periods (0-7)
-    
+    # Build lookup dictionaries
     teacher_names = {t.id: t.name for t in data.teachers}
     class_names = {c.id: c.name for c in data.classes}
+    subject_names = {s.id: s.name for s in data.subjects}
+    teacher_subjects = {t.id: set(t.subjects) for t in data.teachers}
+    teacher_is_primary = {t.id: t.is_primary for t in data.teachers}
+    
+    # Check 0: Empty plan
+    active_plan_items = [p for p in data.plan if p.hours_per_week > 0]
+    if not active_plan_items:
+        errors.append("• План порожній: немає жодного уроку для розподілу")
+        return errors  # No point checking further
+    
+    # Track for duplicate detection
+    seen_combinations = set()  # (class_id, subject_id)
+    
+    # Track loads
+    teacher_loads = {}  # t_id -> hours
+    class_loads = {}    # c_id -> hours
+    MAX_WEEKLY_SLOTS = 40  # 5 days * 8 periods (0-7)
     
     for plan in data.plan:
-        if plan.hours_per_week <= 0: continue
+        class_name = class_names.get(plan.class_id, f"ID: {plan.class_id}")
+        subject_name = subject_names.get(plan.subject_id, f"ID: {plan.subject_id}")
         
-        # Check integrity
-        if plan.teacher_id not in teacher_names:
-            errors.append(f"• План посилається на невідомого вчителя (ID: {plan.teacher_id})")
+        # Check 1: Invalid hours
+        if plan.hours_per_week < 0:
+            errors.append(f"• Клас '{class_name}', предмет '{subject_name}': від'ємна кількість годин ({plan.hours_per_week})")
             continue
+        
+        if plan.hours_per_week != int(plan.hours_per_week):
+            errors.append(f"• Клас '{class_name}', предмет '{subject_name}': дробова кількість годин ({plan.hours_per_week})")
+            continue
+        
+        if plan.hours_per_week <= 0:
+            continue  # Skip inactive items
+        
+        # Check 2: Unknown subject
+        if plan.subject_id not in subject_names:
+            errors.append(f"• Клас '{class_name}': невідомий предмет (ID: {plan.subject_id})")
+            continue
+        
+        # Check 3: Unknown class
         if plan.class_id not in class_names:
-            errors.append(f"• План посилається на невідомий клас (ID: {plan.class_id})")
+            errors.append(f"• Предмет '{subject_name}': невідомий клас (ID: {plan.class_id})")
             continue
-            
+        
+        # Check 4: Unknown or empty teacher
+        if plan.teacher_id not in teacher_names:
+            if plan.teacher_id == "":
+                errors.append(f"• Клас '{class_name}', предмет '{subject_name}': не вказано вчителя")
+            else:
+                errors.append(f"• Клас '{class_name}', предмет '{subject_name}': невідомий вчитель (ID: {plan.teacher_id})")
+            continue
+        
+        # Check 5: Teacher qualification (can they teach this subject?)
+        teacher_name = teacher_names[plan.teacher_id]
+        teacher_subs = teacher_subjects.get(plan.teacher_id, set())
+        is_primary = teacher_is_primary.get(plan.teacher_id, False)
+        
+        # Determine if class is primary (grades 1-4)
+        try:
+            grade = int(class_name.split('-')[0]) if '-' in class_name else int(class_name)
+            is_primary_class = 1 <= grade <= 4
+        except:
+            is_primary_class = False
+        
+        # Teacher must either:
+        # - Have this subject in their subjects list, OR
+        # - Be a primary teacher (is_primary=True) teaching a primary class (1-4)
+        can_teach = plan.subject_id in teacher_subs or (is_primary and is_primary_class)
+        
+        if not can_teach:
+            errors.append(f"• Клас '{class_name}', предмет '{subject_name}': вчитель {teacher_name} не викладає цей предмет")
+            continue
+        
+        # Check 6: Duplicates (same class + subject combination)
+        combo = (plan.class_id, plan.subject_id)
+        if combo in seen_combinations:
+            errors.append(f"• Клас '{class_name}', предмет '{subject_name}': дублікат в плані")
+            continue
+        seen_combinations.add(combo)
+        
+        # Accumulate loads
         teacher_loads[plan.teacher_id] = teacher_loads.get(plan.teacher_id, 0) + plan.hours_per_week
         class_loads[plan.class_id] = class_loads.get(plan.class_id, 0) + plan.hours_per_week
+    
+    for t in data.teachers:
+        t_id = t.id
+        load = teacher_loads.get(t_id, 0)
         
-    # 2. Check Teacher Overload
-    for t_id, load in teacher_loads.items():
-        if load > MAX_WEEKLY_SLOTS:
+        # Calculate available slots based on availability matrix
+        blocked_count = 0
+        if t.availability:
+            for day_slots in t.availability.values():
+                blocked_count += len(day_slots)
+        
+        available_slots = MAX_WEEKLY_SLOTS - blocked_count
+        
+        if load > available_slots:
             name = teacher_names.get(t_id, t_id)
-            errors.append(f"• Вчитель {name} має {load} год/тиждень (максимум {MAX_WEEKLY_SLOTS})")
-            
-    # 3. Check Class Overload
+            errors.append(f"• Вчитель {name} має {load} год/тиждень, але з урахуванням графіка доступно лише {available_slots} слотів")
+        elif load > MAX_WEEKLY_SLOTS:
+            name = teacher_names.get(t_id, t_id)
+            errors.append(f"• Вчитель {name} має {load} год/тиждень (абсолютний максимум {MAX_WEEKLY_SLOTS})")
+    
+    # Check 8: Class overload
     for c_id, load in class_loads.items():
         if load > MAX_WEEKLY_SLOTS:
             name = class_names.get(c_id, c_id)
             errors.append(f"• Клас {name} має {load} уроків/тиждень (максимум {MAX_WEEKLY_SLOTS})")
-            
+    
     return errors
 
 def analyze_violations(schedule: List[Dict[str, Any]], data: ScheduleRequest) -> List[str]:
     violations = []
     
-    # Group by class and day
-    class_days = {} # (class_id, day) -> [periods]
+    # Build lookup dictionaries
+    class_names = {c.id: c.name for c in data.classes}
+    teacher_names = {t.id: t.name for t in data.teachers}
+    subject_names = {s.id: s.name for s in data.subjects}
+    
+    # Build plan lookup: (class_id, subject_id) -> expected data
+    plan_map = {}
+    for p in data.plan:
+        if p.hours_per_week > 0:
+            plan_map[(p.class_id, p.subject_id)] = {
+                "hours": p.hours_per_week,
+                "teacher_id": p.teacher_id
+            }
+    
+    # Valid days and periods
+    VALID_DAYS = {"Mon", "Tue", "Wed", "Thu", "Fri"}
+    
+    # Track actual lesson counts
+    actual_counts = {}  # (class_id, subject_id) -> count
+    
+    for l in schedule:
+        # Check 1: Invalid day
+        if l["day"] not in VALID_DAYS:
+            violations.append(f"• Невірний день: {l['day']} (має бути Mon/Tue/Wed/Thu/Fri)")
+        
+        # Check 2: Invalid period
+        if not (0 <= l["period"] <= 8):
+            c_name = class_names.get(l["class_id"], l["class_id"])
+            violations.append(f"• Клас {c_name} ({l['day']}): невірний період {l['period']} (має бути 0-8)")
+        
+        # Check 3: Unknown class
+        if l["class_id"] not in class_names:
+            violations.append(f"• Урок посилається на невідомий клас (ID: {l['class_id']})")
+        
+        # Check 4: Unknown subject
+        if l["subject_id"] not in subject_names:
+            c_name = class_names.get(l["class_id"], l["class_id"])
+            violations.append(f"• Клас {c_name}: невідомий предмет (ID: {l['subject_id']})")
+        
+        # Check 5: Unknown teacher
+        if l["teacher_id"] not in teacher_names:
+            c_name = class_names.get(l["class_id"], l["class_id"])
+            s_name = subject_names.get(l["subject_id"], l["subject_id"])
+            violations.append(f"• Клас {c_name}, предмет {s_name}: невідомий вчитель (ID: {l['teacher_id']})")
+        
+        # Track lesson counts
+        key = (l["class_id"], l["subject_id"])
+        actual_counts[key] = actual_counts.get(key, 0) + 1
+    
+    # Check 6: Lesson count mismatches (too few or too many)
+    all_keys = set(plan_map.keys()) | set(actual_counts.keys())
+    missing_lessons = []  # (class, subject, missing_count, expected, actual)
+    extra_lessons = []    # (class, subject, extra_count, expected, actual)
+    
+    for key in all_keys:
+        c_id, s_id = key
+        c_name = class_names.get(c_id, c_id)
+        s_name = subject_names.get(s_id, s_id)
+        
+        expected = plan_map.get(key, {}).get("hours", 0)
+        actual = actual_counts.get(key, 0)
+        
+        if actual < expected:
+            missing_count = expected - actual
+            missing_lessons.append((c_name, s_name, missing_count, expected, actual))
+        elif actual > expected:
+            extra_count = actual - expected
+            extra_lessons.append((c_name, s_name, extra_count, expected, actual))
+    
+    # Sort by missing/extra count (biggest problems first)
+    missing_lessons.sort(key=lambda x: x[2], reverse=True)
+    extra_lessons.sort(key=lambda x: x[2], reverse=True)
+    
+    # Add formatted messages
+    for c_name, s_name, missing, expected, actual in missing_lessons:
+        if missing == 1:
+            violations.append(f"• Неможливо додати 1 урок з '{s_name}' в клас {c_name} (заплановано {expected}, розміщено {actual})")
+        else:
+            violations.append(f"• Неможливо додати {missing} уроки з '{s_name}' в клас {c_name} (заплановано {expected}, розміщено {actual})")
+    
+    for c_name, s_name, extra, expected, actual in extra_lessons:
+        if extra == 1:
+            violations.append(f"• Зайвий 1 урок з '{s_name}' в класі {c_name} (заплановано {expected}, розміщено {actual})")
+        else:
+            violations.append(f"• Зайві {extra} уроки з '{s_name}' в класі {c_name} (заплановано {expected}, розміщено {actual})")
+    
+    # Add summary if there are missing lessons
+    if missing_lessons:
+        total_missing = sum(m[2] for m in missing_lessons)
+        total_planned = sum(p.hours_per_week for p in data.plan if p.hours_per_week > 0)
+        total_placed = len(schedule)
+        violations.append(f"**Всього не розміщено: {total_missing} уроків з {total_planned} запланованих ({total_placed} розміщено)**")
+    
+    # Check 7: Wrong teacher assigned
+    for l in schedule:
+        key = (l["class_id"], l["subject_id"])
+        if key in plan_map:
+            expected_teacher = plan_map[key]["teacher_id"]
+            if l["teacher_id"] != expected_teacher:
+                c_name = class_names.get(l["class_id"], l["class_id"])
+                s_name = subject_names.get(l["subject_id"], l["subject_id"])
+                expected_name = teacher_names.get(expected_teacher, expected_teacher)
+                actual_name = teacher_names.get(l["teacher_id"], l["teacher_id"])
+                violations.append(f"• Клас {c_name}, предмет {s_name}: невірний вчитель ({actual_name} замість {expected_name})")
+    
+    # Group by class and day for gap/start checks
+    class_days = {}  # (class_id, day) -> [periods]
     for l in schedule:
         key = (l["class_id"], l["day"])
-        if key not in class_days: class_days[key] = []
+        if key not in class_days:
+            class_days[key] = []
         class_days[key].append(l["period"])
-
-    class_names = {c.id: c.name for c in data.classes}
-
+    
     for (c_id, day), periods in class_days.items():
         periods.sort()
-        if not periods: continue
+        if not periods:
+            continue
         
         c_name = class_names.get(c_id, c_id)
         
-        # Check 1: Start period
+        # Check 8: Start period
         if periods[0] > 1:
             violations.append(f"• {c_name} ({day}): починає з {periods[0]}-го уроку замість 1-го")
-            
-        # Check 2: Gaps
+        
+        # Check 9: Gaps
         for i in range(len(periods) - 1):
-            if periods[i+1] - periods[i] > 1:
-                 violations.append(f"• {c_name} ({day}): має вікно між {periods[i]} та {periods[i+1]} уроками")
-                 
+            if periods[i + 1] - periods[i] > 1:
+                violations.append(f"• {c_name} ({day}): має вікно між {periods[i]} та {periods[i+1]} уроками")
+    
+    # Check 10: Teacher conflicts (same teacher, same time, different classes)
+    teacher_slots = {}  # (teacher_id, day, period) -> [class_ids]
+    for l in schedule:
+        key = (l["teacher_id"], l["day"], l["period"])
+        if key not in teacher_slots:
+            teacher_slots[key] = []
+        teacher_slots[key].append(l["class_id"])
+    
+    for (t_id, day, period), class_ids in teacher_slots.items():
+        if len(class_ids) > 1:
+            t_name = teacher_names.get(t_id, t_id)
+            class_list = ", ".join([class_names.get(c, c) for c in class_ids])
+            violations.append(f"• Вчитель {t_name} ({day}, урок {period}): одночасно в класах {class_list}")
+    
+    # Check 11: Class conflicts (same class, same time, different subjects/teachers)
+    class_slots = {}  # (class_id, day, period) -> [lesson_info]
+    for l in schedule:
+        key = (l["class_id"], l["day"], l["period"])
+        if key not in class_slots:
+            class_slots[key] = []
+        class_slots[key].append({
+            "subject": subject_names.get(l["subject_id"], l["subject_id"]),
+            "teacher": teacher_names.get(l["teacher_id"], l["teacher_id"])
+        })
+    
+    for (c_id, day, period), lessons in class_slots.items():
+        if len(lessons) > 1:
+            c_name = class_names.get(c_id, c_id)
+            lesson_list = ", ".join([f"{l['subject']} ({l['teacher']})" for l in lessons])
+            violations.append(f"• Клас {c_name} ({day}, урок {period}): одночасно {lesson_list}")
+    
+    # Check 12: Daily lesson limits (max 8)
+    class_daily_counts = {}  # (class_id, day) -> count
+    for l in schedule:
+        key = (l["class_id"], l["day"])
+        class_daily_counts[key] = class_daily_counts.get(key, 0) + 1
+    
+    for (c_id, day), count in class_daily_counts.items():
+        if count > 8:  # Absolute maximum
+            c_name = class_names.get(c_id, c_id)
+            violations.append(f"• Клас {c_name} ({day}): {count} уроків на день (максимум 8)")
+    
+    # Add helpful summary if there are violations
+    if violations and missing_lessons:
+        violations.append("")  # Empty line for separation
+        violations.append("💡 **Порада**: Якщо уроки не вдалося розмістити, спробуйте:")
+        violations.append("   - Зменшити кількість годин на тиждень для деяких предметів")
+        violations.append("   - Перевірити, чи не перевантажені вчителі")
+        violations.append("   - Переконатися, що всі класи мають достатньо вільних слотів")
+    
     return violations
+
+def can_move_lesson(lesson: Dict[str, Any], target_period: int, schedule: List[Dict[str, Any]]) -> bool:
+    """Check if lesson can be moved to target period without conflicts"""
+    
+    # Check teacher conflict - is teacher free at target time?
+    for other in schedule:
+        if other == lesson:
+            continue
+        if (other["teacher_id"] == lesson["teacher_id"] and 
+            other["day"] == lesson["day"] and 
+            other["period"] == target_period):
+            return False
+    
+    # Check class conflict - is class free at target time?
+    for other in schedule:
+        if other == lesson:
+            continue
+        if (other["class_id"] == lesson["class_id"] and 
+            other["day"] == lesson["day"] and 
+            other["period"] == target_period):
+            return False
+    
+    return True
+
+def optimize_period_zero(schedule: List[Dict[str, Any]], data: ScheduleRequest) -> List[Dict[str, Any]]:
+    """Move lessons from period 0 to periods 1-7 when possible without conflicts"""
+    
+    if not schedule:
+        return schedule
+    
+    # Build teacher preference lookup
+    teacher_prefers_zero = {t.id: t.prefers_period_zero for t in data.teachers}
+    
+    # Find all period 0 lessons
+    period_zero_lessons = [l for l in schedule if l["period"] == 0]
+    
+    if not period_zero_lessons:
+        return schedule  # Nothing to optimize
+    
+    moved_count = 0
+    skipped_count = 0
+    
+    # Try to move each period 0 lesson
+    for lesson in period_zero_lessons:
+        teacher_id = lesson["teacher_id"]
+        
+        # Don't move if teacher prefers period 0
+        if teacher_prefers_zero.get(teacher_id, False):
+            skipped_count += 1
+            continue
+        
+        # Try periods 1-7 in order (prefer earlier periods)
+        for target_period in range(1, 8):
+            if can_move_lesson(lesson, target_period, schedule):
+                # Move the lesson
+                lesson["period"] = target_period
+                moved_count += 1
+                break  # Found a slot, move to next lesson
+    
+    if moved_count > 0:
+        print(f"Optimization: moved {moved_count} lessons from period 0 to periods 1-7")
+    if skipped_count > 0:
+        print(f"Optimization: kept {skipped_count} lessons in period 0 (teacher preference)")
+    
+    return schedule
+
 
 def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True) -> tuple[Optional[List[Dict[str, Any]]], str]:
     model = cp_model.CpModel()
@@ -136,6 +450,8 @@ def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True
     # --- 1. PREPARE DATA ---
     teacher_names = {t.id: t.name for t in data.teachers}
     class_names = {c.id: c.name for c in data.classes}
+    teacher_prefers_zero = {t.id: t.prefers_period_zero for t in data.teachers}
+    teacher_availabilities = {t.id: t.availability or {} for t in data.teachers}
     
     # data_requests equivalents
     requests = []
@@ -185,6 +501,13 @@ def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True
                 x[(r_idx, d, p)] = model.NewBoolVar(f'lesson_{r_idx}_{d}_{p}')
                 model.AddImplication(x[(r_idx, d, p)], class_busy[(req["class_id"], d, p)])
                 model.AddImplication(x[(r_idx, d, p)], teacher_busy[(req["teacher_id"], d, p)])
+                
+                # Availability Constraint: If teacher is blocked, lesson cannot be here
+                teacher_id = req["teacher_id"]
+                day_name = days[d]
+                blocked_periods = teacher_availabilities.get(teacher_id, {}).get(day_name, [])
+                if p in blocked_periods:
+                    model.Add(x[(r_idx, d, p)] == 0)
 
     # --- 3. HARD CONSTRAINTS ---
 
@@ -295,6 +618,21 @@ def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True
             for p in periods:
                 # Prefer earlier slots mildly
                 objective_terms.append(x[(r_idx, d, p)] * p)
+    
+    # Penalty/Bonus for using period 0 based on teacher preference
+    if 0 in periods:
+        for r_idx, req in enumerate(requests):
+            teacher_id = req["teacher_id"]
+            prefers_zero = teacher_prefers_zero.get(teacher_id, False)
+            
+            for d in range(len(days)):
+                if (r_idx, d, 0) in x:
+                    if prefers_zero:
+                        # Bonus for teachers who prefer early morning
+                        objective_terms.append(x[(r_idx, d, 0)] * (-5000))
+                    else:
+                        # Penalty for teachers who don't prefer early morning
+                        objective_terms.append(x[(r_idx, d, 0)] * 10000)
 
     model.Minimize(sum(objective_terms))
 

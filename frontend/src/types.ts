@@ -12,7 +12,9 @@ export interface Teacher {
     name: string;
     subjects: string[]; // Subject IDs
     is_primary?: boolean; // Can teach any subject for primary grades (1-4)
+    prefers_period_zero?: boolean; // Teacher prefers early morning lessons (period 0)
     photo?: string; // Optional base64 or URL
+    availability?: Record<string, number[]>; // Blocked periods per day (e.g., {"Mon": [0, 1]})
 }
 
 export interface ClassGroup {
