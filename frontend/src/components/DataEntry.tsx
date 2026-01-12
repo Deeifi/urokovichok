@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
 import {
     Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap,
-    LayoutGrid, List, Filter, Clock
+    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -112,7 +112,9 @@ interface DataEntryProps {
     onScheduleChange: (schedule: ScheduleResponse) => void;
     isEditMode: boolean;
     setIsEditMode: (v: boolean) => void;
+    isPerformanceMode?: boolean;
 }
+
 
 // --- Helpers ---
 const sortClassNames = (a: string, b: string) => {
@@ -137,7 +139,7 @@ const getSortedSubjects = (subjects: Subject[]) => {
 
 type Section = 'subjects' | 'teachers' | 'classes' | 'plan';
 
-export function DataEntry({ data, onChange, schedule, onScheduleChange, isEditMode, setIsEditMode }: DataEntryProps) {
+export function DataEntry({ data, onChange, schedule, onScheduleChange, isEditMode, setIsEditMode, isPerformanceMode = false }: DataEntryProps) {
     const getNextId = (items: { id: string }[]) => {
         const ids = items.map(i => parseInt(i.id)).filter(id => !isNaN(id));
         return ids.length === 0 ? "1" : (Math.max(...ids) + 1).toString();
@@ -208,6 +210,7 @@ export function DataEntry({ data, onChange, schedule, onScheduleChange, isEditMo
                             onScheduleChange={onScheduleChange}
                             isEditMode={isEditMode}
                             setIsEditMode={setIsEditMode}
+                            isPerformanceMode={isPerformanceMode}
                         />
                     )}
                     {section === 'classes' && <ClassesEditor data={data} onChange={onChange} />}
@@ -467,9 +470,10 @@ interface TeachersEditorProps {
     onScheduleChange: (schedule: ScheduleResponse) => void;
     isEditMode: boolean;
     setIsEditMode: (v: boolean) => void;
+    isPerformanceMode?: boolean;
 }
 
-function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, isEditMode, setIsEditMode }: TeachersEditorProps) {
+function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, isEditMode, setIsEditMode, isPerformanceMode = false }: TeachersEditorProps) {
     const [viewMode, setViewMode] = useState<'list' | 'details' | 'schedule'>('list');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
@@ -478,17 +482,117 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
     const [listMode, setListMode] = useState<'grid' | 'table'>('grid');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [draggedSubjectId, setDraggedSubjectId] = useState<string | null>(null);
 
-    const handleSubjectDrop = (teacherId: string, subjectId: string) => {
+    const [selectedPaletteSubjectIds, setSelectedPaletteSubjectIds] = useState<string[]>([]);
+    const [paletteSearch, setPaletteSearch] = useState('');
+    const [palettePosition, setPalettePosition] = useState({ x: 0, y: 0 });
+    const paletteRef = useRef<HTMLDivElement>(null);
+    const dragData = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0, currentX: 0, currentY: 0 });
+
+    // Reset palette position when performance mode is toggled on
+    useEffect(() => {
+        if (isPerformanceMode) {
+            setPalettePosition({ x: 0, y: 0 });
+            if (paletteRef.current) {
+                paletteRef.current.style.transform = '';
+            }
+        }
+    }, [isPerformanceMode]);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!dragData.current.isDragging) return;
+
+            const dx = e.clientX - dragData.current.startX;
+            const dy = e.clientY - dragData.current.startY;
+
+            const newX = dragData.current.initialX + dx;
+            const newY = dragData.current.initialY + dy;
+
+            dragData.current.currentX = newX;
+            dragData.current.currentY = newY;
+
+            if (paletteRef.current) {
+                paletteRef.current.style.transform = `translate(${newX}px, ${newY}px)`;
+            }
+        };
+
+        const handleMouseUp = (e: MouseEvent) => {
+            if (!dragData.current.isDragging) return;
+
+            const dx = e.clientX - dragData.current.startX;
+            const dy = e.clientY - dragData.current.startY;
+
+            setPalettePosition({
+                x: dragData.current.initialX + dx,
+                y: dragData.current.initialY + dy
+            });
+
+            dragData.current.isDragging = false;
+            document.body.style.userSelect = '';
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (paletteRef.current) {
+            if (dragData.current.isDragging) {
+                paletteRef.current.style.transform = `translate(${dragData.current.currentX}px, ${dragData.current.currentY}px)`;
+            } else {
+                paletteRef.current.style.transform = `translate(${palettePosition.x}px, ${palettePosition.y}px)`;
+            }
+        }
+    });
+
+
+    const handleSubjectDrop = (teacherId: string, subjectData: string) => {
+        // Parse payload: it can be a single ID or a JSON string of multiple IDs
+        let subjectIdsToAssign: string[] = [];
+        try {
+            const parsed = JSON.parse(subjectData);
+            if (Array.isArray(parsed)) {
+                subjectIdsToAssign = parsed;
+            } else {
+                subjectIdsToAssign = [subjectData];
+            }
+        } catch (e) {
+            subjectIdsToAssign = [subjectData];
+        }
+
+        // Determine Target Teachers
+        // If the teacher we dropped on is in the selected list, we apply to ALL selected teachers
+        // Otherwise, we apply ONLY to the target teacher
+        const targetTeacherIds = selectedIds.includes(teacherId)
+            ? [...new Set([...selectedIds, teacherId])] // Ensure target is included if somehow consistent
+            : [teacherId];
+
         onChange({
             ...data,
             teachers: data.teachers.map(t => {
-                if (t.id !== teacherId) return t;
-                if (t.subjects.includes(subjectId)) return t;
-                return { ...t, subjects: [...t.subjects, subjectId] };
+                if (!targetTeacherIds.includes(t.id)) return t;
+
+                // Add all subjects to this teacher, avoiding duplicates
+                const newSubjects = [...t.subjects];
+                subjectIdsToAssign.forEach(sid => {
+                    if (!newSubjects.includes(sid)) {
+                        newSubjects.push(sid);
+                    }
+                });
+                return { ...t, subjects: newSubjects };
             })
         });
+
+        // Auto-clear palette selection
+        setSelectedPaletteSubjectIds([]);
     };
     const [filterSubjects, setFilterSubjects] = useState<string[]>([]);
     const [filterWorkload, setFilterWorkload] = useState<'all' | 'under' | 'over' | 'normal'>('all');
@@ -1019,16 +1123,19 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                     >
                         <List size={20} />
                     </button>
-                    {!isSidebarOpen && (
-                        <button
-                            onClick={() => setIsSidebarOpen(true)}
-                            className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all border border-indigo-500/20 flex items-center gap-2 px-4 shadow-lg shadow-indigo-500/10"
-                            title="Призначити предмети (Drop)"
-                        >
-                            <BookOpen size={20} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">DND Панель</span>
-                        </button>
-                    )}
+                    <button
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className={cn(
+                            "p-3 rounded-xl border flex items-center gap-2 px-4",
+                            isSidebarOpen
+                                ? "bg-indigo-600 text-white border-indigo-500"
+                                : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500 hover:text-white"
+                        )}
+                        title={isSidebarOpen ? "Закрити DND Панель" : "Призначити предмети (Drop)"}
+                    >
+                        <BookOpen size={20} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">DND Панель</span>
+                    </button>
                 </div>
             </div>
 
@@ -1062,7 +1169,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                             setViewMode('details');
                                         }}
                                         className={cn(
-                                            "bento-card p-0 border-white/5 transition-all duration-500 group relative overflow-hidden flex flex-col cursor-pointer",
+                                            "bento-card p-0 border-white/5 group relative overflow-hidden flex flex-col cursor-pointer",
                                             isSelected ? "bg-indigo-500/10 border-indigo-500/30 scale-[0.98]" : "bg-white/[0.04] hover:bg-white/[0.08]"
                                         )}
                                     >
@@ -1074,7 +1181,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                                     setSelectedIds(prev => isSelected ? prev.filter(id => id !== teacher.id) : [...prev, teacher.id]);
                                                 }}
                                                 className={cn(
-                                                    "w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center",
+                                                    "w-6 h-6 rounded-full border-2 flex items-center justify-center",
                                                     isSelected
                                                         ? "bg-indigo-500 border-indigo-400 text-white scale-110 shadow-lg shadow-indigo-500/30"
                                                         : "bg-black/20 border-white/10 text-transparent hover:border-white/30"
@@ -1089,7 +1196,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                                         e.stopPropagation();
                                                         handleOpenDrawer(teacher);
                                                     }}
-                                                    className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100 border border-white/5"
+                                                    className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white border border-white/5 opacity-0 group-hover:opacity-100"
                                                     title="Редагувати"
                                                 >
                                                     <Pencil size={16} />
@@ -1304,77 +1411,230 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                     )}
                 </div>
 
-                {/* Subject Sidebar for DND */}
-                <div
-                    className={cn(
-                        "w-72 bg-[#1a1c1e] border border-white/10 rounded-[32px] p-6 sticky top-8 transition-all duration-500 flex flex-col gap-6 shadow-2xl overflow-hidden",
-                        isSidebarOpen ? "translate-x-0 opacity-100" : "translate-x-12 opacity-0 pointer-events-none w-0 p-0 overflow-hidden border-none"
-                    )}
-                >
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                <BookOpen size={16} />
-                            </div>
-                            <h4 className="text-[10px] font-black text-white uppercase tracking-widest italic">Предмети (Drag)</h4>
-                        </div>
-                        <button onClick={() => setIsSidebarOpen(false)} className="text-[#a1a1aa] hover:text-white p-2">
-                            <X size={16} />
-                        </button>
-                    </div>
-
-                    <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-1 min-h-0">
-                        {data.subjects.length > 0 ? getSortedSubjects(data.subjects).map(sub => (
-                            <div
-                                key={sub.id}
-                                draggable
-                                onDragStart={(e) => {
-                                    e.dataTransfer.setData('subjectId', sub.id);
-                                    setDraggedSubjectId(sub.id);
-                                }}
-                                onDragEnd={() => setDraggedSubjectId(null)}
-                                className={cn(
-                                    "p-4 bg-white/[0.03] border border-white/5 rounded-2xl cursor-grab active:cursor-grabbing transition-all hover:bg-white/[0.08] hover:border-indigo-500/30 group/item flex items-center gap-3",
-                                    draggedSubjectId === sub.id && "ring-2 ring-indigo-500 opacity-50"
-                                )}
-                            >
-                                <div
-                                    className="w-1.5 h-6 rounded-full"
-                                    style={{ backgroundColor: sub.color || '#6366f1' }}
-                                />
-                                <span className="text-[11px] font-black text-white uppercase tracking-tight group-hover/item:text-indigo-300 transition-colors">
-                                    {sub.name}
-                                </span>
-                            </div>
-                        )) : (
-                            <div className="text-[10px] font-bold text-[#a1a1aa] text-center py-10 opacity-50 uppercase italic">
-                                Предметів не знайдено
-                            </div>
+                {/* Floating Subject Palette */}
+                {createPortal(
+                    <div
+                        ref={paletteRef}
+                        className={cn(
+                            "fixed z-[200] w-72 bg-[#1a1c1e] border border-white/10 rounded-[32px] flex flex-col overflow-hidden will-change-transform",
+                            isSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
                         )}
-                    </div>
-
-                    <div className="p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
-                        <p className="text-[9px] font-bold text-indigo-300/60 uppercase tracking-widest text-center leading-relaxed">
-                            ПЕРЕТЯГНІТЬ ПРЕДМЕТ<br />НА КАРТКУ ВЧИТЕЛЯ<br />ДЛЯ ПРИЗНАЧЕННЯ
-                        </p>
-                    </div>
-                </div>
-
-                {!isSidebarOpen && (
-                    <button
-                        onClick={() => setIsSidebarOpen(true)}
-                        className="fixed right-10 top-1/2 -translate-y-1/2 z-40 bg-indigo-600 text-white w-14 h-14 rounded-2xl shadow-xl shadow-indigo-600/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest group"
-                        title="Відкрити панель предметів"
+                        style={{
+                            right: '2rem',
+                            top: '20%',
+                            maxHeight: '60vh',
+                            // In performance mode, we force fixed positioning to avoid any translation issues
+                            transform: isPerformanceMode ? 'none' : undefined
+                        }}
                     >
-                        <BookOpen size={24} className="group-hover:rotate-12 transition-transform" />
-                    </button>
+                        {/* Palette Header / Drag Handle */}
+                        <div
+                            onMouseDown={(e) => {
+                                if (isPerformanceMode) return;
+                                dragData.current = {
+                                    isDragging: true,
+                                    startX: e.clientX,
+                                    startY: e.clientY,
+                                    initialX: palettePosition.x,
+                                    initialY: palettePosition.y,
+                                    currentX: palettePosition.x,
+                                    currentY: palettePosition.y
+                                };
+                                document.body.style.userSelect = 'none';
+                            }}
+                            className={cn(
+                                "p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between select-none",
+                                isPerformanceMode ? "cursor-default" : "cursor-move group/handle"
+                            )}
+                        >
+                            <div className="flex items-center gap-3">
+                                {!isPerformanceMode && <GripVertical size={16} className="text-white/20 group-hover/handle:text-indigo-400" />}
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest italic flex items-center gap-2">
+                                    Palette
+                                    {isPerformanceMode && <Lock size={12} className="text-white/20" />}
+                                </h4>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {selectedPaletteSubjectIds.length > 0 && (
+                                    <button
+                                        onClick={() => setSelectedPaletteSubjectIds([])}
+                                        className="text-[9px] font-black text-rose-400 hover:text-rose-300 uppercase mr-2"
+                                    >
+                                        Скинути ({selectedPaletteSubjectIds.length})
+                                    </button>
+                                )}
+                                <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-[#a1a1aa] hover:text-white hover:bg-white/5 rounded-lg">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+
+
+                            {/* All Subjects (Compressed) */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 opacity-40">
+                                    <div className="h-px flex-1 bg-white/20" />
+                                    <span className="text-[9px] font-black text-white uppercase tracking-widest">Всі предмети</span>
+                                    <div className="h-px flex-1 bg-white/20" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {getSortedSubjects(data.subjects).map(sub => {
+                                        const isSelected = selectedPaletteSubjectIds.includes(sub.id);
+                                        return (
+                                            <div
+                                                key={sub.id}
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    let payload = [sub.id];
+                                                    if (isSelected) {
+                                                        payload = selectedPaletteSubjectIds;
+                                                    }
+                                                    e.dataTransfer.setData('subjectId', JSON.stringify(payload));
+                                                    setDraggedSubjectId(sub.id);
+                                                }}
+                                                onDragEnd={() => setDraggedSubjectId(null)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedPaletteSubjectIds(prev =>
+                                                        prev.includes(sub.id)
+                                                            ? prev.filter(id => id !== sub.id)
+                                                            : [...prev, sub.id]
+                                                    );
+                                                }}
+                                                className={cn(
+                                                    "p-3 border rounded-xl cursor-grab flex flex-col gap-2 group/sub relative transition-all duration-200 select-none",
+                                                    isSelected
+                                                        ? "bg-indigo-500/20 border-indigo-500 ring-1 ring-indigo-500"
+                                                        : "bg-white/[0.03] border-white/5 hover:bg-white/[0.08] hover:border-indigo-500/30",
+                                                    draggedSubjectId === sub.id && "opacity-50"
+                                                )}
+                                            >
+                                                {isSelected && (
+                                                    <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
+                                                        <Check size={10} className="text-white" />
+                                                    </div>
+                                                )}
+
+                                                <div className="w-full h-1 rounded-full opacity-50 group-hover/sub:opacity-100 transition-opacity" style={{ backgroundColor: sub.color || '#6366f1' }} />
+                                                <span className={cn(
+                                                    "text-[10px] font-black truncate uppercase tracking-tight transition-colors",
+                                                    isSelected ? "text-white" : "text-[#a1a1aa] group-hover/sub:text-white"
+                                                )}>{sub.name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-indigo-500/5 border-t border-white/5">
+                            <p className="text-[8px] font-bold text-indigo-300/40 uppercase tracking-[0.2em] text-center">
+                                Перетягніть на картку вчителя
+                            </p>
+                        </div>
+                    </div>,
+                    document.body
                 )}
+
+                {/* Gallery Mode Overlay */}
+                {createPortal(
+                    <div
+                        className={cn(
+                            "fixed inset-0 z-[300] flex items-center justify-center p-10",
+                            isGalleryOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none",
+                            draggedSubjectId && "opacity-0 pointer-events-none"
+                        )}
+                    >
+                        <div className="absolute inset-0 bg-[#0a0a0b]/98" onClick={() => setIsGalleryOpen(false)} />
+                        <div className={cn(
+                            "relative w-full max-w-5xl bg-[#141416] border border-white/10 rounded-[48px] flex flex-col overflow-hidden",
+                            isGalleryOpen ? "scale-100" : "scale-95"
+                        )}>
+                            {/* Gallery Header */}
+                            <div className="p-10 flex items-center justify-between">
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 rounded-[24px] bg-indigo-600 flex items-center justify-center text-white shadow-2xl shadow-indigo-600/30">
+                                        <BookOpen size={32} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-4xl font-black text-white tracking-tighter">Бібліотека предметів</h2>
+                                        <p className="text-xs font-bold text-[#a1a1aa] uppercase tracking-[0.3em]">Всі дисципліни закладу</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="relative group w-80">
+                                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-400" size={20} />
+                                        <input
+                                            autoFocus
+                                            placeholder="Швидкий пошук..."
+                                            value={paletteSearch}
+                                            onChange={e => setPaletteSearch(e.target.value)}
+                                            className="w-full pl-16 pr-6 py-5 bg-white/5 border border-white/10 rounded-[24px] focus:ring-2 focus:ring-indigo-500 outline-none font-black text-white placeholder:text-white/10 transition-all uppercase tracking-widest text-sm"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setIsGalleryOpen(false)}
+                                        className="w-16 h-16 rounded-[24px] bg-white/5 text-[#a1a1aa] hover:bg-white/10 hover:text-white flex items-center justify-center"
+                                    >
+                                        <Minimize2 size={24} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Gallery Grid */}
+                            <div className="flex-1 overflow-y-auto p-10 pt-0 custom-scrollbar pb-20">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+                                    {getSortedSubjects(data.subjects)
+                                        .filter(s => s.name.toLowerCase().includes(paletteSearch.toLowerCase()))
+                                        .map(sub => (
+                                            <div
+                                                key={`gallery-${sub.id}`}
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    e.dataTransfer.setData('subjectId', sub.id);
+                                                    setDraggedSubjectId(sub.id);
+                                                }}
+                                                onDragEnd={() => setDraggedSubjectId(null)}
+                                                className="group/item relative aspect-[4/3] bg-white/[0.04] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between cursor-grab active:cursor-grabbing hover:bg-white/[0.08] hover:border-indigo-500/30 active:scale-95"
+                                            >
+                                                <div
+                                                    className="w-12 h-1.5 rounded-full shadow-lg"
+                                                    style={{ backgroundColor: sub.color || '#6366f1' }}
+                                                />
+                                                <div className="space-y-1">
+                                                    <span className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest opacity-0 group-hover/item:opacity-100 transition-all transform translate-y-2 group-hover/item:translate-y-0">ПРИЗНАЧИТИ</span>
+                                                    <span className="block text-sm font-black text-white uppercase tracking-tight leading-tight group-hover/item:text-indigo-200 transition-colors uppercase italic">{sub.name}</span>
+                                                </div>
+
+                                                {/* Hover Glow */}
+                                                <div
+                                                    className="absolute inset-x-4 bottom-0 h-10 blur-2xl opacity-0 group-hover/item:opacity-20 transition-opacity rounded-full pointer-events-none"
+                                                    style={{ backgroundColor: sub.color }}
+                                                />
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                                {data.subjects.filter(s => s.name.toLowerCase().includes(paletteSearch.toLowerCase())).length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-40 space-y-6 opacity-20">
+                                        <BookOpen size={80} strokeWidth={1} />
+                                        <p className="text-xl font-black uppercase tracking-[0.4em]">Предметів не знайдено</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
             </div>
 
             {/* Bulk Action Bar */}
             {selectedIds.length > 0 && createPortal(
                 <div
-                    className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[90] bg-[#1a1a1c]/90 backdrop-blur-2xl border border-white/10 px-8 py-5 rounded-[40px] shadow-2xl flex items-center gap-8 animate-in slide-in-from-bottom-20 fade-in duration-700"
+                    className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[90] bg-[#1a1a1c] border border-white/10 px-8 py-5 rounded-[40px] flex items-center gap-8"
                     style={{ minWidth: 'fit-content' }}
                 >
                     <div className="flex items-center gap-4 border-r border-white/5 pr-8">

@@ -21,7 +21,7 @@
 
 @layer components {
     .bento-card {
-        @apply bg-[#18181b] border border-white/5 rounded-2xl shadow-lg backdrop-blur-md transition-all duration-300;
+        @apply bg-[#18181b] border border-white/5 rounded-2xl shadow-lg;
     }
 
     .accent-card {

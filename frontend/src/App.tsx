@@ -183,7 +183,7 @@ function App() {
     >
       {/* Sidebar */}
       <aside className={cn(
-        "bg-[#0c0c0e] border-r border-white/5 flex flex-col transition-all duration-300 relative group/sidebar",
+        "bg-[#0c0c0e] border-r border-white/5 flex flex-col relative group/sidebar",
         isSidebarCollapsed ? "w-20" : "w-64",
         isFullScreen && "hidden"
       )}>
@@ -214,7 +214,7 @@ function App() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as Tab)}
                 className={cn(
-                  "flex items-center transition-all duration-200 group rounded-xl font-bold",
+                  "flex items-center transition-colors group rounded-xl font-bold",
                   isSidebarCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
                   activeTab === tab.id
                     ? "bg-indigo-600/10 text-indigo-400"
@@ -261,7 +261,7 @@ function App() {
           </div>
 
           <button className={cn(
-            "flex items-center gap-3 rounded-xl font-bold text-red-500 hover:bg-red-500/10 transition-all duration-200 mt-4",
+            "flex items-center gap-3 rounded-xl font-bold text-red-500 hover:bg-red-500/10 transition-colors mt-4",
             isSidebarCollapsed ? "justify-center p-3" : "px-4 py-3"
           )}>
             <LogOut size={22} />
@@ -272,7 +272,7 @@ function App() {
 
       {/* Main Content Area */}
       <main className={cn(
-        "flex-1 flex flex-col overflow-hidden transition-all",
+        "flex-1 flex flex-col overflow-hidden",
         isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-6 md:px-8' : 'px-4 py-6')
       )}>
         {/* Header */}
@@ -298,7 +298,7 @@ function App() {
                       key={tab.id}
                       onClick={() => setViewType(tab.id as ViewType)}
                       className={cn(
-                        "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
+                        "flex items-center gap-2 rounded-xl font-bold transition-colors",
                         effectiveIsCompact ? "px-3 py-1 text-[10px]" : "px-4 py-2 text-xs",
                         viewType === tab.id
                           ? "bg-white/10 text-white shadow-lg shadow-black/20"
@@ -430,6 +430,7 @@ function App() {
                 onScheduleChange={setSchedule}
                 isEditMode={isEditMode}
                 setIsEditMode={setIsEditMode}
+                isPerformanceMode={perfSettings.disableAnimations}
               />
             </div>
           ) : activeTab === 'schedule' ? (
