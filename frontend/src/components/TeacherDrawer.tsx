@@ -272,7 +272,7 @@ export function TeacherDrawer({ isOpen, onClose, teacher, allSubjects, data, onS
                                     </div>
                                     <div>
                                         <div className="font-black text-white text-sm mb-1 uppercase tracking-tight">Ранні уроки</div>
-                                        <div className="text-[10px] text-[#a1a1aa] font-bold leading-relaxed">Надає перевагу 0-му періоду (ранок)</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-bold leading-relaxed">Надає перевагу 0-му уроку (ранок)</div>
                                     </div>
                                 </button>
                             </div>

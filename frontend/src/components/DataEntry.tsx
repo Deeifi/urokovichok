@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
 import {
     Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap,
-    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock
+    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -357,23 +357,45 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
 
                     return (
                         <div key={subject.id} className={cn(
-                            "bento-card p-6 border-white/5 transition-all duration-300 group relative overflow-hidden",
+                            "bento-card p-3 border-white/5 transition-all duration-300 group relative flex flex-col hover:z-50",
                             isEditing ? "ring-2 ring-indigo-500 bg-indigo-500/10" : "bg-white/[0.04] hover:bg-white/[0.08]"
-                        )}>
-                            <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700 pointer-events-none">
-                                <BookOpen size={140} />
+                        )}
+                            style={!isEditing ? {
+                                backgroundColor: `${color}05`,
+                                borderColor: `${color}20`,
+                                boxShadow: `0 4px 15px -10px ${color}10`
+                            } : undefined}>
+                            {/* Decorative background icon - wrapped in overflow-hidden container */}
+                            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                                <div className="absolute -right-2 -top-2 opacity-[0.015] group-hover:scale-110 transition-all duration-700">
+                                    <BookOpen size={60} />
+                                </div>
                             </div>
 
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 shadow-inner" style={{ backgroundColor: `${color} 20`, color: color }}>
-                                        {subject.id}
+                            <div className="relative z-10 flex flex-col h-full">
+                                <div className="flex justify-between items-center mb-2 gap-2">
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <div className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center border border-white/5 shadow-inner transition-transform group-hover:scale-105" style={{ backgroundColor: `${color}20`, color: color }}>
+                                            <BookOpen size={12} />
+                                        </div>
+                                        {!isEditing && (
+                                            <div className="flex items-center gap-1.5 opacity-60">
+                                                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5">
+                                                    <Clock size={8} className="text-[#a1a1aa]" />
+                                                    <span className="text-[9px] font-black text-white">{hours}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5">
+                                                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: color }} />
+                                                    <span className="text-[9px] font-black text-white">{subject.defaultRoom || '---'}</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 shrink-0">
                                         {isEditing ? (
                                             <>
-                                                <button onClick={handleSaveEdit} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"><Check size={16} /></button>
-                                                <button onClick={() => setEditingId(null)} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"><X size={16} /></button>
+                                                <button onClick={handleSaveEdit} className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"><Check size={14} /></button>
+                                                <button onClick={() => setEditingId(null)} className="p-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"><X size={14} /></button>
                                             </>
                                         ) : (
                                             <>
@@ -382,60 +404,43 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                                     setEditingName(subject.name);
                                                     setEditingColor(subject.color || '#6366f1');
                                                     setEditingRoom(subject.defaultRoom || '101');
-                                                }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-lg hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100">
-                                                    <Pencil size={14} />
+                                                }} className="p-1.5 bg-white/5 text-[#a1a1aa] rounded hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100">
+                                                    <Pencil size={12} />
                                                 </button>
-                                                <button onClick={() => handleDelete(subject.id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                                                <button onClick={() => handleDelete(subject.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={12} /></button>
                                             </>
                                         )}
                                     </div>
                                 </div>
 
                                 {isEditing ? (
-                                    <div className="space-y-3">
+                                    <div className="space-y-1.5">
                                         <input
                                             value={editingName}
                                             onChange={e => setEditingName(e.target.value)}
-                                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl focus:border-indigo-500 outline-none font-bold text-white text-lg transition-all"
+                                            className="w-full px-2 py-1 bg-black/40 border border-white/10 rounded focus:border-indigo-500 outline-none font-bold text-white text-xs transition-all"
                                             placeholder="Назва..."
                                             autoFocus
                                         />
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-1.5">
                                             <input
                                                 value={editingRoom}
                                                 onChange={e => setEditingRoom(e.target.value)}
-                                                className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white"
-                                                placeholder="Кабінет"
+                                                className="flex-1 px-2 py-1 bg-black/40 border border-white/10 rounded text-[9px] font-bold text-white"
+                                                placeholder="К..."
                                             />
                                             <input
                                                 type="color"
                                                 value={editingColor}
                                                 onChange={e => setEditingColor(e.target.value)}
-                                                className="w-12 h-9 bg-transparent border-none p-0 cursor-pointer"
+                                                className="w-8 h-6 bg-transparent border-none p-0 cursor-pointer"
                                             />
                                         </div>
                                     </div>
                                 ) : (
-                                    <>
-                                        <div className="text-2xl font-black text-white tracking-tighter mb-4 leading-tight min-h-[3.5rem]">
-                                            {subject.name}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
-                                                <span>Годин в плані</span>
-                                                <span className="text-white">{hours}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
-                                                <span>Кабінет</span>
-                                                <span className="text-white">{subject.defaultRoom || '101'}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-5 w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
-                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: '100%', backgroundColor: color }} />
-                                        </div>
-                                    </>
+                                    <div className="text-sm font-bold text-white tracking-tight leading-tight line-clamp-2 min-h-[2.5rem] flex items-center mt-1">
+                                        {subject.name}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -477,6 +482,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
     const [viewMode, setViewMode] = useState<'list' | 'details' | 'schedule'>('list');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
+    const [isAddFormOpen, setIsAddFormOpen] = useState(false);
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
     const [dragOverCell, setDragOverCell] = useState<any>(null);
     const [listMode, setListMode] = useState<'grid' | 'table'>('grid');
@@ -895,106 +901,123 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
 
     return (
         <div className="space-y-8">
-            {/* Add Form */}
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
-                <div className="absolute -top-12 -right-12 p-4 opacity-[0.03] group-hover:scale-110 transition-transform pointer-events-none">
-                    <Users size={160} />
-                </div>
-                <h3 className="font-black text-white mb-6 flex items-center gap-2 uppercase tracking-widest text-xs">
-                    Додати вчителя
-                </h3>
-                <div className="space-y-6">
-                    <div className="flex gap-4 items-start">
-                        <div className="flex flex-col gap-3 flex-1">
-                            <input
-                                placeholder="Ім'я вчителя"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                                className="flex-1 px-5 py-4 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-white placeholder:text-white/20 transition-all"
-                            />
-                            <div className="flex items-center gap-3">
-                                <label className="cursor-pointer group/upload">
-                                    <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
-                                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-[#a1a1aa] group-hover/upload:bg-white/10 group-hover/upload:text-white transition-all">
-                                        {photo ? <Check size={14} className="text-emerald-500" /> : <Plus size={14} />}
-                                        {photo ? 'Фото завантажено' : 'Завантажити фото'}
-                                    </div>
-                                </label>
-                                {photo && (
-                                    <button onClick={() => setPhoto(null)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20"><X size={14} /></button>
-                                )}
-                            </div>
+            {/* Collapsible Add Form */}
+            <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+                <button
+                    onClick={() => setIsAddFormOpen(!isAddFormOpen)}
+                    className="w-full p-6 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/10">
+                            <Plus size={24} />
                         </div>
-                        <button
-                            onClick={handleAdd}
-                            disabled={!name.trim()}
-                            className="btn-premium from-emerald-500 to-teal-600 flex items-center gap-2 whitespace-nowrap shadow-emerald-500/20"
-                        >
-                            <Plus size={20} /> Додати
-                        </button>
+                        <div>
+                            <h3 className="font-black text-white uppercase tracking-widest text-xs mb-1">Додати нового вчителя</h3>
+                            <p className="text-[10px] text-[#a1a1aa] font-bold">Створіть профіль вчителя, призначте предмети та обмеження</p>
+                        </div>
                     </div>
+                    {isAddFormOpen ? <ChevronUp className="text-white/40" /> : <ChevronDown className="text-white/40" />}
+                </button>
 
-                    <button
-                        onClick={() => setIsPrimary(!is_primary)}
-                        className={cn(
-                            "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
-                            is_primary
-                                ? "bg-emerald-500/20 border-emerald-500/50 shadow-lg shadow-emerald-500/10"
-                                : "bg-white/5 border-white/10 hover:bg-white/10"
-                        )}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", is_primary ? "bg-emerald-500 border-emerald-500" : "border-white/20")}>
-                                {is_primary && <Check size={14} className="text-white" />}
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-white text-sm">Вчитель початкових класів</div>
-                                <div className="text-[10px] text-[#a1a1aa] font-medium">Може викладати будь-який предмет для 1-4 класів</div>
-                            </div>
-                        </div>
-                    </button>
+                {isAddFormOpen && (
+                    <div className="p-6 pt-0 space-y-6 animate-in slide-in-from-top-4 duration-300">
+                        <div className="h-px w-full bg-white/5 mb-6" />
 
-                    <button
-                        onClick={() => setPrefersPeriodZero(!prefersPeriodZero)}
-                        className={cn(
-                            "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
-                            prefersPeriodZero
-                                ? "bg-violet-500/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
-                                : "bg-white/5 border-white/10 hover:bg-white/10"
-                        )}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", prefersPeriodZero ? "bg-violet-500 border-violet-500" : "border-white/20")}>
-                                {prefersPeriodZero && <Check size={14} className="text-white" />}
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-white text-sm">Віддає перевагу нульовому уроку</div>
-                                <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки цього вчителя будуть частіше в періоді 0 (ранок)</div>
-                            </div>
-                        </div>
-                    </button>
-
-                    <div>
-                        <label className="block text-[10px] font-black text-[#a1a1aa] mb-3 uppercase tracking-widest">Дисципліни:</label>
-                        <div className="flex flex-wrap gap-2">
-                            {data.subjects.length > 0 ? getSortedSubjects(data.subjects).map(sub => (
-                                <button
-                                    key={sub.id}
-                                    onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
-                                    className={cn(
-                                        "px-4 py-2 rounded-xl text-sm font-bold border transition-all duration-300",
-                                        selectedSubjects.includes(sub.id)
-                                            ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20"
-                                            : "bg-white/5 border-white/10 text-[#a1a1aa] hover:border-emerald-500/50"
+                        <div className="flex gap-4 items-start">
+                            <div className="flex flex-col gap-3 flex-1">
+                                <input
+                                    placeholder="Ім'я вчителя"
+                                    autoFocus
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                                    className="flex-1 px-5 py-4 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-white placeholder:text-white/20 transition-all"
+                                />
+                                <div className="flex items-center gap-3">
+                                    <label className="cursor-pointer group/upload">
+                                        <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-[#a1a1aa] group-hover/upload:bg-white/10 group-hover/upload:text-white transition-all">
+                                            {photo ? <Check size={14} className="text-emerald-500" /> : <Plus size={14} />}
+                                            {photo ? 'Фото завантажено' : 'Завантажити фото'}
+                                        </div>
+                                    </label>
+                                    {photo && (
+                                        <button onClick={() => setPhoto(null)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20"><X size={14} /></button>
                                     )}
-                                >
-                                    {sub.name}
-                                </button>
-                            )) : <span className="text-sm text-white/30">Спочатку додайте предмети</span>}
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleAdd}
+                                disabled={!name.trim()}
+                                className="btn-premium from-emerald-500 to-teal-600 flex items-center gap-2 whitespace-nowrap shadow-emerald-500/20"
+                            >
+                                <Plus size={20} /> Додати
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                onClick={() => setIsPrimary(!is_primary)}
+                                className={cn(
+                                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
+                                    is_primary
+                                        ? "bg-emerald-500/20 border-emerald-500/50 shadow-lg shadow-emerald-500/10"
+                                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                                )}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", is_primary ? "bg-emerald-500 border-emerald-500" : "border-white/20")}>
+                                        {is_primary && <Check size={14} className="text-white" />}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-bold text-white text-sm">Вчитель поч. класів</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Для 1-4 класів</div>
+                                    </div>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setPrefersPeriodZero(!prefersPeriodZero)}
+                                className={cn(
+                                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
+                                    prefersPeriodZero
+                                        ? "bg-violet-500/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
+                                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                                )}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", prefersPeriodZero ? "bg-violet-500 border-violet-500" : "border-white/20")}>
+                                        {prefersPeriodZero && <Check size={14} className="text-white" />}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-bold text-white text-sm">Урок 0 (Ранок)</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки о 7:30</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-[#a1a1aa] mb-3 uppercase tracking-widest">Дисципліни:</label>
+                            <div className="flex flex-wrap gap-2">
+                                {data.subjects.length > 0 ? getSortedSubjects(data.subjects).map(sub => (
+                                    <button
+                                        key={sub.id}
+                                        onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
+                                        className={cn(
+                                            "px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-300",
+                                            selectedSubjects.includes(sub.id)
+                                                ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20"
+                                                : "bg-white/5 border-white/10 text-[#a1a1aa] hover:border-emerald-500/50"
+                                        )}
+                                    >
+                                        {sub.name}
+                                    </button>
+                                )) : <span className="text-sm text-white/30">Спочатку додайте предмети</span>}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Search, Filter and View Toggle */}
@@ -1169,10 +1192,17 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                             setViewMode('details');
                                         }}
                                         className={cn(
-                                            "bento-card p-0 border-white/5 group relative overflow-hidden flex flex-col cursor-pointer",
+                                            "bento-card p-0 border-white/5 group relative transition-all duration-300 flex flex-col cursor-pointer hover:z-50",
                                             isSelected ? "bg-indigo-500/10 border-indigo-500/30 scale-[0.98]" : "bg-white/[0.04] hover:bg-white/[0.08]"
                                         )}
                                     >
+                                        {/* Decorative background icon - wrapped in overflow-hidden container */}
+                                        <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none">
+                                            <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700">
+                                                <Users size={160} />
+                                            </div>
+                                        </div>
+
                                         {/* Top Actions: Selection (Left) & Edit/Delete (Right) */}
                                         <div className="flex justify-between items-center p-5 relative z-20">
                                             <button
@@ -1216,7 +1246,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                         </div>
 
                                         {/* Main Content */}
-                                        <div className="px-6 pb-6 pt-2 flex-col flex flex-1">
+                                        <div className="px-6 pb-6 pt-2 flex-col flex flex-1 relative z-10">
                                             <div className="flex items-center gap-5 mb-6">
                                                 <div className="w-16 h-16 bg-gradient-to-br from-[#1e293b] to-[#0f172a] rounded-[22px] flex items-center justify-center font-black overflow-hidden border border-white/10 shadow-2xl group-hover:scale-105 transition-transform shrink-0">
                                                     {teacher.photo ? (
@@ -1226,7 +1256,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-xl font-black text-white tracking-tighter truncate leading-tight mb-1">
+                                                    <div className="text-3xl font-black text-white tracking-tighter truncate leading-tight mb-1">
                                                         {teacher.name}
                                                     </div>
                                                     <div className="flex gap-2">
@@ -1246,18 +1276,12 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
 
                                             <div className="space-y-3 mt-auto">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em] italic">Load Factor</span>
-                                                    <span className={cn("text-xs font-black", hours > 30 ? "text-rose-400" : "text-emerald-400")}>{hours}h/week</span>
-                                                </div>
-                                                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[2px]">
-                                                    <div
-                                                        className={cn("h-full rounded-full transition-all duration-1000 delay-100", hours > 30 ? "bg-rose-500" : "bg-emerald-500")}
-                                                        style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }}
-                                                    />
+                                                    <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest leading-none">Навантаження</span>
+                                                    <span className={cn("text-xs font-black", hours > 30 ? "text-rose-400" : "text-emerald-400")}>{hours} год/тижд</span>
                                                 </div>
 
                                                 {/* Subject Tags */}
-                                                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+                                                <div className="flex flex-wrap gap-1.5 mt-1">
                                                     {teacher.subjects.slice(0, 3).map(sid => {
                                                         const sub = data.subjects.find(s => s.id === sid);
                                                         return (
@@ -1272,23 +1296,33 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                                             <span className="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[9px] font-black rounded-lg border border-indigo-500/20 uppercase cursor-help">
                                                                 +{teacher.subjects.length - 3}
                                                             </span>
-                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 bg-[#1a1a1c] border border-white/10 p-3 rounded-2xl shadow-2xl opacity-0 translate-y-2 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 transition-all z-[100]">
-                                                                <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Усі дисципліни</div>
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    {teacher.subjects.map(sid => {
-                                                                        const sub = data.subjects.find(s => s.id === sid);
-                                                                        return (
-                                                                            <div key={sid} className="flex items-center gap-2">
-                                                                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6366f1' }} />
-                                                                                <span className="text-[10px] font-bold text-white/80">{sub?.name}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
+                                                            {/* Tooltip wrapper to bridge the hover gap */}
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-3 w-56 opacity-0 translate-y-2 pointer-events-none group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 group-hover/tooltip:pointer-events-auto transition-all z-[100]">
+                                                                <div className="bg-[#1a1a1c] border border-white/10 p-4 rounded-2xl shadow-2xl relative">
+                                                                    <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Усі дисципліни</div>
+                                                                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar pt-1">
+                                                                        {teacher.subjects.map((sid, idx) => {
+                                                                            const sub = data.subjects.find(s => s.id === sid);
+                                                                            return (
+                                                                                <div key={`${teacher.id}-${sid}-${idx}`} className="flex items-center gap-2 py-0.5">
+                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sub?.color || '#6366f1' }} />
+                                                                                    <span className="text-[10px] font-bold text-white/80 leading-tight">{sub?.name || sid}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1a1a1c] rotate-45 border-r border-b border-white/10 -mt-1.5" />
                                                                 </div>
-                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1a1a1c] rotate-45 border-r border-b border-white/10 -mt-1.5" />
                                                             </div>
                                                         </div>
                                                     )}
+                                                </div>
+
+                                                <div className="w-[calc(100%+3rem)] -mx-6 -mb-6 mt-6 bg-white/5 h-1.5 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={cn("h-full transition-all duration-1000 delay-100", hours > 30 ? "bg-rose-500" : "bg-emerald-500")}
+                                                        style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -2059,31 +2093,34 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                     const subjectsCount = data.plan.filter(p => p.class_id === cls.id).length;
 
                     return (
-                        <div key={cls.id} className="bento-card p-6 border-white/5 hover:bg-white/[0.04] transition-all group cursor-pointer relative overflow-hidden" onClick={() => setViewingClassId(cls.id)}>
-                            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:scale-110 transition-transform">
-                                <ClipboardList size={60} />
+                        <div key={cls.id} className="bento-card p-6 border-white/5 bg-violet-500/[0.03] hover:bg-white/[0.04] transition-all group cursor-pointer relative flex flex-col hover:z-50" onClick={() => setViewingClassId(cls.id)}>
+                            {/* Decorative background icon - wrapped in overflow-hidden container */}
+                            <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none">
+                                <div className="absolute -right-6 -top-6 opacity-[0.03] group-hover:scale-110 group-hover:-rotate-12 transition-all duration-700">
+                                    <GraduationCap size={140} />
+                                </div>
                             </div>
-                            <div className="flex justify-between items-start mb-4">
+                            <div className="flex justify-between items-start mb-6 relative z-10">
                                 <div className="text-4xl font-black text-white tracking-tighter">{cls.name}</div>
                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(cls.id); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100">
                                     <Trash2 size={16} />
                                 </button>
                             </div>
 
-                            <div className="space-y-1">
-                                <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
-                                    <span>Годин / Тиждень</span>
-                                    <span className={cn(hours > 30 ? "text-red-400" : "text-violet-400")}>{hours}</span>
+                            <div className="space-y-2 mt-auto relative z-10">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Годин / Тиждень</span>
+                                    <span className={cn("text-xs font-black", hours > 30 ? "text-rose-400" : "text-violet-400")}>{hours} год</span>
                                 </div>
-                                <div className="flex items-center justify-between text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">
-                                    <span>Предметів</span>
-                                    <span className="text-white">{subjectsCount}</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-[#a1a1aa] uppercase tracking-widest">Предметів</span>
+                                    <span className="text-xs font-black text-white">{subjectsCount}</span>
                                 </div>
                             </div>
 
-                            <div className="mt-4 w-full bg-white/5 h-1.5 rounded-full overflow-hidden border border-white/5">
+                            <div className="mt-5 w-[calc(100%+3rem)] -mx-6 -mb-6 bg-white/5 h-1.5 rounded-full overflow-hidden">
                                 <div
-                                    className={cn("h-full rounded-full transition-all duration-500", hours > 30 ? "bg-red-500" : "bg-violet-500")}
+                                    className={cn("h-full transition-all duration-500", hours > 30 ? "bg-rose-500" : "bg-violet-500")}
                                     style={{ width: `${Math.min(hours / 35 * 100, 100)}% ` }}
                                 />
                             </div>
