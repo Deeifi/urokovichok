@@ -3,6 +3,7 @@ export interface Subject {
     name: string;
     color?: string;
     defaultRoom?: string;
+    icon?: string;
 }
 
 

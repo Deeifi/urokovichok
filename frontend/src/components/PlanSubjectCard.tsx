@@ -1,7 +1,42 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Users, Check } from 'lucide-react';
+import {
+    Users, Check, BookOpen, Calculator, FlaskConical, Languages, Book, Library, Globe2, Divide,
+    Shapes, Dna, Atom, Map, Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse,
+    Dumbbell, Shield, Telescope, Leaf
+} from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { Subject, Teacher } from '../types';
+
+const ICON_OPTIONS = [
+    { name: 'BookOpen', icon: BookOpen },
+    { name: 'Calculator', icon: Calculator },
+    { name: 'FlaskConical', icon: FlaskConical },
+    { name: 'Languages', icon: Languages },
+    { name: 'Book', icon: Book },
+    { name: 'Library', icon: Library },
+    { name: 'Globe2', icon: Globe2 },
+    { name: 'Divide', icon: Divide },
+    { name: 'Shapes', icon: Shapes },
+    { name: 'Dna', icon: Dna },
+    { name: 'Atom', icon: Atom },
+    { name: 'Map', icon: Map },
+    { name: 'Scroll', icon: Scroll },
+    { name: 'Landmark', icon: Landmark },
+    { name: 'Users2', icon: Users2 },
+    { name: 'Palette', icon: Palette },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cpu', icon: Cpu },
+    { name: 'HeartPulse', icon: HeartPulse },
+    { name: 'Dumbbell', icon: Dumbbell },
+    { name: 'Shield', icon: Shield },
+    { name: 'Telescope', icon: Telescope },
+    { name: 'Leaf', icon: Leaf },
+];
+
+const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
+    const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+    return <IconComponent size={size} className={className} />;
+};
 
 // Extracted Card Component for Plan Editor
 interface PlanSubjectCardProps {
@@ -55,10 +90,22 @@ export function PlanSubjectCard({ subject, planItem, classGrade, teachers, onUpd
                 boxShadow: `0 4px 20px -10px ${color}10`
             } : undefined}
         >
+            {/* Decorative background icon */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                <div className="absolute -right-2 -top-2 opacity-[0.015] group-hover:scale-110 transition-all duration-700">
+                    <IconRenderer name={subject.icon} size={80} />
+                </div>
+            </div>
+
             {/* Top Row: Name and Room */}
             <div className="flex justify-between items-start mb-2 relative z-10">
-                <div className="font-black text-white text-lg leading-tight truncate pr-2" title={subject.name}>
-                    {subject.name}
+                <div className="flex items-center gap-2 overflow-hidden flex-1">
+                    <div className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-white/5 shadow-inner transition-transform group-hover:scale-105" style={{ backgroundColor: `${color}20`, color: color }}>
+                        <IconRenderer name={subject.icon} size={16} />
+                    </div>
+                    <div className="font-black text-white text-lg leading-tight truncate pr-2" title={subject.name}>
+                        {subject.name}
+                    </div>
                 </div>
                 <div className="relative group/room">
                     <div className={cn(

@@ -1,5 +1,40 @@
 import React, { useMemo, useState, memo } from 'react';
-import { AlertTriangle, Plus } from 'lucide-react';
+import {
+    AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book, Library, Globe2,
+    Divide, Shapes, Dna, Atom, Map, Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse,
+    Dumbbell, Shield, Telescope, Leaf
+} from 'lucide-react';
+
+const ICON_OPTIONS = [
+    { name: 'BookOpen', icon: BookOpen },
+    { name: 'Calculator', icon: Calculator },
+    { name: 'FlaskConical', icon: FlaskConical },
+    { name: 'Languages', icon: Languages },
+    { name: 'Book', icon: Book },
+    { name: 'Library', icon: Library },
+    { name: 'Globe2', icon: Globe2 },
+    { name: 'Divide', icon: Divide },
+    { name: 'Shapes', icon: Shapes },
+    { name: 'Dna', icon: Dna },
+    { name: 'Atom', icon: Atom },
+    { name: 'Map', icon: Map },
+    { name: 'Scroll', icon: Scroll },
+    { name: 'Landmark', icon: Landmark },
+    { name: 'Users2', icon: Users2 },
+    { name: 'Palette', icon: Palette },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cpu', icon: Cpu },
+    { name: 'HeartPulse', icon: HeartPulse },
+    { name: 'Dumbbell', icon: Dumbbell },
+    { name: 'Shield', icon: Shield },
+    { name: 'Telescope', icon: Telescope },
+    { name: 'Leaf', icon: Leaf },
+];
+
+const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
+    const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+    return <IconComponent size={size} className={className} />;
+};
 import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
 const EMPTY_ARRAY: Lesson[] = [];
@@ -130,15 +165,20 @@ const MemoizedTeacherCell = memo(({
                                 }}
                             >
                                 {lessons.length <= 2 && (
-                                    <div className="invisible group-hover/cell:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-[100] w-max max-w-[150px] p-1.5 bg-[#18181b] border border-white/10 rounded-md shadow-2xl pointer-events-none animate-in fade-in zoom-in duration-100">
-                                        <div className="text-[9px] font-black text-white uppercase">{cls?.name} • {sub?.name}</div>
-                                        <div className="text-[7px] font-bold text-[#a1a1aa] mt-0.5">Каб: {room}</div>
-                                        {hasConflicts && (
-                                            <div className="mt-1 pt-1 border-t border-white/5 text-[7px] font-bold">
-                                                {classConflicts.length > 0 && <div className="text-violet-400">КЛАС: {classConflicts.join(', ')}</div>}
-                                                {teacherConflicts.length > 0 && <div className="text-amber-500">ВИКЛ.: {teacherConflicts.join(', ')}</div>}
-                                            </div>
-                                        )}
+                                    <div className="invisible group-hover/cell:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-[100] w-max max-w-[200px] p-2 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl pointer-events-none animate-in fade-in zoom-in duration-100 flex items-start gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                                            <IconRenderer name={sub?.icon} size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[9px] font-black text-white uppercase">{cls?.name} • {sub?.name}</div>
+                                            <div className="text-[7px] font-bold text-[#a1a1aa] mt-0.5">Кабінет: {room}</div>
+                                            {hasConflicts && (
+                                                <div className="mt-1 pt-1 border-t border-white/5 text-[7px] font-bold">
+                                                    {classConflicts.length > 0 && <div className="text-violet-400">КЛАС: {classConflicts.join(', ')}</div>}
+                                                    {teacherConflicts.length > 0 && <div className="text-amber-500">ВИКЛ.: {teacherConflicts.join(', ')}</div>}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {hasConflicts && (
@@ -435,9 +475,11 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                         className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group/btn text-left"
                                     >
                                         <div
-                                            className="w-1.5 h-6 rounded-full shrink-0"
-                                            style={{ backgroundColor: color }}
-                                        />
+                                            className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center bg-white/5 border border-white/5"
+                                            style={{ color: color }}
+                                        >
+                                            <IconRenderer name={sub?.icon} size={16} />
+                                        </div>
                                         <div className="min-w-0">
                                             <div className="text-[11px] font-black text-white group-hover/btn:text-indigo-400 transition-colors uppercase">{cls?.name}</div>
                                             <div className="text-[9px] text-[#a1a1aa] truncate">{sub?.name}</div>

@@ -290,112 +290,134 @@ export const INITIAL_DATA: ScheduleRequest = {
     {
       "id": "ukr_lang",
       "name": "Українська мова",
-      "color": "#3b82f6"
+      "color": "#3b82f6",
+      "icon": "Languages"
     },
     {
       "id": "ukr_lit",
       "name": "Українська література",
-      "color": "#6366f1"
+      "color": "#6366f1",
+      "icon": "Book"
     },
     {
       "id": "for_lit",
       "name": "Зарубіжна література",
-      "color": "#8b5cf6"
+      "color": "#8b5cf6",
+      "icon": "Library"
     },
     {
       "id": "eng",
       "name": "Іноземна мова",
-      "color": "#ec4899"
+      "color": "#ec4899",
+      "icon": "Globe2"
     },
     {
       "id": "math",
       "name": "Математика",
-      "color": "#ef4444"
+      "color": "#ef4444",
+      "icon": "Calculator"
     },
     {
       "id": "alg",
       "name": "Алгебра",
-      "color": "#f87171"
+      "color": "#f87171",
+      "icon": "Divide"
     },
     {
       "id": "geom",
       "name": "Геометрія",
-      "color": "#fca5a5"
+      "color": "#fca5a5",
+      "icon": "Shapes"
     },
     {
       "id": "bio",
       "name": "Біологія",
-      "color": "#10b981"
+      "color": "#10b981",
+      "icon": "Dna"
     },
     {
       "id": "chem",
       "name": "Хімія",
-      "color": "#059669"
+      "color": "#059669",
+      "icon": "FlaskConical"
     },
     {
       "id": "phys",
       "name": "Фізика",
-      "color": "#06b6d4"
+      "color": "#06b6d4",
+      "icon": "Atom"
     },
     {
       "id": "geog",
       "name": "Географія",
-      "color": "#0ea5e9"
+      "color": "#0ea5e9",
+      "icon": "Map"
     },
     {
       "id": "hist_ukr",
       "name": "Історія України",
-      "color": "#f59e0b"
+      "color": "#f59e0b",
+      "icon": "Scroll"
     },
     {
       "id": "hist_world",
       "name": "Всесвітня історія",
-      "color": "#fbbf24"
+      "color": "#fbbf24",
+      "icon": "Landmark"
     },
     {
       "id": "civic",
       "name": "Громадянська освіта",
-      "color": "#fcd34d"
+      "color": "#fcd34d",
+      "icon": "Users2"
     },
     {
       "id": "art",
       "name": "Мистецтво",
-      "color": "#d946ef"
+      "color": "#d946ef",
+      "icon": "Palette"
     },
     {
       "id": "tech",
       "name": "Технології",
-      "color": "#71717a"
+      "color": "#71717a",
+      "icon": "Hammer"
     },
     {
       "id": "cs",
       "name": "Інформатика",
-      "color": "#334155"
+      "color": "#334155",
+      "icon": "Cpu"
     },
     {
       "id": "health",
       "name": "Основи здоров'я",
-      "color": "#22c55e"
+      "color": "#22c55e",
+      "icon": "HeartPulse"
     },
     {
       "id": "pe",
       "name": "Фізична культура",
-      "color": "#f97316"
+      "color": "#f97316",
+      "icon": "Dumbbell"
     },
     {
       "id": "defense",
       "name": "Захист України",
-      "color": "#166534"
+      "color": "#166534",
+      "icon": "Shield"
     },
     {
       "id": "astro",
       "name": "Астрономія",
-      "color": "#1e293b"
+      "color": "#1e293b",
+      "icon": "Telescope"
     },
     {
       "id": "nat_sci",
       "name": "Природознавство",
-      "color": "#4ade80"
+      "color": "#4ade80",
+      "icon": "Leaf"
     }
   ],
   "plan": [

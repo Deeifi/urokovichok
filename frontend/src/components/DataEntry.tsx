@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
 import {
     Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap,
-    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock, ChevronDown, ChevronUp
+    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock, ChevronDown, ChevronUp,
+    Calculator, FlaskConical, Languages, Book, Library, Globe2, Divide, Shapes, Dna, Atom, Map,
+    Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -239,23 +241,57 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
     const PRESETS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#f97316'];
+    const ICON_OPTIONS = [
+        { name: 'BookOpen', icon: BookOpen },
+        { name: 'Calculator', icon: Calculator },
+        { name: 'FlaskConical', icon: FlaskConical },
+        { name: 'Languages', icon: Languages },
+        { name: 'Book', icon: Book },
+        { name: 'Library', icon: Library },
+        { name: 'Globe2', icon: Globe2 },
+        { name: 'Divide', icon: Divide },
+        { name: 'Shapes', icon: Shapes },
+        { name: 'Dna', icon: Dna },
+        { name: 'Atom', icon: Atom },
+        { name: 'Map', icon: Map },
+        { name: 'Scroll', icon: Scroll },
+        { name: 'Landmark', icon: Landmark },
+        { name: 'Users2', icon: Users2 },
+        { name: 'Palette', icon: Palette },
+        { name: 'Hammer', icon: Hammer },
+        { name: 'Cpu', icon: Cpu },
+        { name: 'HeartPulse', icon: HeartPulse },
+        { name: 'Dumbbell', icon: Dumbbell },
+        { name: 'Shield', icon: Shield },
+        { name: 'Telescope', icon: Telescope },
+        { name: 'Leaf', icon: Leaf },
+    ];
+
+    const [newIcon, setNewIcon] = useState('BookOpen');
+    const [editingIcon, setEditingIcon] = useState('BookOpen');
+
+    const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
+        const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+        return <IconComponent size={size} className={className} />;
+    };
 
     const handleAdd = () => {
         if (!newName.trim()) return;
         onChange({
             ...data,
-            subjects: [...data.subjects, { id: nextId(), name: newName.trim(), color: newColor, defaultRoom: newRoom }]
+            subjects: [...data.subjects, { id: nextId(), name: newName.trim(), color: newColor, defaultRoom: newRoom, icon: newIcon }]
         });
         setNewName('');
         setNewColor('#6366f1');
         setNewRoom('101');
+        setNewIcon('BookOpen');
     };
 
     const handleSaveEdit = () => {
         if (!editingId || !editingName.trim()) return;
         onChange({
             ...data,
-            subjects: data.subjects.map(s => s.id === editingId ? { ...s, name: editingName.trim(), color: editingColor, defaultRoom: editingRoom } : s)
+            subjects: data.subjects.map(s => s.id === editingId ? { ...s, name: editingName.trim(), color: editingColor, defaultRoom: editingRoom, icon: editingIcon } : s)
         });
         setEditingId(null);
     };
@@ -308,21 +344,39 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                 onChange={e => setNewRoom(e.target.value)}
                                 className="w-24 px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-white text-sm"
                             />
-                            <div className="flex gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
-                                {PRESETS.map(c => (
-                                    <button
-                                        key={c}
-                                        onClick={() => setNewColor(c)}
-                                        className={cn("w-6 h-6 rounded-md transition-all active:scale-95", newColor === c ? "ring-2 ring-white scale-110" : "opacity-60 hover:opacity-100")}
-                                        style={{ backgroundColor: c }}
+                            <div className="flex flex-col gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
+                                <div className="flex gap-1.5 p-1">
+                                    {PRESETS.map(c => (
+                                        <button
+                                            key={c}
+                                            onClick={() => setNewColor(c)}
+                                            className={cn("w-6 h-6 rounded-md transition-all active:scale-95", newColor === c ? "ring-2 ring-white scale-110" : "opacity-60 hover:opacity-100")}
+                                            style={{ backgroundColor: c }}
+                                        />
+                                    ))}
+                                    <input
+                                        type="color"
+                                        value={newColor}
+                                        onChange={e => setNewColor(e.target.value)}
+                                        className="w-6 h-6 rounded-md bg-transparent border-none p-0 cursor-pointer overflow-hidden"
                                     />
-                                ))}
-                                <input
-                                    type="color"
-                                    value={newColor}
-                                    onChange={e => setNewColor(e.target.value)}
-                                    className="w-6 h-6 rounded-md bg-transparent border-none p-0 cursor-pointer overflow-hidden"
-                                />
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 p-1 border-t border-white/5 mt-1 max-w-[300px]">
+                                    {ICON_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.name}
+                                            onClick={() => setNewIcon(opt.name)}
+                                            className={cn(
+                                                "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                                                newIcon === opt.name
+                                                    ? "bg-indigo-500 text-white shadow-lg"
+                                                    : "bg-white/5 text-[#a1a1aa] hover:bg-white/10 hover:text-white"
+                                            )}
+                                        >
+                                            <opt.icon size={16} />
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         <button
@@ -368,7 +422,7 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                             {/* Decorative background icon - wrapped in overflow-hidden container */}
                             <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                                 <div className="absolute -right-2 -top-2 opacity-[0.015] group-hover:scale-110 transition-all duration-700">
-                                    <BookOpen size={60} />
+                                    <IconRenderer name={subject.icon} size={60} />
                                 </div>
                             </div>
 
@@ -376,12 +430,12 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                 <div className="flex justify-between items-center mb-2 gap-2">
                                     <div className="flex items-center gap-1.5 overflow-hidden">
                                         <div className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center border border-white/5 shadow-inner transition-transform group-hover:scale-105" style={{ backgroundColor: `${color}20`, color: color }}>
-                                            <BookOpen size={12} />
+                                            <IconRenderer name={subject.icon} size={12} />
                                         </div>
                                         {!isEditing && (
                                             <div className="flex items-center gap-1.5 opacity-60">
                                                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5">
-                                                    <Clock size={8} className="text-[#a1a1aa]" />
+                                                    <Clock size={20} className="text-[#a1a1aa]" />
                                                     <span className="text-[9px] font-black text-white">{hours}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 border border-white/5">
@@ -404,6 +458,7 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                                     setEditingName(subject.name);
                                                     setEditingColor(subject.color || '#6366f1');
                                                     setEditingRoom(subject.defaultRoom || '101');
+                                                    setEditingIcon(subject.icon || 'BookOpen');
                                                 }} className="p-1.5 bg-white/5 text-[#a1a1aa] rounded hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100">
                                                     <Pencil size={12} />
                                                 </button>
@@ -435,6 +490,22 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                                 onChange={e => setEditingColor(e.target.value)}
                                                 className="w-8 h-6 bg-transparent border-none p-0 cursor-pointer"
                                             />
+                                        </div>
+                                        <div className="grid grid-cols-6 gap-1 bg-black/40 p-1.5 rounded border border-white/5">
+                                            {ICON_OPTIONS.slice(0, 12).map(opt => (
+                                                <button
+                                                    key={opt.name}
+                                                    onClick={() => setEditingIcon(opt.name)}
+                                                    className={cn(
+                                                        "w-6 h-6 rounded flex items-center justify-center transition-all",
+                                                        editingIcon === opt.name
+                                                            ? "bg-indigo-500 text-white"
+                                                            : "text-[#a1a1aa] hover:bg-white/5"
+                                                    )}
+                                                >
+                                                    <opt.icon size={12} />
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 ) : (

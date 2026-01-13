@@ -1,7 +1,42 @@
 import React, { useState, useMemo, memo, useEffect } from 'react';
 import type { Lesson, ScheduleRequest, Subject, PerformanceSettings } from '../types';
 import { cn } from '../utils/cn';
-import { Users, Search, Clock, AlertTriangle, Plus } from 'lucide-react';
+import {
+    Users, Search, Clock, AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book,
+    Library, Globe2, Divide, Shapes, Dna, Atom, Map, Scroll, Landmark, Users2, Palette, Hammer,
+    Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
+} from 'lucide-react';
+
+const ICON_OPTIONS = [
+    { name: 'BookOpen', icon: BookOpen },
+    { name: 'Calculator', icon: Calculator },
+    { name: 'FlaskConical', icon: FlaskConical },
+    { name: 'Languages', icon: Languages },
+    { name: 'Book', icon: Book },
+    { name: 'Library', icon: Library },
+    { name: 'Globe2', icon: Globe2 },
+    { name: 'Divide', icon: Divide },
+    { name: 'Shapes', icon: Shapes },
+    { name: 'Dna', icon: Dna },
+    { name: 'Atom', icon: Atom },
+    { name: 'Map', icon: Map },
+    { name: 'Scroll', icon: Scroll },
+    { name: 'Landmark', icon: Landmark },
+    { name: 'Users2', icon: Users2 },
+    { name: 'Palette', icon: Palette },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cpu', icon: Cpu },
+    { name: 'HeartPulse', icon: HeartPulse },
+    { name: 'Dumbbell', icon: Dumbbell },
+    { name: 'Shield', icon: Shield },
+    { name: 'Telescope', icon: Telescope },
+    { name: 'Leaf', icon: Leaf },
+];
+
+const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
+    const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+    return <IconComponent size={size} className={className} />;
+};
 
 interface MemoizedCellProps {
     classId: string;
@@ -109,7 +144,8 @@ const MemoizedCell = memo(({
                             : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-110"
                         ),
                         userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id !== selectedTeacherId && "opacity-10 grayscale blur-[0.3px] pointer-events-none",
-                        userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "z-20 scale-125 ring-2 ring-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)] brightness-125"
+                        userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "z-20 scale-125 ring-2 ring-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)] brightness-125",
+                        isMonochrome ? "opacity-60" : ""
                     )}
                     style={{
                         backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`,
@@ -127,14 +163,10 @@ const MemoizedCell = memo(({
                         setDragOverCell(null);
                     }}
                 >
-                    <span className={cn(
-                        "text-[12px] font-black uppercase leading-none truncate w-full text-center px-0.5 tracking-tighter",
-                        isMonochrome ? "text-[#a1a1aa]" : "text-white"
-                    )}>
-                        {subject?.name.toLowerCase().includes('фізкульт')
-                            ? 'Ф-РА'
-                            : subject?.name.slice(0, 3)}
-                    </span>
+                    <IconRenderer name={subject?.icon} size={16} className={cn(
+                        "transition-transform group-hover/cell:scale-110",
+                        isMonochrome ? "text-[#a1a1aa]" : ""
+                    )} />
                     {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
                         <div className={cn(
                             "absolute top-0 right-0 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center",

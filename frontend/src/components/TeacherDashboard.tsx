@@ -8,8 +8,41 @@ import {
     Calendar,
     Star,
     Zap,
-    Users
+    Users,
+    Calculator, FlaskConical, Languages, Book, Library, Globe2, Divide, Shapes, Dna, Atom, Map,
+    Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
 } from 'lucide-react';
+
+const ICON_OPTIONS = [
+    { name: 'BookOpen', icon: BookOpen },
+    { name: 'Calculator', icon: Calculator },
+    { name: 'FlaskConical', icon: FlaskConical },
+    { name: 'Languages', icon: Languages },
+    { name: 'Book', icon: Book },
+    { name: 'Library', icon: Library },
+    { name: 'Globe2', icon: Globe2 },
+    { name: 'Divide', icon: Divide },
+    { name: 'Shapes', icon: Shapes },
+    { name: 'Dna', icon: Dna },
+    { name: 'Atom', icon: Atom },
+    { name: 'Map', icon: Map },
+    { name: 'Scroll', icon: Scroll },
+    { name: 'Landmark', icon: Landmark },
+    { name: 'Users2', icon: Users2 },
+    { name: 'Palette', icon: Palette },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cpu', icon: Cpu },
+    { name: 'HeartPulse', icon: HeartPulse },
+    { name: 'Dumbbell', icon: Dumbbell },
+    { name: 'Shield', icon: Shield },
+    { name: 'Telescope', icon: Telescope },
+    { name: 'Leaf', icon: Leaf },
+];
+
+const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
+    const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+    return <IconComponent size={size} className={className} />;
+};
 import { cn } from '../utils/cn';
 import { BELL_SCHEDULE } from '../constants';
 
@@ -126,7 +159,7 @@ export const TeacherDashboard = memo(({
                         }}
                     >
                         <div className="absolute -top-16 -right-16 p-8 opacity-[0.05] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
-                            <Star size={240} />
+                            <IconRenderer name={subject?.icon} size={240} />
                         </div>
 
                         <div>
@@ -161,7 +194,8 @@ export const TeacherDashboard = memo(({
                                 <ChevronRight size={18} className="translate-x-0 group-hover/btn:translate-x-1 transition-transform" />
                             </button>
                             {currentLesson && (
-                                <button className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all backdrop-blur-md border border-white/10">
+                                <button className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all backdrop-blur-md border border-white/10 flex items-center gap-2">
+                                    <IconRenderer name={subject?.icon} size={18} />
                                     Журнал класу
                                 </button>
                             )}
@@ -195,6 +229,9 @@ export const TeacherDashboard = memo(({
                                     >
                                         <div className={cn("w-16 tabular-nums font-black text-lg", isCurrent ? "text-indigo-400" : "text-[#a1a1aa]")}>
                                             {slot.start}
+                                        </div>
+                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                                            <IconRenderer name={sub?.icon} size={20} className={isCurrent ? "text-indigo-400" : "text-white/40"} />
                                         </div>
                                         <div className="flex-1">
                                             <div className="font-bold text-lg leading-tight">{sub?.name || (lesson ? "Урок" : "—")}</div>
