@@ -39,6 +39,8 @@ interface ScheduleGridProps {
     viewType: ViewType;
     setViewType: (val: ViewType) => void;
     perfSettings: PerformanceSettings;
+    hoveredLesson: Lesson | null;
+    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
@@ -217,7 +219,7 @@ interface ByClassViewProps {
     setDragOverCell: (c: any) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    processDrop: (classId: string, day: string, period: number) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
     setEditingCell: (c: { classId: string, day: string, period: number } | null) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
@@ -315,7 +317,9 @@ const ByClassView = memo(({
                                         onDrop={(e) => {
                                             if (isEditMode) {
                                                 e.preventDefault();
-                                                processDrop(selectedClassId, day, p);
+                                                const data = e.dataTransfer.getData('lesson');
+                                                const externalLesson = data ? JSON.parse(data) : undefined;
+                                                processDrop(selectedClassId, day, p, externalLesson);
                                             }
                                         }}
                                     >
@@ -381,7 +385,7 @@ interface MatrixViewProps {
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: any;
     setDragOverCell: (c: any) => void;
-    processDrop: (classId: string, day: string, period: number) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
     setEditingCell: (c: { classId: string, day: string, period: number } | null) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     isEditMode: boolean;
@@ -532,7 +536,10 @@ const MatrixView = memo(({
                                         ЧАС
                                     </th>
                                     {filteredClasses.map(cls => (
-                                        <th key={cls.id} className="sticky top-0 z-20 bg-[#18181b] p-3 text-[11px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[120px]">
+                                        <th key={cls.id} className={cn(
+                                            "sticky top-0 z-20 bg-[#18181b] p-3 text-[11px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[120px]",
+                                            hoveredLesson?.class_id === cls.id && "bg-indigo-500/20 text-indigo-300 ring-1 ring-inset ring-indigo-500/30"
+                                        )}>
                                             {cls.name}
                                         </th>
                                     ))}
@@ -561,12 +568,20 @@ const MatrixView = memo(({
                                             const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
                                             const isTeacherConflict = isTeacherHighlighted && hoveredLesson && matrixDay === hoveredLesson.day && p === hoveredLesson.period && (teacherConflicts.length > 0 || classConflicts.length > 0);
 
+                                            // Check for recommendation
+                                            const isRecommendedSlot = !lesson && hoveredLesson &&
+                                                hoveredLesson.teacher_id &&
+                                                hoveredLesson.class_id === cls.id && // REQUIREMENT: Only highlight for the target class row
+                                                getConflicts(hoveredLesson.teacher_id, matrixDay, p).length === 0;
+
                                             return (
                                                 <td
                                                     key={cls.id}
                                                     className={cn(
                                                         "p-1.5 border-r border-white/5 last:border-r-0 h-20 transition-all",
-                                                        isDragOver && "bg-indigo-500/10"
+                                                        isDragOver && "bg-indigo-500/10",
+                                                        hoveredLesson?.class_id === cls.id && !isDragOver && "bg-indigo-500/10 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]",
+                                                        isRecommendedSlot && !isDragOver && "bg-emerald-500/15 shadow-[inset_0_0_25px_rgba(16,185,129,0.2)]"
                                                     )}
                                                     onDragOver={(e) => {
                                                         if (isEditMode) {
@@ -579,7 +594,9 @@ const MatrixView = memo(({
                                                     onDrop={(e) => {
                                                         if (isEditMode) {
                                                             e.preventDefault();
-                                                            processDrop(cls.id, matrixDay, p);
+                                                            const data = e.dataTransfer.getData('lesson');
+                                                            const externalLesson = data ? JSON.parse(data) : undefined;
+                                                            processDrop(cls.id, matrixDay, p, externalLesson);
                                                         }
                                                     }}
                                                 >
@@ -649,13 +666,23 @@ const MatrixView = memo(({
                                                                 ? setEditingCell({ classId: cls.id, day: matrixDay, period: p })
                                                                 : setViewingLesson({ classId: cls.id, day: matrixDay, period: p })
                                                             }
-                                                            className="h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group"
+                                                            className={cn(
+                                                                "h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group",
+                                                                isRecommendedSlot && "opacity-100 bg-emerald-500/20 border-emerald-500/50 border-solid shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 ring-offset-2 ring-offset-[#0f0f11] animate-pulse-slow"
+                                                            )}
                                                         >
                                                             <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover:text-white">
                                                                 {isEditMode ? (
                                                                     <>
-                                                                        <Plus size={14} className="mx-auto mb-1" />
-                                                                        Додати
+                                                                        <div className={cn(
+                                                                            "mr-1 inline-block",
+                                                                            isRecommendedSlot ? "text-emerald-400 scale-125 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "text-white"
+                                                                        )}>
+                                                                            <Plus size={isRecommendedSlot ? 18 : 14} className="mx-auto mb-1" />
+                                                                        </div>
+                                                                        <span className={isRecommendedSlot ? "text-emerald-400 font-black text-[10px]" : ""}>
+                                                                            {isRecommendedSlot ? "ВСТАВИТИ СЮДИ" : "Додати"}
+                                                                        </span>
                                                                     </>
                                                                 ) : null}
                                                             </div>
@@ -699,7 +726,7 @@ interface TeachersMasterViewProps {
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: any;
     setDragOverCell: (c: any) => void;
-    processTeacherDrop: (teacherId: string, day: string, period: number) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     hoveredLesson: Lesson | null;
@@ -912,6 +939,13 @@ const TeachersMasterView = memo(({
                                                 const hasOtherTeachers = teacherLessons.some(l => getClassConflicts(l.class_id, masterDay, p, l.teacher_id).length > 0);
                                                 const isActualConflict = isTeacherHighlighted && (teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers);
 
+                                                // Check for recommendation in Teacher View
+                                                const isRecommendedSlot = !hasLessons && hoveredLesson &&
+                                                    hoveredLesson.teacher_id === teacher.id &&
+                                                    // REQUIREMENT: Valid only if the target class is free (no other teacher teaches this class at this time)
+                                                    getClassConflicts(hoveredLesson.class_id, masterDay, p).length === 0 &&
+                                                    findAllLessonsByTeacher(teacher.id, masterDay, p).length === 0;
+
                                                 return (
                                                     <td key={p} className={cn(
                                                         "p-2 border-b border-r border-white/5 h-[80px] transition-all",
@@ -919,7 +953,24 @@ const TeachersMasterView = memo(({
                                                             ? "bg-amber-500/20 ring-2 ring-inset ring-amber-400 animate-pulse z-30 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-105"
                                                             : "bg-white/10 ring-2 ring-inset ring-white animate-pulse z-20 shadow-[0_0_25px_rgba(255,255,255,0.4)] scale-105"
                                                         )
-                                                    )}>
+                                                    )}
+                                                        onDragOver={(e) => {
+                                                            if (isEditMode) {
+                                                                e.preventDefault();
+                                                                e.dataTransfer.dropEffect = 'move';
+                                                                setDragOverCell({ teacherId: teacher.id, day: masterDay, period: p });
+                                                            }
+                                                        }}
+                                                        onDragLeave={() => isEditMode && setDragOverCell(null)}
+                                                        onDrop={(e) => {
+                                                            if (isEditMode) {
+                                                                e.preventDefault();
+                                                                const data = e.dataTransfer.getData('lesson');
+                                                                const externalLesson = data ? JSON.parse(data) : undefined;
+                                                                processTeacherDrop(teacher.id, masterDay, p, externalLesson);
+                                                            }
+                                                        }}
+                                                    >
                                                         {hasLessons ? (
                                                             <div className="flex flex-col gap-1 h-full justify-center">
                                                                 {teacherLessons.map((lesson, idx) => {
@@ -975,10 +1026,16 @@ const TeachersMasterView = memo(({
                                                                 onClick={() => handleClick()}
                                                                 className={cn(
                                                                     "h-full w-full flex items-center justify-center transition-all",
-                                                                    isEditMode ? "cursor-pointer hover:bg-white/5" : "text-white/5 select-none"
+                                                                    isEditMode ? "cursor-pointer hover:bg-white/5" : "text-white/5 select-none",
+                                                                    isRecommendedSlot && "bg-emerald-500/20 shadow-[inset_0_0_20px_rgba(16,185,129,0.3)] animate-pulse-slow"
                                                                 )}
                                                             >
-                                                                {isEditMode ? <Plus size={14} className="text-indigo-500/30 group-hover:text-indigo-500" /> : "·"}
+                                                                <div className={cn(
+                                                                    "w-4 h-4 rounded-full flex items-center justify-center", // Larger circle
+                                                                    isRecommendedSlot ? "bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,1)] scale-125 transition-transform duration-500" : "bg-white/10 group-hover:bg-indigo-500/50"
+                                                                )}>
+                                                                    {isRecommendedSlot && <Plus size={12} className="text-emerald-950 font-black" />}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </td>
@@ -998,13 +1055,14 @@ const TeachersMasterView = memo(({
 
 // --- Main ScheduleGrid Component ---
 
-export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings }: ScheduleGridProps) {
+export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings, hoveredLesson, setHoveredLesson }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [isMonochrome, setIsMonochrome] = useState(false);
-    const [hoveredLesson, setHoveredLesson] = useState<Lesson | null>(null);
+    // hoveredLesson state is now passed from parent
+
 
     // Drag and Drop State
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
@@ -1203,9 +1261,11 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         let updatedLessons = [...lessons];
 
         // Remove source
-        updatedLessons = updatedLessons.filter(l =>
-            !(l.class_id === source.class_id && l.day === source.day && l.period === source.period)
-        );
+        if (!source.isUnscheduled) {
+            updatedLessons = updatedLessons.filter(l =>
+                !(l.class_id === source.class_id && l.day === source.day && l.period === source.period)
+            );
+        }
 
         if (dragConfirm.type === 'swap') {
             // Remove target
@@ -1224,6 +1284,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         }
 
         // Add source at target position
+        // If source was unscheduled, it doesn't have old day/period.
+        // But here we are in executeDragAction, where source is expected to be a lesson object.
+        // If isUnscheduled, we just add it.
         updatedLessons.push({
             ...source,
             class_id: target.classId || source.class_id,
@@ -1232,7 +1295,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             period: target.period,
             room: (target.teacherId && target.teacherId !== source.teacher_id)
                 ? (data.subjects.find(s => s.id === source.subject_id)?.defaultRoom || source.room)
-                : source.room
+                : (source.room || data.subjects.find(s => s.id === source.subject_id)?.defaultRoom)
         });
 
         const newResponse: ScheduleResponse = schedule.status === 'conflict'
@@ -1244,47 +1307,69 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
         setDraggedLesson(null);
     }, [dragConfirm, lessons, data.subjects, onScheduleChange, schedule]);
 
-    const processDrop = useCallback((targetClassId: string, targetDay: string, targetPeriod: number) => {
-        if (!draggedLesson) return;
+    const processDrop = useCallback((targetClassId: string, targetDay: string, targetPeriod: number, externalLesson?: any) => {
+        const sourceLesson = externalLesson || draggedLesson;
+        if (!sourceLesson) return;
 
-        if (draggedLesson.class_id === targetClassId && draggedLesson.day === targetDay && draggedLesson.period === targetPeriod) {
+        // Verify if we are dropping on itself (only for existing lessons)
+        if (!sourceLesson.isUnscheduled && sourceLesson.class_id === targetClassId && sourceLesson.day === targetDay && sourceLesson.period === targetPeriod) {
             return;
         }
 
         const targetLesson = findLesson(targetClassId, targetDay, targetPeriod);
         const conflicts: string[] = [];
 
-        const sourceTeacherBusy = getConflicts(draggedLesson.teacher_id, targetDay, targetPeriod, targetClassId);
+        const sourceTeacherBusy = getConflicts(sourceLesson.teacher_id, targetDay, targetPeriod, targetClassId);
         if (sourceTeacherBusy.length > 0) {
-            const teacherName = data.teachers.find(t => t.id === draggedLesson.teacher_id)?.name;
+            const teacherName = data.teachers.find(t => t.id === sourceLesson.teacher_id)?.name;
             conflicts.push(`${teacherName} вже має урок у ${sourceTeacherBusy.join(', ')} `);
         }
 
         if (targetLesson) {
-            const targetTeacherBusy = getConflicts(targetLesson.teacher_id, draggedLesson.day, draggedLesson.period, targetClassId);
-            if (targetTeacherBusy.length > 0) {
+            // For unscheduled lessons, we are technically "swapping" in meaningful way?
+            // Usually we just want to place it. If there is a target lesson, we might replace it.
+            // But if replacing, where does the old one go?
+            // 1. If source is unscheduled, old one stays removed (gone to panel)? Or we prevent drop?
+            // Let's assume we proceed with 'swap' logic only if source is existing. 
+            // If source is unscheduled, we probably act as 'overwrite' but warn.
+
+            const targetTeacherBusy = getConflicts(targetLesson.teacher_id, sourceLesson.day, sourceLesson.period, targetClassId);
+            // Note: sourceLesson.day/period might be undefined for unscheduled lessons
+            if (!sourceLesson.isUnscheduled && targetTeacherBusy.length > 0) {
                 const teacherName = data.teachers.find(t => t.id === targetLesson.teacher_id)?.name;
                 conflicts.push(`${teacherName} вже має урок у ${targetTeacherBusy.join(', ')} `);
             }
         }
 
-        if (targetLesson || conflicts.length > 0) {
+        if (targetLesson || conflicts.length > 0 || sourceLesson.isUnscheduled) {
+            // For unscheduled, we treat as 'move' (insert), effectively.
+            // If target exists, confirmation needed.
             setDragConfirm({
-                type: targetLesson ? 'swap' : 'move',
-                source: draggedLesson,
+                type: (targetLesson && !sourceLesson.isUnscheduled) ? 'swap' : 'move',
+                source: sourceLesson,
                 target: { classId: targetClassId, day: targetDay, period: targetPeriod, lesson: targetLesson },
                 conflicts
             });
         } else {
             let updatedLessons = [...lessons];
-            updatedLessons = updatedLessons.filter(l =>
-                !(l.class_id === draggedLesson.class_id && l.day === draggedLesson.day && l.period === draggedLesson.period)
-            );
+
+            // If it's an existing lesson, remove it from old position
+            if (!sourceLesson.isUnscheduled) {
+                updatedLessons = updatedLessons.filter(l =>
+                    !(l.class_id === sourceLesson.class_id && l.day === sourceLesson.day && l.period === sourceLesson.period)
+                );
+            }
+
+            // check if room is needed
+            const subject = data.subjects.find(s => s.id === sourceLesson.subject_id);
+            const room = sourceLesson.room || subject?.defaultRoom;
+
             updatedLessons.push({
-                ...draggedLesson,
+                ...sourceLesson,
                 class_id: targetClassId,
                 day: targetDay,
-                period: targetPeriod
+                period: targetPeriod,
+                room: room
             });
 
             const newResponse: ScheduleResponse = schedule.status === 'conflict'
@@ -1295,27 +1380,28 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             setDraggedLesson(null);
         }
         setDragOverCell(null);
-    }, [draggedLesson, lessons, data.teachers, getConflicts, schedule, onScheduleChange]);
+    }, [draggedLesson, lessons, data.teachers, data.subjects, getConflicts, schedule, onScheduleChange]);
 
-    const processTeacherDrop = useCallback((targetTeacherId: string, targetDay: string, targetPeriod: number) => {
-        if (!draggedLesson) return;
+    const processTeacherDrop = useCallback((targetTeacherId: string, targetDay: string, targetPeriod: number, externalLesson?: any) => {
+        const sourceLesson = externalLesson || draggedLesson;
+        if (!sourceLesson) return;
 
-        if (draggedLesson.teacher_id === targetTeacherId && draggedLesson.day === targetDay && draggedLesson.period === targetPeriod) {
+        if (!sourceLesson.isUnscheduled && sourceLesson.teacher_id === targetTeacherId && sourceLesson.day === targetDay && sourceLesson.period === targetPeriod) {
             return;
         }
 
         const targetLessons = findAllLessonsByTeacher(targetTeacherId, targetDay, targetPeriod);
         const conflicts: string[] = [];
 
-        const classBusy = getConflicts(targetTeacherId, targetDay, targetPeriod, draggedLesson.class_id);
+        const classBusy = getConflicts(targetTeacherId, targetDay, targetPeriod, sourceLesson.class_id);
         if (classBusy.length > 0) {
-            const className = data.classes.find(c => c.id === draggedLesson.class_id)?.name;
+            const className = data.classes.find(c => c.id === sourceLesson.class_id)?.name;
             conflicts.push(`Клас ${className} вже має урок у ${classBusy.join(', ')} `);
         }
 
         setDragConfirm({
             type: 'move',
-            source: draggedLesson,
+            source: sourceLesson,
             target: {
                 teacherId: targetTeacherId,
                 day: targetDay,

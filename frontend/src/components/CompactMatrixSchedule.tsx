@@ -17,7 +17,7 @@ interface MemoizedCellProps {
     isMonochrome: boolean;
     getSubjectColor: (id: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
-    processDrop: (classId: string, day: string, period: number) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
     subjects: Subject[];
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -40,6 +40,30 @@ const MemoizedCell = memo(({
 
     const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
     const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && period === hoveredLesson.period && teacherConflicts.length > 0;
+
+    // Check if this cell is a valid slot for the hovered lesson
+    // Must be empty (!lesson), match the hovered lesson's class (or not? User said "empty cells where specific teacher has no conflicts").
+    // Actually, usually we drag to a specific class row. If we are just highlighting "free slots for teacher", it should be ANY empty cell where teacher is free?
+    // But logically, we only care about the class row we are targeting.
+    // However, the user said "cells where specific teacher has no conflicts".
+    // If I hover a 5-A Math lesson (Teacher X), and 5-B has an empty slot where Teacher X is free, should it light up? 
+    // Probably yes, to show availability?
+    // BUT, usually we want to place it in 5-A. 
+    // Let's stick to "valid recommendation" usually implies "for this specific lesson".
+    // So usually we only highlight slots in the target class row.
+    // BUT the user request says: "empty cells where for specific teacher there are no conflicts ALSO somehow highlight".
+    // If I am hovering a lesson for Class A, showing that Teacher is free in Class B's row is useful ONLY if I want to move it to Class B?
+    // Unscheduled lessons have a pre-assigned class.
+    // So it only makes sense to highlight slots in the `hoveredLesson.class_id` row.
+    // Wait, let's re-read: "empty cells where for specific teacher will be no conflicts".
+    // If I interpret this strictly: highlight ALL empty cells in the grid where Teacher X is free.
+    // This allows seeing "Oh, the teacher is free on Monday 1st period", so I can look at Monday 1st period in MY class row.
+    // So YES, highlight ALL empty cells where teacher is free.
+
+    const isRecommendedSlot = !lesson && hoveredLesson &&
+        hoveredLesson.teacher_id &&
+        hoveredLesson.class_id === classId && // REQUIREMENT: Only highlight for the target class row
+        getConflicts(hoveredLesson.teacher_id, day, period).length === 0;
 
     return (
         <td
@@ -65,7 +89,10 @@ const MemoizedCell = memo(({
             onDrop={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
-                    processDrop(classId, day, period);
+                    e.preventDefault();
+                    const data = e.dataTransfer.getData('lesson');
+                    const externalLesson = data ? JSON.parse(data) : undefined;
+                    processDrop(classId, day, period, externalLesson);
                 }
             }}
         >
@@ -114,9 +141,15 @@ const MemoizedCell = memo(({
                     )}
                 </div>
             ) : (
-                <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={cn(
+                    "w-full h-full flex items-center justify-center transition-all duration-300",
+                    isRecommendedSlot ? "opacity-100 bg-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.4)]" : "opacity-0 group-hover:opacity-100"
+                )}>
                     {isEditMode ? (
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                        <div className={cn(
+                            "w-2.5 h-2.5 rounded-full", // Larger dot
+                            isRecommendedSlot ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.9)]" : "bg-white/20"
+                        )} />
                     ) : (
                         <span className="text-[8px] text-white/5">·</span>
                     )}
@@ -142,7 +175,7 @@ interface CompactMatrixScheduleProps {
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: { classId: string, day: string, period: number } | null;
     setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
-    processDrop: (classId: string, day: string, period: number) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
     isMonochrome?: boolean;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -275,7 +308,8 @@ export const CompactMatrixSchedule = ({
                                 key={cls.id}
                                 className={cn(
                                     "group transition-colors h-[32px]",
-                                    cIdx % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent"
+                                    cIdx % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent",
+                                    hoveredLesson?.class_id === cls.id && "bg-indigo-500/20 shadow-[inset_0_0_20px_rgba(99,102,241,0.15)] ring-1 ring-inset ring-indigo-500/30"
                                 )}
                             >
                                 {/* Sticky Class Name */}

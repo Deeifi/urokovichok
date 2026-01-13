@@ -10,6 +10,8 @@ import { ConfirmationModal } from './components/ConfirmationModal';
 import { cn } from './utils/cn';
 import { CircleAlert, CheckCircle2 } from 'lucide-react';
 import type { PerformanceSettings } from './types';
+import { getUnscheduledLessons, removeExcessLessons } from './utils/scheduleHelpers';
+import { UnscheduledPanel } from './components/UnscheduledPanel';
 
 // Tabs
 type Tab = 'data' | 'schedule' | 'settings';
@@ -63,6 +65,8 @@ function App() {
     };
     return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
+  const [hoveredLesson, setHoveredLesson] = useState<Lesson | null>(null);
+  const [panelMode, setPanelMode] = useState<'docked' | 'floating'>('docked');
 
   // Repair state if missing keys (Hotfix for white screen issue)
   useEffect(() => {
@@ -93,6 +97,17 @@ function App() {
 
   // Debounced Persistence
   useEffect(() => {
+    // Check if we need to remove excess lessons due to plan changes
+    // This runs whenever 'data' changes, which includes 'plan' updates
+    if (schedule && schedule.status === 'success') {
+      const cleanedSchedule = removeExcessLessons(data.plan, schedule.schedule);
+      // Optimization: Only update if length changed or content changed
+      // For simplicity, we just check length for now or deep equality
+      if (cleanedSchedule.length !== schedule.schedule.length) {
+        setSchedule({ ...schedule, schedule: cleanedSchedule });
+      }
+    }
+
     const timer = setTimeout(() => {
       localStorage.setItem('school_os_data', JSON.stringify(data));
     }, 1000);
@@ -173,6 +188,15 @@ function App() {
     day: 'numeric',
     month: 'long'
   }).replace(/^\w/, (c) => c.toUpperCase());
+
+  const unscheduledLessons = (schedule?.status === 'success' && schedule.schedule)
+    ? getUnscheduledLessons(data.plan, schedule.schedule)
+    : [];
+
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Auto-open panel if there are unscheduled lessons and we just generated/loaded?
+  // Or just rely on user. Let's rely on user + small bounce animation in trigger.
 
   return (
     <div
@@ -272,8 +296,9 @@ function App() {
 
       {/* Main Content Area */}
       <main className={cn(
-        "flex-1 flex flex-col overflow-hidden",
-        isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-6 md:px-8' : 'px-4 py-6')
+        "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+        isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-6 md:px-8' : 'px-4 py-6'),
+        panelMode === 'docked' && isPanelOpen ? "pb-[400px]" : ""
       )}>
         {/* Header */}
         {!isFullScreen ? (
@@ -451,6 +476,8 @@ function App() {
                     viewType={viewType}
                     setViewType={setViewType}
                     perfSettings={perfSettings}
+                    hoveredLesson={hoveredLesson}
+                    setHoveredLesson={setHoveredLesson}
                   />
                 </div>
               ) : (
@@ -532,6 +559,20 @@ function App() {
         title="Скинути всі дані?"
         description="Ви впевнені, що хочете скинути всю базу даних та розклад до початкових значень? Цю дію неможливо скасувати."
       />
+
+      {activeTab === 'schedule' && (
+        <UnscheduledPanel
+          items={unscheduledLessons}
+          subjects={data.subjects}
+          teachers={data.teachers}
+          classes={data.classes}
+          isOpen={isPanelOpen}
+          onToggle={() => setIsPanelOpen(!isPanelOpen)}
+          setHoveredLesson={setHoveredLesson}
+          mode={panelMode}
+          setMode={setPanelMode}
+        />
+      )}
     </div >
   );
 }

@@ -16,7 +16,7 @@ interface MemoizedTeacherCellProps {
     isDragOver: boolean;
     setDragOverCell: (c: any) => void;
     onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson) => void;
-    processTeacherDrop: (teacherId: string, day: string, period: number) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
     getSubjectColor: (id: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -35,6 +35,14 @@ const MemoizedTeacherCell = memo(({
 }: MemoizedTeacherCellProps) => {
     const hasLessons = lessons.length > 0;
 
+    // Check for recommendation in Compact Teacher View
+    // Check for recommendation in Compact Teacher View
+    const isRecommendedSlot = !hasLessons && hoveredLesson &&
+        hoveredLesson.teacher_id === teacherId &&
+        // REQUIREMENT: Valid only if the target class is free
+        getClassConflicts(hoveredLesson.class_id, day, period).length === 0 &&
+        getConflicts(teacherId, day, period).length === 0;
+
     return (
         <td
             onDragOver={(e) => {
@@ -47,7 +55,9 @@ const MemoizedTeacherCell = memo(({
             onDrop={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
-                    processTeacherDrop(teacherId, day, period);
+                    const data = e.dataTransfer.getData('lesson');
+                    const externalLesson = data ? JSON.parse(data) : undefined;
+                    processTeacherDrop(teacherId, day, period, externalLesson);
                 }
             }}
             className={cn(
@@ -168,10 +178,16 @@ const MemoizedTeacherCell = memo(({
                     onClick={() => isEditMode && onCellClick(teacherId, day, period)}
                     className={cn(
                         "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all",
-                        isEditMode ? "cursor-pointer hover:bg-white/5 hover:text-indigo-500/30" : ""
+                        isEditMode ? "cursor-pointer hover:bg-white/5 hover:text-indigo-500/30" : "",
+                        isRecommendedSlot && "bg-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.4)]"
                     )}
                 >
-                    {isEditMode ? <Plus size={12} /> : "·"}
+                    {isEditMode ? (
+                        <div className={cn(
+                            "w-2.5 h-2.5 rounded-full", // Larger dot
+                            isRecommendedSlot ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.9)]" : "bg-white/10"
+                        )} />
+                    ) : "·"}
                 </div>
             )}
         </td>
@@ -192,7 +208,7 @@ interface CompactTeacherScheduleProps {
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: any;
     setDragOverCell: (c: any) => void;
-    processTeacherDrop: (teacherId: string, day: string, period: number) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
     isMonochrome?: boolean;
     searchQuery?: string;
     perfSettings: PerformanceSettings;
