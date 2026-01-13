@@ -990,8 +990,8 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                         {prefersPeriodZero && <Check size={14} className="text-white" />}
                                     </div>
                                     <div className="text-left">
-                                        <div className="font-bold text-white text-sm">Урок 0 (Ранок)</div>
-                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки о 7:30</div>
+                                        <div className="font-bold text-white text-sm">Перевага 0 уроку</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки о 7:50</div>
                                     </div>
                                 </div>
                             </button>

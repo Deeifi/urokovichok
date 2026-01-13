@@ -271,8 +271,8 @@ export function TeacherDrawer({ isOpen, onClose, teacher, allSubjects, data, onS
                                         <Clock size={20} />
                                     </div>
                                     <div>
-                                        <div className="font-black text-white text-sm mb-1 uppercase tracking-tight">Ранні уроки</div>
-                                        <div className="text-[10px] text-[#a1a1aa] font-bold leading-relaxed">Надає перевагу 0-му уроку (ранок)</div>
+                                        <div className="font-black text-white text-sm mb-1 uppercase tracking-tight">Перевага 0 уроку</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-bold leading-relaxed">Надає пріоритет раннім заняттям о 7:30</div>
                                     </div>
                                 </button>
                             </div>

@@ -41,11 +41,15 @@ interface ScheduleGridProps {
     perfSettings: PerformanceSettings;
     hoveredLesson: Lesson | null;
     setHoveredLesson: (l: Lesson | null) => void;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
 }
 
 export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
 
 // --- Sub-View Components ---
+
+import { TeacherDashboard } from './TeacherDashboard';
 
 interface DashboardViewProps {
     data: ScheduleRequest;
@@ -58,18 +62,37 @@ interface DashboardViewProps {
     getRoomColor: (room: string | undefined) => string;
     sortedClasses: ClassGroup[];
     perfSettings: PerformanceSettings;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
+    lessons: Lesson[];
 }
 
-const DashboardView = memo(({ data, selectedClassId, setSelectedClassId, timeInfo, now, findLesson, periods, getRoomColor, sortedClasses, perfSettings }: DashboardViewProps) => {
+const DashboardView = memo(({
+    data, selectedClassId, setSelectedClassId, timeInfo, now, findLesson, periods,
+    getRoomColor, sortedClasses, perfSettings, userRole, selectedTeacherId, lessons
+}: DashboardViewProps) => {
     const { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod } = timeInfo;
 
-    const currentLesson = currentPeriod !== -1 ? findLesson(selectedClassId, todayApiDay, currentPeriod) : null;
-    const upcomingLesson = nextPeriod !== -1 ? findLesson(selectedClassId, todayApiDay, nextPeriod) : null;
+    // Use enhanced dashboard for teachers
+    if (userRole === 'teacher' && selectedTeacherId) {
+        return (
+            <TeacherDashboard
+                data={data}
+                teacherId={selectedTeacherId}
+                schedule={lessons}
+                timeInfo={timeInfo}
+                now={now}
+            />
+        );
+    }
 
     const todayLessons = periods.map(p => ({
         period: p,
         lesson: findLesson(selectedClassId, todayApiDay, p)
     }));
+
+    const currentLesson = currentPeriod !== -1 ? findLesson(selectedClassId, todayApiDay, currentPeriod) : null;
+    const upcomingLesson = nextPeriod !== -1 ? findLesson(selectedClassId, todayApiDay, nextPeriod) : null;
 
     const subject = currentLesson ? data.subjects.find(s => s.id === currentLesson.subject_id) : null;
     const teacher = currentLesson ? data.teachers.find(t => t.id === currentLesson.teacher_id) : null;
@@ -106,7 +129,11 @@ const DashboardView = memo(({ data, selectedClassId, setSelectedClassId, timeInf
                         {isBreak ? "Час на каву ☕" : subject?.name || (currentPeriod === -1 ? "Вітаємо!" : "Вільне вікно")}
                     </h2>
                     <p className="text-white/80 text-xl font-bold flex items-center gap-2">
-                        {isBreak ? "Готуйся до наступного уроку" : teacher ? `${teacher.name} • Кабінет ${subject?.defaultRoom || '101'}` : "Відпочивай"}
+                        {isBreak ? "Готуйся до наступного уроку" : (
+                            currentLesson ? (
+                                `${teacher?.name} • Кабінет ${subject?.defaultRoom || '101'}`
+                            ) : "Відпочивай"
+                        )}
                     </p>
                 </div>
 
@@ -151,7 +178,9 @@ const DashboardView = memo(({ data, selectedClassId, setSelectedClassId, timeInf
             {/* Today's Schedule List */}
             <div className="md:col-span-3 bento-card border-white/5">
                 <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-[#a1a1aa] text-xs font-black uppercase tracking-widest">РОЗКЛАД НА СЬОГОДНІ</h3>
+                    <h3 className="text-[#a1a1aa] text-xs font-black uppercase tracking-widest">
+                        РОЗКЛАД КЛАСУ НА СЬОГОДНІ
+                    </h3>
                     <select
                         value={selectedClassId}
                         onChange={(e) => setSelectedClassId(e.target.value)}
@@ -228,13 +257,15 @@ interface ByClassViewProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     hoveredLesson: Lesson | null;
     setHoveredLesson: (l: Lesson | null) => void;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
 }
 
 const ByClassView = memo(({
     data, selectedClassId, setSelectedClassId, sortedClasses, apiDays, days, periods,
     findLesson, getSubjectColor, getConflicts, dragOverCell, setDragOverCell,
     draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact, perfSettings,
-    getClassConflicts, hoveredLesson, setHoveredLesson
+    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
 }: ByClassViewProps) => {
     return (
         <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-300", isCompact ? "space-y-2" : "space-y-6")}>
@@ -291,7 +322,9 @@ const ByClassView = memo(({
                                             isTeacherHighlighted && (isTeacherConflict
                                                 ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-110 bg-amber-500/20"
                                                 : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-105 bg-white/10"
-                                            )
+                                            ),
+                                            userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id !== selectedTeacherId && "opacity-20 grayscale scale-[0.95] blur-[0.5px] pointer-events-none",
+                                            userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "ring-2 ring-emerald-500 z-10 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.4)] bg-emerald-500/10"
                                         )}
                                         onClick={() => isEditMode
                                             ? setEditingCell({ classId: selectedClassId, day, period: p })
@@ -398,6 +431,8 @@ interface MatrixViewProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     hoveredLesson: Lesson | null;
     setHoveredLesson: (l: Lesson | null) => void;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
 }
 
 const MatrixView = memo(({
@@ -405,7 +440,7 @@ const MatrixView = memo(({
     findLesson, getConflicts, getClassConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode,
     isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons, perfSettings,
-    hoveredLesson, setHoveredLesson
+    hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
 }: MatrixViewProps) => {
     const filteredClasses = sortedClasses.filter(cls => {
         const grade = parseInt(cls.name);
@@ -523,21 +558,23 @@ const MatrixView = memo(({
                         getClassConflicts={getClassConflicts}
                         hoveredLesson={hoveredLesson}
                         setHoveredLesson={setHoveredLesson}
+                        userRole={userRole}
+                        selectedTeacherId={selectedTeacherId}
                     />
                 </div>
             ) : (
 
                 <div className="bento-card border-white/5 overflow-hidden">
                     <div className="overflow-auto max-h-[70vh] custom-scrollbar">
-                        <table className="w-full border-collapse text-left">
+                        <table className="w-full border-collapse text-left table-fixed">
                             <thead>
                                 <tr className="border-b border-white/5">
-                                    <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 min-w-[60px]">
+                                    <th className="sticky top-0 left-0 z-30 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 w-[80px] shrink-0">
                                         ЧАС
                                     </th>
                                     {filteredClasses.map(cls => (
                                         <th key={cls.id} className={cn(
-                                            "sticky top-0 z-20 bg-[#18181b] p-3 text-[11px] font-black text-white uppercase tracking-widest border-r border-white/5 min-w-[120px]",
+                                            "sticky top-0 z-20 bg-[#18181b] p-3 text-[11px] font-black text-white uppercase tracking-widest border-r border-white/5 w-[140px] min-w-[140px]",
                                             hoveredLesson?.class_id === cls.id && "bg-indigo-500/20 text-indigo-300 ring-1 ring-inset ring-indigo-500/30"
                                         )}>
                                             {cls.name}
@@ -616,6 +653,8 @@ const MatrixView = memo(({
                                                                     ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
                                                                     : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
                                                                 ),
+                                                                userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id !== selectedTeacherId && "opacity-20 grayscale scale-[0.98] blur-[0.5px] pointer-events-none",
+                                                                userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "ring-2 ring-emerald-500 z-10 scale-[1.02] shadow-[0_0_20px_rgba(16,185,129,0.3)] bg-emerald-500/10",
                                                             )}
                                                             style={{ borderLeftColor: subColor }}
                                                             draggable={isEditMode}
@@ -872,14 +911,14 @@ const TeachersMasterView = memo(({
             ) : (
                 <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
                     <div className="overflow-auto custom-scrollbar flex-1">
-                        <table className="w-full border-separate border-spacing-0 text-left">
+                        <table className="w-full border-separate border-spacing-0 text-left table-fixed">
                             <thead>
                                 <tr>
-                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-3 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/5 min-w-[150px]">
+                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-b border-r border-white/5 w-[160px] shrink-0">
                                         ВИКЛАДАЧ
                                     </th>
                                     {periods.map(p => (
-                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 min-w-[100px] text-center">
+                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 w-[140px] min-w-[140px] text-center">
                                             {p}<br />
                                             <span className="text-[8px] opacity-50 font-black">УРОК</span>
                                         </th>
@@ -896,18 +935,18 @@ const TeachersMasterView = memo(({
                                             "group transition-colors",
                                             !perfSettings.disableAnimations && "hover:bg-white/[0.01]"
                                         )}>
-                                            <td className="sticky left-0 z-30 bg-[#18181b] border-b border-r border-white/5 group-hover:bg-[#1f1f23] transition-colors p-3">
-                                                <div className="flex items-center h-full gap-2">
+                                            <td className="sticky left-0 z-30 bg-[#18181b] p-4 border-b border-r border-white/5 text-center">
+                                                <div className="flex flex-col items-center gap-2">
                                                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white text-[10px] font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
                                                         {teacher.photo && !perfSettings.hidePhotos ? (
                                                             <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
                                                         ) : (
-                                                            teacher.name.slice(0, 1)
+                                                            <span className="text-sm font-black text-white">{teacher.name.slice(0, 1)}</span>
                                                         )}
                                                     </div>
-                                                    <div className="flex flex-col min-w-0 justify-center">
-                                                        <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-xs">
-                                                            {teacher.name}
+                                                    <div className="flex flex-col min-w-0 items-center">
+                                                        <span className="font-black text-white uppercase truncate text-xs">
+                                                            {teacher.name.split(' ').slice(0, 2).join(' ')}
                                                         </span>
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
@@ -975,18 +1014,6 @@ const TeachersMasterView = memo(({
                                                             <div className="flex flex-col gap-1 h-full justify-center">
                                                                 {teacherLessons.map((lesson, idx) => {
                                                                     const cls = data.classes.find(c => c.id === lesson.class_id);
-                                                                    const grade = parseInt(cls?.name || '0');
-                                                                    let gradeGroup = 'other';
-                                                                    if (grade >= 1 && grade <= 4) gradeGroup = 'junior';
-                                                                    else if (grade >= 5 && grade <= 9) gradeGroup = 'mid';
-                                                                    else if (grade >= 10 && grade <= 11) gradeGroup = 'senior';
-
-                                                                    const colorClasses = {
-                                                                        junior: "border-orange-500 bg-orange-500/10 text-orange-200",
-                                                                        mid: "border-emerald-500 bg-emerald-500/10 text-emerald-200",
-                                                                        senior: "border-indigo-500 bg-indigo-500/10 text-indigo-200",
-                                                                        other: "border-white/10 bg-white/5 text-white"
-                                                                    }[gradeGroup];
                                                                     const room = lesson.room || data.subjects.find(s => s.id === lesson.subject_id)?.defaultRoom;
                                                                     const subjectName = data.subjects.find(s => s.id === lesson.subject_id)?.name || "";
 
@@ -997,25 +1024,28 @@ const TeachersMasterView = memo(({
                                                                             onMouseLeave={() => setHoveredLesson(null)}
                                                                             onClick={() => handleClick(lesson)}
                                                                             className={cn(
-                                                                                "w-full rounded-lg border-l-[3px] px-2 py-1 flex items-center justify-between gap-2 transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-95",
-                                                                                colorClasses,
-                                                                                teacherLessons.length > 1 ? "flex-1 text-[10px]" : "h-full text-xs",
+                                                                                "w-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group/card cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
+                                                                                teacherLessons.length > 1 ? "flex-1" : "h-full",
                                                                                 isTeacherHighlighted && (isActualConflict
-                                                                                    ? "brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] bg-amber-500/30 ring-1 ring-amber-400 scale-105"
-                                                                                    : "brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] bg-white/20 ring-1 ring-white/50 scale-105"
-                                                                                )
+                                                                                    ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
+                                                                                    : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
+                                                                                ),
                                                                             )}
+                                                                            style={{ borderLeftColor: getSubjectColor(lesson.subject_id) }}
                                                                         >
-                                                                            <div className="flex flex-col min-w-0">
-                                                                                <span className="font-black tracking-widest leading-none mb-0.5">{cls?.name}</span>
-                                                                                <span className="text-[7px] font-black opacity-50 uppercase tracking-tighter truncate leading-none">{subjectName}</span>
+                                                                            <div className="text-xs font-black text-white group-hover/card:text-indigo-400 transition-colors truncate relative z-0">
+                                                                                {cls?.name}
                                                                             </div>
-                                                                            <div className={cn(
-                                                                                "px-1 rounded font-black shrink-0",
-                                                                                teacherLessons.length > 1 ? "text-[8px]" : "text-[9px]",
-                                                                                getRoomColor(room)
-                                                                            )}>
-                                                                                {room || '—'}
+                                                                            <div className="flex justify-between items-end mt-2">
+                                                                                <div className="text-[10px] font-bold text-[#a1a1aa] truncate mr-2 uppercase tracking-tighter">
+                                                                                    {subjectName}
+                                                                                </div>
+                                                                                <div className={cn(
+                                                                                    "text-[8px] font-black px-1.5 py-0.5 rounded transition-colors uppercase tracking-tight",
+                                                                                    getRoomColor(room)
+                                                                                )}>
+                                                                                    {room || '—'}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     );
@@ -1025,16 +1055,24 @@ const TeachersMasterView = memo(({
                                                             <div
                                                                 onClick={() => handleClick()}
                                                                 className={cn(
-                                                                    "h-full w-full flex items-center justify-center transition-all",
-                                                                    isEditMode ? "cursor-pointer hover:bg-white/5" : "text-white/5 select-none",
-                                                                    isRecommendedSlot && "bg-emerald-500/20 shadow-[inset_0_0_20px_rgba(16,185,129,0.3)] animate-pulse-slow"
+                                                                    "h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group/empty",
+                                                                    isRecommendedSlot && "opacity-100 bg-emerald-500/20 border-emerald-500/50 border-solid shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 ring-offset-2 ring-offset-[#0f0f11] animate-pulse-slow"
                                                                 )}
                                                             >
-                                                                <div className={cn(
-                                                                    "w-4 h-4 rounded-full flex items-center justify-center", // Larger circle
-                                                                    isRecommendedSlot ? "bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,1)] scale-125 transition-transform duration-500" : "bg-white/10 group-hover:bg-indigo-500/50"
-                                                                )}>
-                                                                    {isRecommendedSlot && <Plus size={12} className="text-emerald-950 font-black" />}
+                                                                <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover/empty:text-white text-center">
+                                                                    {isEditMode ? (
+                                                                        <>
+                                                                            <div className={cn(
+                                                                                "mb-1",
+                                                                                isRecommendedSlot ? "text-emerald-400 scale-125 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "text-white"
+                                                                            )}>
+                                                                                <Plus size={isRecommendedSlot ? 18 : 14} className="mx-auto" />
+                                                                            </div>
+                                                                            <span className={isRecommendedSlot ? "text-emerald-400 font-black text-[9px]" : ""}>
+                                                                                {isRecommendedSlot ? "ВСТАВИТИ СЮДИ" : "ДОДАТИ"}
+                                                                            </span>
+                                                                        </>
+                                                                    ) : null}
                                                                 </div>
                                                             </div>
                                                         )}
@@ -1055,7 +1093,10 @@ const TeachersMasterView = memo(({
 
 // --- Main ScheduleGrid Component ---
 
-export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings, hoveredLesson, setHoveredLesson }: ScheduleGridProps) {
+export function ScheduleGrid({
+    data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings,
+    hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+}: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
@@ -1101,6 +1142,14 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
     const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
     const [matrixDay, setMatrixDay] = useState<string>(''); // Will be set in useEffect or useMemo
     const [masterDay, setMasterDay] = useState<string>('');
+
+    // Filter teachers for Teacher View
+    const visibleTeachers = useMemo(() => {
+        if (userRole === 'teacher' && selectedTeacherId) {
+            return data.teachers.filter(t => t.id === selectedTeacherId);
+        }
+        return data.teachers;
+    }, [data.teachers, userRole, selectedTeacherId]);
 
     const getRoomColor = (room: string | undefined) => {
         if (!room) return 'bg-white/5 text-[#a1a1aa]';
@@ -1440,6 +1489,21 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
             "h-full flex flex-col overflow-hidden transition-all",
             viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-8") : "gap-0"
         )}>
+            {/* UI Header for the Grid - Only shown on Dashboard as other views use the Header toolbar */}
+            {viewType === 'dashboard' && (
+                <div className={cn("flex flex-col md:flex-row items-center justify-between gap-4 mb-6 transition-all", effectiveIsCompact ? "opacity-0 invisible h-0 mb-0" : "opacity-100 visible h-auto")}>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h2 className="text-2xl font-black text-white tracking-tight">Розклад</h2>
+                            {userRole === 'admin' && <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 uppercase">Адмін</span>}
+                        </div>
+                        <p className="text-xs font-bold text-[#a1a1aa] uppercase tracking-widest">
+                            {userRole === 'admin' ? "Керування навчальним процесом" : "Ваш персональний розклад"}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
             {viewType === 'dashboard' && (
                 <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all", effectiveIsCompact ? "mb-[-16px]" : "mb-0")}>
@@ -1467,30 +1531,32 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         ))}
                     </div>
 
-                    <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
-                        <button
-                            onClick={() => setIsEditMode(!isEditMode)}
-                            className={cn(
-                                "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group",
-                                effectiveIsCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
-                                isEditMode
-                                    ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                                    : "text-[#a1a1aa] hover:text-white"
-                            )}
-                        >
-                            {isEditMode ? (
-                                <>
-                                    <Unlock size={effectiveIsCompact ? 14 : 18} className="animate-pulse" />
-                                    <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Lock size={effectiveIsCompact ? 14 : 18} />
-                                    <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {userRole === 'admin' && (
+                        <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
+                            <button
+                                onClick={() => setIsEditMode(!isEditMode)}
+                                className={cn(
+                                    "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group",
+                                    effectiveIsCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
+                                    isEditMode
+                                        ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
+                                        : "text-[#a1a1aa] hover:text-white"
+                                )}
+                            >
+                                {isEditMode ? (
+                                    <>
+                                        <Unlock size={effectiveIsCompact ? 14 : 18} className="animate-pulse" />
+                                        <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Lock size={effectiveIsCompact ? 14 : 18} />
+                                        <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1508,6 +1574,9 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         getRoomColor={getRoomColor}
                         sortedClasses={sortedClasses}
                         perfSettings={perfSettings}
+                        userRole={userRole}
+                        selectedTeacherId={selectedTeacherId}
+                        lessons={lessons}
                     />
                 ) : viewType === 'byClass' ? (
                     /* ... ByClassView remains here for now as it doesn't have internal state bugs reported yet, but I'll stabilize it if needed ... */
@@ -1529,12 +1598,14 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         processDrop={processDrop}
                         setEditingCell={setEditingCell}
                         setViewingLesson={setViewingLesson}
-                        isEditMode={isEditMode}
+                        isEditMode={userRole === 'admin' ? isEditMode : false}
                         isCompact={false}
                         perfSettings={perfSettings}
                         getClassConflicts={getClassConflicts}
                         hoveredLesson={hoveredLesson}
                         setHoveredLesson={setHoveredLesson}
+                        userRole={userRole}
+                        selectedTeacherId={selectedTeacherId}
                     />
                 ) : viewType === 'matrix' ? (
                     <MatrixView
@@ -1558,7 +1629,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         processDrop={processDrop}
                         setEditingCell={setEditingCell}
                         setViewingLesson={setViewingLesson}
-                        isEditMode={isEditMode}
+                        isEditMode={userRole === 'admin' ? isEditMode : false}
                         isCompact={isCompact}
                         setIsCompact={setIsCompact}
                         isMonochrome={isMonochrome}
@@ -1568,10 +1639,12 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         getClassConflicts={getClassConflicts}
                         hoveredLesson={hoveredLesson}
                         setHoveredLesson={setHoveredLesson}
+                        userRole={userRole}
+                        selectedTeacherId={selectedTeacherId}
                     />
                 ) : (
                     <TeachersMasterView
-                        data={data}
+                        data={{ ...data, teachers: visibleTeachers }}
                         masterDay={masterDay}
                         setMasterDay={setMasterDay}
                         findAllLessonsByTeacher={findAllLessonsByTeacher}
@@ -1582,7 +1655,7 @@ export function ScheduleGrid({ data, schedule, onScheduleChange, isEditMode, set
                         days={days}
                         apiDays={apiDays}
                         setViewingLesson={setViewingLesson}
-                        isEditMode={isEditMode}
+                        isEditMode={userRole === 'admin' ? isEditMode : false}
                         setEditingTeacherCell={setEditingTeacherCell}
                         getTeacherStats={getTeacherStats}
                         isCompact={isCompact}

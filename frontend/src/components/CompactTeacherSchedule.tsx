@@ -177,17 +177,23 @@ const MemoizedTeacherCell = memo(({
                 <div
                     onClick={() => isEditMode && onCellClick(teacherId, day, period)}
                     className={cn(
-                        "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all",
-                        isEditMode ? "cursor-pointer hover:bg-white/5 hover:text-indigo-500/30" : "",
+                        "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all group/empty",
+                        isEditMode ? "cursor-pointer hover:bg-white/5" : "",
                         isRecommendedSlot && "bg-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.4)]"
                     )}
                 >
                     {isEditMode ? (
                         <div className={cn(
-                            "w-2.5 h-2.5 rounded-full", // Larger dot
-                            isRecommendedSlot ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.9)]" : "bg-white/10"
-                        )} />
-                    ) : "·"}
+                            "transition-all duration-300",
+                            isRecommendedSlot
+                                ? "opacity-100 scale-110 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                                : "opacity-0 group-hover/empty:opacity-20 text-white"
+                        )}>
+                            <Plus size={14} strokeWidth={3} />
+                        </div>
+                    ) : (
+                        <span className="opacity-0 group-hover/empty:opacity-10">·</span>
+                    )}
                 </div>
             )}
         </td>

@@ -68,6 +68,10 @@ function App() {
   const [hoveredLesson, setHoveredLesson] = useState<Lesson | null>(null);
   const [panelMode, setPanelMode] = useState<'docked' | 'floating'>('docked');
 
+  // -- RBAC State --
+  const [userRole, setUserRole] = useState<'admin' | 'teacher'>('admin');
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+
   // Repair state if missing keys (Hotfix for white screen issue)
   useEffect(() => {
     setPerfSettings(prev => {
@@ -478,6 +482,8 @@ function App() {
                     perfSettings={perfSettings}
                     hoveredLesson={hoveredLesson}
                     setHoveredLesson={setHoveredLesson}
+                    userRole={userRole}
+                    selectedTeacherId={selectedTeacherId}
                   />
                 </div>
               ) : (
@@ -494,6 +500,11 @@ function App() {
                 perfSettings={perfSettings}
                 setPerfSettings={setPerfSettings}
                 handleReset={handleReset}
+                userRole={userRole}
+                setUserRole={setUserRole}
+                selectedTeacherId={selectedTeacherId}
+                setSelectedTeacherId={setSelectedTeacherId}
+                teachers={data.teachers}
               />
             </div>
           ) : null}
@@ -560,7 +571,7 @@ function App() {
         description="Ви впевнені, що хочете скинути всю базу даних та розклад до початкових значень? Цю дію неможливо скасувати."
       />
 
-      {activeTab === 'schedule' && (
+      {activeTab === 'schedule' && userRole === 'admin' && (
         <UnscheduledPanel
           items={unscheduledLessons}
           subjects={data.subjects}

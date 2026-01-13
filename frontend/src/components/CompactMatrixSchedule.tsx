@@ -1,7 +1,7 @@
 import React, { useState, useMemo, memo, useEffect } from 'react';
 import type { Lesson, ScheduleRequest, Subject, PerformanceSettings } from '../types';
 import { cn } from '../utils/cn';
-import { Users, Search, Clock, AlertTriangle } from 'lucide-react';
+import { Users, Search, Clock, AlertTriangle, Plus } from 'lucide-react';
 
 interface MemoizedCellProps {
     classId: string;
@@ -23,13 +23,15 @@ interface MemoizedCellProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     hoveredLesson: Lesson | null;
     setHoveredLesson: (l: Lesson | null) => void;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
 }
 
 const MemoizedCell = memo(({
     classId, day, period, lesson,
     isDragOver, setDragOverCell, draggedLesson, setDraggedLesson,
     onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects,
-    getClassConflicts, hoveredLesson, setHoveredLesson
+    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
 }: MemoizedCellProps) => {
     const isDragging = draggedLesson?.day === day && draggedLesson?.period === period && draggedLesson?.class_id === classId;
 
@@ -105,7 +107,9 @@ const MemoizedCell = memo(({
                         isTeacherHighlighted && (isTeacherConflict
                             ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-125 bg-amber-500/20"
                             : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-110"
-                        )
+                        ),
+                        userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id !== selectedTeacherId && "opacity-10 grayscale blur-[0.3px] pointer-events-none",
+                        userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "z-20 scale-125 ring-2 ring-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)] brightness-125"
                     )}
                     style={{
                         backgroundColor: isMonochrome ? 'transparent' : `${subColor}20`,
@@ -142,16 +146,20 @@ const MemoizedCell = memo(({
                 </div>
             ) : (
                 <div className={cn(
-                    "w-full h-full flex items-center justify-center transition-all duration-300",
-                    isRecommendedSlot ? "opacity-100 bg-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.4)]" : "opacity-0 group-hover:opacity-100"
+                    "w-full h-full flex items-center justify-center transition-all duration-300 group/empty",
+                    isRecommendedSlot ? "opacity-100 bg-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.4)]" : "opacity-0"
                 )}>
                     {isEditMode ? (
                         <div className={cn(
-                            "w-2.5 h-2.5 rounded-full", // Larger dot
-                            isRecommendedSlot ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.9)]" : "bg-white/20"
-                        )} />
+                            "transition-all duration-300",
+                            isRecommendedSlot
+                                ? "scale-110 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                                : "opacity-0 group-hover/empty:opacity-20 text-white"
+                        )}>
+                            <Plus size={14} strokeWidth={3} />
+                        </div>
                     ) : (
-                        <span className="text-[8px] text-white/5">·</span>
+                        <span className="text-[8px] text-white/5 opacity-0 group-hover/empty:opacity-100">·</span>
                     )}
                 </div>
             )}
@@ -181,6 +189,8 @@ interface CompactMatrixScheduleProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     hoveredLesson: Lesson | null;
     setHoveredLesson: (l: Lesson | null) => void;
+    userRole: 'admin' | 'teacher';
+    selectedTeacherId: string | null;
 }
 
 export const CompactMatrixSchedule = ({
@@ -188,7 +198,7 @@ export const CompactMatrixSchedule = ({
     getSubjectColor, getConflicts, isEditMode, onCellClick,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
     isMonochrome = false, perfSettings,
-    getClassConflicts, hoveredLesson, setHoveredLesson
+    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
 }: CompactMatrixScheduleProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -344,6 +354,8 @@ export const CompactMatrixSchedule = ({
                                                 getClassConflicts={getClassConflicts}
                                                 hoveredLesson={hoveredLesson}
                                                 setHoveredLesson={setHoveredLesson}
+                                                userRole={userRole}
+                                                selectedTeacherId={selectedTeacherId}
                                             />
                                         ))}
                                         <td className="w-[4px] min-w-[4px] bg-[#050507] border-b border-white/5"></td>
