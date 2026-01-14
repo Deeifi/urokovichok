@@ -574,8 +574,8 @@ const MatrixView = memo(({
                 </div>
             ) : (
 
-                <div className="bento-card border-white/5 overflow-hidden">
-                    <div className="overflow-auto max-h-[70vh] custom-scrollbar">
+                <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
+                    <div className="overflow-auto flex-1 custom-scrollbar">
                         <table className="w-full border-collapse text-left table-fixed">
                             <thead>
                                 <tr className="border-b border-white/5">
@@ -1573,7 +1573,7 @@ export function ScheduleGrid({
 
 
             <div
-                className={cn("flex-1 min-h-0", viewType === 'teachers' ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}
+                className={cn("flex-1 min-h-0", (viewType === 'teachers' || viewType === 'matrix') ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}
                 onScroll={(e) => {
                     if (viewType !== 'dashboard' || !setIsHeaderCollapsed) return;
                     const top = e.currentTarget.scrollTop;
