@@ -139,7 +139,7 @@ const MemoizedCell = memo(({
                 <div
                     className={cn(
                         "w-full h-full flex flex-col items-center justify-center relative overflow-hidden group/cell transition-all cursor-pointer shadow-sm active:scale-95 hover:brightness-125 hover:z-10",
-                        teacherConflicts.length > 0 ? " ring-inset ring-1 ring-red-500/50 shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]" : "",
+                        teacherConflicts.length > 0 ? " ring-inset ring-1 ring-amber-500/50 shadow-[inset_0_0_10px_rgba(245,158,11,0.2)]" : "",
                         classConflicts.length > 0 ? " ring-inset ring-1 ring-violet-500/50 shadow-[inset_0_0_10px_rgba(139,92,246,0.2)]" : "",
                         isTeacherHighlighted && (isTeacherConflict
                             ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-125 bg-amber-500/20"
@@ -182,7 +182,7 @@ const MemoizedCell = memo(({
                     {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
                         <div className={cn(
                             "absolute top-0 right-0 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center",
-                            classConflicts.length > 0 ? "text-violet-400 bg-violet-950/60" : "text-red-500 bg-black/40"
+                            classConflicts.length > 0 ? "text-violet-400 bg-violet-950/60" : "text-amber-500 bg-black/40"
                         )} title={classConflicts.length > 0 ? `Клас вже має іншого вчителя: ${classConflicts.join(', ')}` : `Вчитель вже веде урок у: ${teacherConflicts.join(', ')}`}>
                             <AlertTriangle size={8} />
                         </div>

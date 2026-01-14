@@ -316,6 +316,7 @@ const ByClassView = memo(({
                                             isCompact ? "p-1 rounded-md" : "p-2 rounded-lg",
                                             isDragOver ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent",
                                             classConflicts.length > 0 && "ring-1 ring-violet-500/50 bg-violet-500/[0.02]",
+                                            teacherConflicts.length > 0 && "ring-1 ring-amber-500/50 bg-amber-500/[0.02]",
                                             !perfSettings.disableAnimations && "hover:bg-white/5",
                                             isDragging ? "opacity-50" : "opacity-100",
                                             !isUsed && !isEditMode && "opacity-40",
@@ -443,18 +444,41 @@ const MatrixView = memo(({
     userRole, selectedTeacherId, showIcons, setShowIcons
 }: MatrixViewProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
-    const filteredClasses = sortedClasses.filter(cls => {
-        const grade = parseInt(cls.name);
-        if (activeGradeGroup === '1-4') return grade >= 1 && grade <= 4;
-        if (activeGradeGroup === '5-9') return grade >= 5 && grade <= 9;
-        if (activeGradeGroup === '10-11') return grade >= 10 && grade <= 11;
-        return false;
-    });
+    const [searchQuery, setSearchQuery] = useState('');
+    const deferredSearchQuery = useDeferredValue(searchQuery);
+
+    const filteredClasses = useMemo(() => {
+        return sortedClasses.filter(cls => {
+            const grade = parseInt(cls.name);
+            const matchesGradeGroup =
+                (activeGradeGroup === '1-4' && grade >= 1 && grade <= 4) ||
+                (activeGradeGroup === '5-9' && grade >= 5 && grade <= 9) ||
+                (activeGradeGroup === '10-11' && grade >= 10 && grade <= 11);
+
+            if (!matchesGradeGroup) return false;
+
+            if (deferredSearchQuery) {
+                const query = deferredSearchQuery.toLowerCase();
+                const classNameMatch = cls.name.toLowerCase().includes(query);
+
+                // Also match if any teacher in this class for the current day matches
+                const teacherMatch = lessons.some(l =>
+                    l.class_id === cls.id &&
+                    l.day === matrixDay &&
+                    data.teachers.find(t => t.id === l.teacher_id)?.name.toLowerCase().includes(query)
+                );
+
+                return classNameMatch || teacherMatch;
+            }
+
+            return true;
+        });
+    }, [sortedClasses, activeGradeGroup, deferredSearchQuery, lessons, matrixDay, data.teachers]);
 
     const dayName = days[apiDays.indexOf(matrixDay)];
 
     return (
-        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
+        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 {!isCompact && (
                     <div>
@@ -468,6 +492,18 @@ const MatrixView = memo(({
                 )}
 
                 <div className={cn("flex flex-wrap items-center gap-4", isCompact ? "ml-auto" : "")}>
+                    {/* Search Bar for Classes/Teachers */}
+                    <div className={cn("flex items-center gap-3 bg-[#18181b] px-3 py-1.5 rounded-xl border border-white/5 shadow-xl transition-all focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20", isCompact ? "w-40" : "w-64")}>
+                        <Search size={14} className="text-white/20" />
+                        <input
+                            type="text"
+                            placeholder="ПОШУК КЛАСУ/ВЧИТЕЛЯ..."
+                            className="bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 w-full uppercase tracking-widest"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
                     {!isCompact && (
                         <>
                             <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
@@ -659,6 +695,7 @@ const MatrixView = memo(({
                                                                 "h-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
                                                                 isDragging ? "opacity-30 grayscale" : "opacity-100",
                                                                 classConflicts.length > 0 && "ring-1 ring-inset ring-violet-500/30 bg-violet-500/[0.03]",
+                                                                teacherConflicts.length > 0 && "ring-1 ring-inset ring-amber-500/30 bg-amber-500/[0.03]",
                                                                 isTeacherHighlighted && (isTeacherConflict
                                                                     ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
                                                                     : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
@@ -808,7 +845,7 @@ const TeachersMasterView = memo(({
     // I will modify the props to include lessons.
 
     return (
-        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-6")}>
+        <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 {!isCompact && (
                     <div>
@@ -992,9 +1029,12 @@ const TeachersMasterView = memo(({
                                                     getClassConflicts(hoveredLesson.class_id, masterDay, p).length === 0 &&
                                                     findAllLessonsByTeacher(teacher.id, masterDay, p).length === 0;
 
+                                                const isStaticConflict = teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers;
+
                                                 return (
                                                     <td key={p} className={cn(
                                                         "p-2 border-b border-r border-white/5 h-[80px] transition-all",
+                                                        isStaticConflict && (teacherLessons.length > 1 || hasOtherClasses ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/30" : "bg-violet-500/5 ring-1 ring-inset ring-violet-500/30"),
                                                         isTeacherHighlighted && (isActualConflict
                                                             ? "bg-amber-500/20 ring-2 ring-inset ring-amber-400 animate-pulse z-30 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-105"
                                                             : "bg-white/10 ring-2 ring-inset ring-white animate-pulse z-20 shadow-[0_0_25px_rgba(255,255,255,0.4)] scale-105"

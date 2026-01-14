@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { ScheduleRequest } from '../types';
 import { BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
 import { cn } from '../utils/cn';

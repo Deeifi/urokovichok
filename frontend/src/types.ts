@@ -63,3 +63,5 @@ export interface PerformanceSettings {
     lowFrequencyClock: boolean;
     disableHoverEffects: boolean;
 }
+
+export type ViewType = 'dashboard' | 'byClass' | 'matrix' | 'teachers';

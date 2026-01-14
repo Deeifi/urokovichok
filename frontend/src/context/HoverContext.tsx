@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { Lesson } from '../types';
 import { debounce } from '../utils/debounce';
 

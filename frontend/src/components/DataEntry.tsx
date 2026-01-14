@@ -272,6 +272,44 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
     const [newIcon, setNewIcon] = useState('BookOpen');
     const [editingIcon, setEditingIcon] = useState('BookOpen');
 
+    const SUBJECT_TEMPLATES: Record<string, { icon: string; color: string }> = {
+        'математик': { icon: 'Calculator', color: '#10b981' },
+        'алгебр': { icon: 'Calculator', color: '#10b981' },
+        'геометр': { icon: 'Shapes', color: '#06b6d4' },
+        'укр': { icon: 'Languages', color: '#f59e0b' },
+        'англійськ': { icon: 'Globe2', color: '#6366f1' },
+        'нім': { icon: 'Globe2', color: '#6366f1' },
+        'фізик': { icon: 'Atom', color: '#8b5cf6' },
+        'хімі': { icon: 'FlaskConical', color: '#ec4899' },
+        'біолог': { icon: 'Dna', color: '#10b981' },
+        'географ': { icon: 'Map', color: '#06b6d4' },
+        'історі': { icon: 'Scroll', color: '#f97316' },
+        'інформатик': { icon: 'Cpu', color: '#6366f1' },
+        'мистецтво': { icon: 'Palette', color: '#ec4899' },
+        'малюв': { icon: 'Palette', color: '#ec4899' },
+        'музик': { icon: 'Palette', color: '#ec4899' },
+        'фізкульт': { icon: 'Dumbbell', color: '#10b981' },
+        'спорт': { icon: 'Dumbbell', color: '#10b981' },
+        'прац': { icon: 'Hammer', color: '#f59e0b' },
+        'зарубіжн': { icon: 'Library', color: '#8b5cf6' },
+        'літератур': { icon: 'Book', color: '#f59e0b' },
+        'основи здоров': { icon: 'HeartPulse', color: '#10b981' },
+        'правознав': { icon: 'Landmark', color: '#f97316' },
+        'психолог': { icon: 'Users2', color: '#ec4899' },
+    };
+
+    const handleNameChange = (val: string) => {
+        setNewName(val);
+        const lowerVal = val.toLowerCase();
+        for (const [key, template] of Object.entries(SUBJECT_TEMPLATES)) {
+            if (lowerVal.includes(key)) {
+                setNewIcon(template.icon);
+                setNewColor(template.color);
+                break;
+            }
+        }
+    };
+
     const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size?: number, className?: string }) => {
         const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
         return <IconComponent size={size} className={className} />;
@@ -364,10 +402,21 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                             </div>
 
                             <div className="space-y-2">
+                                <div className="flex flex-wrap gap-1 mb-1">
+                                    {['Математика', 'Укр. мова', 'Англійська', 'Фізика', 'Хімія'].map(p => (
+                                        <button
+                                            key={p}
+                                            onClick={() => handleNameChange(p)}
+                                            className="px-2 py-1 bg-white/5 hover:bg-indigo-500/20 text-[8px] font-black text-[#a1a1aa] hover:text-indigo-400 rounded-md border border-white/5 transition-all uppercase tracking-tighter"
+                                        >
+                                            {p}
+                                        </button>
+                                    ))}
+                                </div>
                                 <input
                                     placeholder="Назва..."
                                     value={newName}
-                                    onChange={e => setNewName(e.target.value)}
+                                    onChange={e => handleNameChange(e.target.value)}
                                     className="w-full px-2.5 py-2 bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder:text-white/10"
                                     autoFocus
                                 />
@@ -401,13 +450,13 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-6 gap-1 p-1 bg-black/40 rounded-lg border border-white/5">
-                                    {ICON_OPTIONS.slice(0, 12).map(opt => (
+                                <div className="grid grid-cols-6 gap-1 p-1 bg-black/40 rounded-lg border border-white/5 overflow-y-auto max-h-[80px] custom-scrollbar">
+                                    {ICON_OPTIONS.map(opt => (
                                         <button
                                             key={opt.name}
                                             onClick={() => setNewIcon(opt.name)}
                                             className={cn(
-                                                "w-6 h-6 rounded-md flex items-center justify-center transition-all",
+                                                "w-6 h-6 rounded-md flex items-center justify-center transition-all shrink-0",
                                                 newIcon === opt.name ? "bg-indigo-500 text-white" : "text-[#a1a1aa] hover:bg-white/5"
                                             )}
                                         >
@@ -1179,13 +1228,24 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
 
                                     <div className="space-y-4 flex-1">
                                         <div className="flex gap-3">
-                                            <div className="w-14 h-14 bg-black/40 border border-emerald-500/20 rounded-2xl flex items-center justify-center shrink-0 relative group/photo">
+                                            <div className="w-14 h-14 bg-black/40 border border-emerald-500/20 rounded-2xl flex items-center justify-center shrink-0 relative group/photo overflow-hidden">
                                                 {photo ? (
-                                                    <img src={photo} className="w-full h-full object-cover rounded-2xl" alt="" />
+                                                    <>
+                                                        <img src={photo} className="w-full h-full object-cover" alt="" />
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setPhoto(null); }}
+                                                            className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center pointer-events-auto"
+                                                            title="Видалити фото"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </>
                                                 ) : (
-                                                    <Plus size={20} className="text-white/20" />
+                                                    <>
+                                                        <Plus size={20} className="text-white/20 group-hover/photo:scale-110 group-hover/photo:text-emerald-400 transition-all" />
+                                                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handlePhotoUpload} title="Додати фото" />
+                                                    </>
                                                 )}
-                                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handlePhotoUpload} />
                                             </div>
                                             <input
                                                 placeholder="ПІБ вчителя"
@@ -1225,19 +1285,23 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                         </div>
 
                                         <div className="space-y-2">
-                                            <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest pl-1">Дисципліни</div>
-                                            <div className="max-h-[80px] overflow-y-auto pr-1 flex flex-wrap gap-1 custom-scrollbar">
+                                            <div className="flex justify-between items-center px-1">
+                                                <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest text-[#a1a1aa]">Дисципліни</div>
+                                                <div className="text-[9px] font-black text-emerald-400">{selectedSubjects.length} вибрано</div>
+                                            </div>
+                                            <div className="max-h-[100px] overflow-y-auto pr-1 flex flex-wrap gap-1 custom-scrollbar bg-black/20 p-2 rounded-xl border border-white/5">
                                                 {data.subjects.map(sub => (
                                                     <button
                                                         key={sub.id}
                                                         onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
                                                         className={cn(
-                                                            "px-2 py-1 rounded-lg text-[9px] font-black border transition-all",
+                                                            "px-2 py-1 rounded-lg text-[9px] font-black border transition-all flex items-center gap-1.5",
                                                             selectedSubjects.includes(sub.id)
-                                                                ? "bg-emerald-500 border-emerald-400 text-white"
+                                                                ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20"
                                                                 : "bg-white/5 border-white/5 text-[#a1a1aa] hover:border-emerald-500/30"
                                                         )}
                                                     >
+                                                        <div className="w-1 h-1 rounded-full" style={{ backgroundColor: sub.color || '#6366f1' }} />
                                                         {sub.name}
                                                     </button>
                                                 ))}
