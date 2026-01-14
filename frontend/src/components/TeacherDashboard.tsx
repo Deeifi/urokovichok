@@ -127,7 +127,7 @@ export const TeacherDashboard = memo(({
     if (!teacher) return null;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700">
+        <div className="space-y-4 md:space-y-6 animate-in fade-in duration-700">
             {/* Top Stats Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
@@ -152,7 +152,7 @@ export const TeacherDashboard = memo(({
                 {/* Main Live Card */}
                 <div className="lg:col-span-2 space-y-6">
                     <div
-                        className="accent-card min-h-[300px] flex flex-col justify-between overflow-hidden relative group"
+                        className="accent-card min-h-[220px] md:min-h-[300px] flex flex-col justify-between overflow-hidden relative group p-6 md:p-10"
                         style={{
                             background: (subject?.color && !isBreak && currentPeriod !== -1)
                                 ? `linear-gradient(135deg, ${subject.color}, ${subject.color}CC)`
@@ -164,40 +164,40 @@ export const TeacherDashboard = memo(({
                         </div>
 
                         <div>
-                            <div className="status-badge mb-6 border-white/20 bg-black/20 backdrop-blur-md">
+                            <div className="status-badge mb-4 md:mb-6 border-white/20 bg-black/20 backdrop-blur-md">
                                 <div className={cn("live-dot", isBreak ? "bg-amber-500" : "bg-emerald-500")} />
                                 {isBreak ? (
-                                    `ПЕРЕРВА • ${minutesLeft} хв до початку`
+                                    `ПЕРЕРВА • ${minutesLeft} хв`
                                 ) : currentPeriod !== -1 ? (
-                                    `ЙДЕ УРОК • залишилось ${minutesLeft} хв`
+                                    `ЙДЕ УРОК • ${minutesLeft} хв`
                                 ) : (
                                     "ЗАНЯТТЯ ЗАКІНЧЕНО"
                                 )}
                             </div>
 
-                            <h2 className="text-5xl font-black mb-2 tracking-tight">
+                            <h2 className="text-3xl md:text-5xl font-black mb-1 md:mb-2 tracking-tight">
                                 {isBreak ? "Час на перерву ☕" : (currentLesson ? subject?.name : (currentPeriod === -1 ? "Гарного відпочинку!" : "Вільне вікно"))}
                             </h2>
 
-                            <p className="text-white/80 text-xl font-bold">
+                            <p className="text-white/80 text-lg md:text-xl font-bold">
                                 {currentLesson ? (
-                                    <>Клас {data.classes.find(c => c.id === currentLesson.class_id)?.name} • Кабінет {currentLesson.room || subject?.defaultRoom || '—'}</>
+                                    <>Клас {data.classes.find(c => c.id === currentLesson.class_id)?.name} • {currentLesson.room || subject?.defaultRoom || '—'}</>
                                 ) : (
-                                    isBreak ? "Зберіться з силами перед наступним уроком" : "Ви сьогодні молодці!"
+                                    isBreak ? "Зберіться з силами" : "Ви сьогодні молодці!"
                                 )}
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-4 mt-8">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-6 md:mt-8">
                             <button className="btn-premium w-fit flex items-center gap-2 group/btn">
                                 <Video size={20} />
                                 Приєднатися до Video
                                 <ChevronRight size={18} className="translate-x-0 group-hover/btn:translate-x-1 transition-transform" />
                             </button>
                             {currentLesson && (
-                                <button className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all backdrop-blur-md border border-white/10 flex items-center gap-2">
+                                <button className="px-4 md:px-6 py-2 md:py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm md:text-base font-bold transition-all backdrop-blur-md border border-white/10 flex items-center gap-2">
                                     <IconRenderer name={subject?.icon} size={18} />
-                                    Журнал класу
+                                    Журнал
                                 </button>
                             )}
                             <div className="flex gap-1 bg-emerald-500/10 p-1 rounded-2xl border border-emerald-500/20">
@@ -242,7 +242,7 @@ export const TeacherDashboard = memo(({
                                     <div
                                         key={slot.period}
                                         className={cn(
-                                            "flex items-center gap-4 p-4 rounded-2xl transition-all border",
+                                            "flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all border",
                                             isCurrent ? "bg-white/5 border-indigo-500/30 ring-1 ring-indigo-500/20" : "bg-transparent border-transparent",
                                             isPast ? "opacity-30 grayscale" : "opacity-100"
                                         )}

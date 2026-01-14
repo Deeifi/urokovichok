@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { ScheduleRequest, ScheduleResponse, Lesson } from './types';
 import { generateSchedule } from './api';
 import { Calendar, LayoutDashboard, Settings, LogOut, Bell, RotateCcw, BookOpen, Loader2, Columns, Table, Users, Lock, Unlock, ChevronLeft, ChevronRight, Maximize2, Minimize2, FileSpreadsheet, GraduationCap } from 'lucide-react';
@@ -82,6 +82,7 @@ function App() {
   // -- RBAC State --
   const [userRole, setUserRole] = useState<'admin' | 'teacher'>('admin');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   // Repair state if missing keys (Hotfix for white screen issue)
   useEffect(() => {
@@ -153,6 +154,13 @@ function App() {
     document.body.setAttribute('data-perf-blur', (!perfSettings.disableBlur).toString());
     document.body.setAttribute('data-perf-shadows', (!perfSettings.disableShadows).toString());
   }, [perfSettings]);
+
+  // Reset header collapse when switching views or tabs
+  useEffect(() => {
+    if (viewType !== 'dashboard' || activeTab !== 'schedule') {
+      setIsHeaderCollapsed(false);
+    }
+  }, [viewType, activeTab]);
 
   const handleReset = () => {
     setShowResetConfirm(true);
@@ -313,18 +321,18 @@ function App() {
         {/* Main Content Area */}
         <main className={cn(
           "flex-1 flex flex-col overflow-hidden transition-all duration-300",
-          isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-6 md:px-8' : 'px-4 py-6'),
+          isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-4 md:px-8' : 'px-4 py-6'),
           panelMode === 'docked' && isPanelOpen ? "pb-[400px]" : ""
         )}>
           {/* Header */}
           {!isFullScreen ? (
-            <header className={cn("flex justify-between items-center px-2 transition-all",
-              effectiveIsCompact ? "mb-1" : (viewType === 'dashboard' ? "mb-8" : "mb-4")
+            <header className={cn("flex justify-between items-center px-2 transition-all duration-500 overflow-hidden shrink-0",
+              isHeaderCollapsed ? "h-0 opacity-0 mb-0" : (effectiveIsCompact ? "h-8 mb-1" : (viewType === 'dashboard' ? "h-16 mb-4 lg:mb-6" : "h-16 mb-4"))
             )}>
               <div className="flex items-center gap-4">
                 <div className={cn("transition-all duration-300", (activeTab !== 'schedule' || viewType !== 'dashboard') && "opacity-0 invisible w-0 overflow-hidden")}>
-                  <h1 className={cn("font-black tracking-tight transition-all", effectiveIsCompact ? "text-xl" : "text-3xl")}>Привіт👋</h1>
-                  {!effectiveIsCompact && <div className="text-[#a1a1aa] font-medium mt-1 uppercase text-[10px] tracking-widest">{formattedDate}</div>}
+                  <h1 className={cn("font-black tracking-tight transition-all", effectiveIsCompact ? "text-xl" : (viewType === 'dashboard' ? "text-2xl md:text-3xl" : "text-3xl"))}>Привіт👋</h1>
+                  {!effectiveIsCompact && <div className="text-[#a1a1aa] font-medium mt-0.5 uppercase text-[9px] md:text-[10px] tracking-widest">{formattedDate}</div>}
                 </div>
 
                 {activeTab === 'schedule' && viewType !== 'dashboard' && (
@@ -526,6 +534,8 @@ function App() {
                       perfSettings={perfSettings}
                       userRole={userRole}
                       selectedTeacherId={selectedTeacherId}
+                      isHeaderCollapsed={isHeaderCollapsed}
+                      setIsHeaderCollapsed={setIsHeaderCollapsed}
                     />
                   </div>
                 ) : (

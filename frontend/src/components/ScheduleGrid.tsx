@@ -42,6 +42,8 @@ interface ScheduleGridProps {
     perfSettings: PerformanceSettings;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
+    isHeaderCollapsed?: boolean;
+    setIsHeaderCollapsed?: (collapsed: boolean) => void;
 }
 
 export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
@@ -1100,7 +1102,7 @@ const TeachersMasterView = memo(({
 
 export function ScheduleGrid({
     data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings,
-    userRole, selectedTeacherId
+    userRole, selectedTeacherId, isHeaderCollapsed, setIsHeaderCollapsed
 }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
@@ -1493,11 +1495,12 @@ export function ScheduleGrid({
     return (
         <div className={cn(
             "h-full flex flex-col overflow-hidden transition-all",
-            viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-8") : "gap-0"
+            viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-4") : "gap-0"
         )}>
             {/* UI Header for the Grid - Only shown on Dashboard as other views use the Header toolbar */}
             {viewType === 'dashboard' && (
-                <div className={cn("flex flex-col md:flex-row items-center justify-between gap-4 mb-6 transition-all", effectiveIsCompact ? "opacity-0 invisible h-0 mb-0" : "opacity-100 visible h-auto")}>
+                <div className={cn("flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-500 overflow-hidden shrink-0",
+                    (effectiveIsCompact || isHeaderCollapsed) ? "h-0 opacity-0 mb-0" : "h-14 mb-4")}>
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2 mb-1">
                             <h2 className="text-2xl font-black text-white tracking-tight">Розклад</h2>
@@ -1512,8 +1515,9 @@ export function ScheduleGrid({
 
             {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
             {viewType === 'dashboard' && (
-                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all", effectiveIsCompact ? "mb-[-16px]" : "mb-0")}>
-                    <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
+                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all duration-500",
+                    isHeaderCollapsed ? "mb-4" : (effectiveIsCompact ? "mb-[-16px]" : "mb-2"))}>
+                    <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", (effectiveIsCompact || isHeaderCollapsed) ? "p-1" : "p-1.5")}>
                         {[
                             { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
                             { id: 'byClass', label: 'По класах', icon: Columns },
@@ -1525,25 +1529,26 @@ export function ScheduleGrid({
                                 onClick={() => setViewType(tab.id as ViewType)}
                                 className={cn(
                                     "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
-                                    effectiveIsCompact ? "px-3 py-1 text-xs" : "px-5 py-2",
+                                    (effectiveIsCompact || isHeaderCollapsed) ? "px-3 py-1 text-xs" : "px-5 py-2",
                                     viewType === tab.id
                                         ? "bg-white/10 text-white shadow-lg shadow-black/20"
                                         : "text-[#a1a1aa] hover:text-white"
                                 )}
                             >
-                                <tab.icon size={effectiveIsCompact ? 14 : 18} />
-                                {tab.label}
+                                <tab.icon size={(effectiveIsCompact || isHeaderCollapsed) ? 14 : 18} />
+                                {!(effectiveIsCompact || isHeaderCollapsed) && tab.label}
+                                {(effectiveIsCompact || isHeaderCollapsed) && tab.id === viewType && tab.label}
                             </button>
                         ))}
                     </div>
 
                     {userRole === 'admin' && (
-                        <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", effectiveIsCompact ? "p-1" : "p-1.5")}>
+                        <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", (effectiveIsCompact || isHeaderCollapsed) ? "p-1" : "p-1.5")}>
                             <button
                                 onClick={() => setIsEditMode(!isEditMode)}
                                 className={cn(
                                     "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group",
-                                    effectiveIsCompact ? "px-3 py-1 text-xs" : "px-4 py-2",
+                                    (effectiveIsCompact || isHeaderCollapsed) ? "px-3 py-1 text-xs" : "px-4 py-2",
                                     isEditMode
                                         ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
                                         : "text-[#a1a1aa] hover:text-white"
@@ -1551,13 +1556,13 @@ export function ScheduleGrid({
                             >
                                 {isEditMode ? (
                                     <>
-                                        <Unlock size={effectiveIsCompact ? 14 : 18} className="animate-pulse" />
-                                        <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                                        <Unlock size={(effectiveIsCompact || isHeaderCollapsed) ? 14 : 18} className="animate-pulse" />
+                                        <span>{(effectiveIsCompact || isHeaderCollapsed) ? 'РЕД.' : 'Редагування УВІМК.'}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Lock size={effectiveIsCompact ? 14 : 18} />
-                                        <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                                        <Lock size={(effectiveIsCompact || isHeaderCollapsed) ? 14 : 18} />
+                                        <span>{(effectiveIsCompact || isHeaderCollapsed) ? 'РЕД.' : 'Редагування ВИМК.'}</span>
                                     </>
                                 )}
                             </button>
@@ -1567,7 +1572,18 @@ export function ScheduleGrid({
             )}
 
 
-            <div className={cn("flex-1 min-h-0", viewType === 'teachers' ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}>
+            <div
+                className={cn("flex-1 min-h-0", viewType === 'teachers' ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}
+                onScroll={(e) => {
+                    if (viewType !== 'dashboard' || !setIsHeaderCollapsed) return;
+                    const top = e.currentTarget.scrollTop;
+                    if (top > 50 && !isHeaderCollapsed) {
+                        setIsHeaderCollapsed(true);
+                    } else if (top <= 50 && isHeaderCollapsed) {
+                        setIsHeaderCollapsed(false);
+                    }
+                }}
+            >
                 {viewType === 'dashboard' ? (
                     <DashboardView
                         data={data}
