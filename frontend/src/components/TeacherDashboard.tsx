@@ -6,12 +6,13 @@ import {
     Clock,
     BookOpen,
     Calendar,
-    Star,
     Zap,
     Users,
     Calculator, FlaskConical, Languages, Book, Library, Globe2, Divide, Shapes, Dna, Atom, Map,
-    Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
+    Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf,
+    FileSpreadsheet, GraduationCap
 } from 'lucide-react';
+import { exportTeacherSchedule } from '../utils/excelExport';
 
 const ICON_OPTIONS = [
     { name: 'BookOpen', icon: BookOpen },
@@ -199,6 +200,25 @@ export const TeacherDashboard = memo(({
                                     Журнал класу
                                 </button>
                             )}
+                            <div className="flex gap-1 bg-emerald-500/10 p-1 rounded-2xl border border-emerald-500/20">
+                                <button
+                                    onClick={() => exportTeacherSchedule(teacher, teacherSchedule, data.subjects, data.classes)}
+                                    className="px-4 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                    title="Повний розклад (Предмет + Клас)"
+                                >
+                                    <FileSpreadsheet size={14} />
+                                    Excel (Повний)
+                                </button>
+                                <div className="w-[1px] h-4 bg-emerald-500/20 self-center" />
+                                <button
+                                    onClick={() => exportTeacherSchedule(teacher, teacherSchedule, data.subjects, data.classes, { onlyClassNames: true })}
+                                    className="px-4 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                    title="Тільки назви класів"
+                                >
+                                    <GraduationCap size={14} />
+                                    Тільки Класи
+                                </button>
+                            </div>
                         </div>
                     </div>
 

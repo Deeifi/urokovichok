@@ -38,6 +38,8 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
     return <IconComponent size={size} className={className} />;
 };
 
+import { useHover } from '../context/HoverContext';
+
 interface MemoizedCellProps {
     classId: string;
     day: string;
@@ -56,18 +58,18 @@ interface MemoizedCellProps {
     subjects: Subject[];
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
+    showIcons: boolean;
 }
 
 const MemoizedCell = memo(({
     classId, day, period, lesson,
     isDragOver, setDragOverCell, draggedLesson, setDraggedLesson,
     onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects,
-    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+    getClassConflicts, userRole, selectedTeacherId, showIcons
 }: MemoizedCellProps) => {
+    const { hoveredLesson, setHoveredLesson } = useHover();
     const isDragging = draggedLesson?.day === day && draggedLesson?.period === period && draggedLesson?.class_id === classId;
 
     const subject = lesson ? subjects.find(s => s.id === lesson.subject_id) : null;
@@ -163,10 +165,20 @@ const MemoizedCell = memo(({
                         setDragOverCell(null);
                     }}
                 >
-                    <IconRenderer name={subject?.icon} size={16} className={cn(
-                        "transition-transform group-hover/cell:scale-110",
-                        isMonochrome ? "text-[#a1a1aa]" : ""
-                    )} />
+                    {showIcons ? (
+                        <IconRenderer name={subject?.icon} size={16} className={cn(
+                            "transition-transform group-hover/cell:scale-110",
+                            isMonochrome ? "text-[#a1a1aa]" : ""
+                        )} />
+                    ) : (
+                        <span className={cn(
+                            "text-[11px] font-black uppercase tracking-tighter leading-none",
+                            isMonochrome ? "text-[#a1a1aa]" : "text-white"
+                        )}
+                        >
+                            {subject?.name?.slice(0, 3)}
+                        </span>
+                    )}
                     {(teacherConflicts.length > 0 || classConflicts.length > 0) && (
                         <div className={cn(
                             "absolute top-0 right-0 rounded-bl-[4px] p-[1px] z-10 flex items-center justify-center",
@@ -219,10 +231,9 @@ interface CompactMatrixScheduleProps {
     isMonochrome?: boolean;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
+    showIcons: boolean;
 }
 
 export const CompactMatrixSchedule = ({
@@ -230,8 +241,9 @@ export const CompactMatrixSchedule = ({
     getSubjectColor, getConflicts, isEditMode, onCellClick,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
     isMonochrome = false, perfSettings,
-    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+    getClassConflicts, userRole, selectedTeacherId, showIcons
 }: CompactMatrixScheduleProps) => {
+    const { hoveredLesson } = useHover();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -384,10 +396,9 @@ export const CompactMatrixSchedule = ({
                                                 subjects={data.subjects}
                                                 perfSettings={perfSettings}
                                                 getClassConflicts={getClassConflicts}
-                                                hoveredLesson={hoveredLesson}
-                                                setHoveredLesson={setHoveredLesson}
                                                 userRole={userRole}
                                                 selectedTeacherId={selectedTeacherId}
+                                                showIcons={showIcons}
                                             />
                                         ))}
                                         <td className="w-[4px] min-w-[4px] bg-[#050507] border-b border-white/5"></td>

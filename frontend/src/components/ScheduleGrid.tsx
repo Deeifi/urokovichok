@@ -1,4 +1,5 @@
 import { useCallback, useState, useMemo, useEffect, memo, useDeferredValue } from 'react';
+import { useHover } from '../context/HoverContext';
 import { createPortal } from 'react-dom';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup, PerformanceSettings } from '../types';
 import {
@@ -39,8 +40,6 @@ interface ScheduleGridProps {
     viewType: ViewType;
     setViewType: (val: ViewType) => void;
     perfSettings: PerformanceSettings;
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
 }
@@ -255,8 +254,6 @@ interface ByClassViewProps {
     isCompact: boolean;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
 }
@@ -265,8 +262,9 @@ const ByClassView = memo(({
     data, selectedClassId, setSelectedClassId, sortedClasses, apiDays, days, periods,
     findLesson, getSubjectColor, getConflicts, dragOverCell, setDragOverCell,
     draggedLesson, setDraggedLesson, processDrop, setEditingCell, setViewingLesson, isEditMode, isCompact, perfSettings,
-    getClassConflicts, hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+    getClassConflicts, userRole, selectedTeacherId
 }: ByClassViewProps) => {
+    const { hoveredLesson, setHoveredLesson } = useHover();
     return (
         <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-300", isCompact ? "space-y-2" : "space-y-6")}>
             <div className={cn("flex flex-wrap", isCompact ? "gap-1" : "gap-2")}>
@@ -429,10 +427,10 @@ interface MatrixViewProps {
     lessons: Lesson[];
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
     userRole: 'admin' | 'teacher';
     selectedTeacherId: string | null;
+    showIcons: boolean;
+    setShowIcons: (v: boolean) => void;
 }
 
 const MatrixView = memo(({
@@ -440,8 +438,9 @@ const MatrixView = memo(({
     findLesson, getConflicts, getClassConflicts, getSubjectColor, getRoomColor, periods, days, apiDays, sortedClasses,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson, isEditMode,
     isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons, perfSettings,
-    hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+    userRole, selectedTeacherId, showIcons, setShowIcons
 }: MatrixViewProps) => {
+    const { hoveredLesson, setHoveredLesson } = useHover();
     const filteredClasses = sortedClasses.filter(cls => {
         const grade = parseInt(cls.name);
         if (activeGradeGroup === '1-4') return grade >= 1 && grade <= 4;
@@ -515,18 +514,28 @@ const MatrixView = memo(({
                         </button>
                     </div>
 
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        <button
-                            onClick={() => setIsCompact(!isCompact)}
-                            className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
-                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 w-[120px] px-2 py-1" : "text-[#a1a1aa] hover:text-white w-[160px] px-3 py-1.5"
-                            )}
-                        >
-                            <LayoutGrid size={isCompact ? 12 : 14} />
-                            {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setShowIcons(!showIcons)}
+                        className={cn(
+                            "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                            isCompact ? "w-[120px] px-2 py-1" : "w-[150px] px-3 py-1.5",
+                            showIcons ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                        )}
+                    >
+                        <LayoutGrid size={isCompact ? 12 : 14} />
+                        {showIcons ? "ІКОНКИ: УВІМК." : "ІКОНКИ: ВИМК."}
+                    </button>
+
+                    <button
+                        onClick={() => setIsCompact(!isCompact)}
+                        className={cn(
+                            "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center transition-all",
+                            isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 w-[120px] px-2 py-1" : "text-[#a1a1aa] hover:text-white w-[160px] px-3 py-1.5"
+                        )}
+                    >
+                        <LayoutGrid size={isCompact ? 12 : 14} />
+                        {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
+                    </button>
                 </div>
             </div>
 
@@ -556,10 +565,9 @@ const MatrixView = memo(({
                         isMonochrome={isMonochrome}
                         perfSettings={perfSettings}
                         getClassConflicts={getClassConflicts}
-                        hoveredLesson={hoveredLesson}
-                        setHoveredLesson={setHoveredLesson}
                         userRole={userRole}
                         selectedTeacherId={selectedTeacherId}
+                        showIcons={showIcons}
                     />
                 </div>
             ) : (
@@ -736,8 +744,9 @@ const MatrixView = memo(({
                         </table>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 });
 
@@ -768,16 +777,14 @@ interface TeachersMasterViewProps {
     processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const TeachersMasterView = memo(({
     data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts, getClassConflicts,
     periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop, perfSettings,
-    hoveredLesson, setHoveredLesson
 }: TeachersMasterViewProps) => {
+    const { hoveredLesson, setHoveredLesson } = useHover();
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -905,8 +912,6 @@ const TeachersMasterView = memo(({
                     searchQuery={deferredSearchQuery}
                     perfSettings={perfSettings}
                     getClassConflicts={getClassConflicts}
-                    hoveredLesson={hoveredLesson}
-                    setHoveredLesson={setHoveredLesson}
                 />
             ) : (
                 <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
@@ -1095,13 +1100,14 @@ const TeachersMasterView = memo(({
 
 export function ScheduleGrid({
     data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, setIsCompact, viewType, setViewType, perfSettings,
-    hoveredLesson, setHoveredLesson, userRole, selectedTeacherId
+    userRole, selectedTeacherId
 }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [viewingLesson, setViewingLesson] = useState<{ classId: string, day: string, period: number } | null>(null);
     const [isMonochrome, setIsMonochrome] = useState(false);
+    const [showIcons, setShowIcons] = useState(false);
     // hoveredLesson state is now passed from parent
 
 
@@ -1602,8 +1608,6 @@ export function ScheduleGrid({
                         isCompact={false}
                         perfSettings={perfSettings}
                         getClassConflicts={getClassConflicts}
-                        hoveredLesson={hoveredLesson}
-                        setHoveredLesson={setHoveredLesson}
                         userRole={userRole}
                         selectedTeacherId={selectedTeacherId}
                     />
@@ -1637,10 +1641,10 @@ export function ScheduleGrid({
                         lessons={lessons}
                         perfSettings={perfSettings}
                         getClassConflicts={getClassConflicts}
-                        hoveredLesson={hoveredLesson}
-                        setHoveredLesson={setHoveredLesson}
                         userRole={userRole}
                         selectedTeacherId={selectedTeacherId}
+                        showIcons={showIcons}
+                        setShowIcons={setShowIcons}
                     />
                 ) : (
                     <TeachersMasterView
@@ -1670,8 +1674,6 @@ export function ScheduleGrid({
                         processTeacherDrop={processTeacherDrop}
                         perfSettings={perfSettings}
                         getClassConflicts={getClassConflicts}
-                        hoveredLesson={hoveredLesson}
-                        setHoveredLesson={setHoveredLesson}
                     />
                 )}
             </div>

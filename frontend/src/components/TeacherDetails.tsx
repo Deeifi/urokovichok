@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ScheduleRequest } from '../types';
-import { BookOpen, GraduationCap } from 'lucide-react';
+import { BookOpen, GraduationCap, FileSpreadsheet } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { exportTeacherSchedule, exportMasterTeacherSchedule } from '../utils/excelExport';
+import type { ScheduleResponse, Lesson } from '../types';
 
-export function TeacherDetails({ data, teacherId }: { data: ScheduleRequest; teacherId: string }) {
+export function TeacherDetails({ data, teacherId, schedule }: { data: ScheduleRequest; teacherId: string; schedule: ScheduleResponse | null }) {
     const teacherStats = useMemo(() => {
         const teacher = data.teachers.find(t => t.id === teacherId);
         if (!teacher) return null;
@@ -69,7 +71,7 @@ export function TeacherDetails({ data, teacherId }: { data: ScheduleRequest; tea
                     </div>
                     <div>
                         <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-3">{teacher.name}</h2>
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 items-center">
                             <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest flex items-center gap-2">
                                 <BookOpen size={14} className="text-indigo-400" />
                                 {subjectBreakdown.length} ПРЕДМЕТІВ
@@ -78,6 +80,50 @@ export function TeacherDetails({ data, teacherId }: { data: ScheduleRequest; tea
                                 <GraduationCap size={14} className="text-emerald-400" />
                                 {classBreakdown.length} КЛАСІВ
                             </span>
+
+                            <div className="flex gap-2 ml-4 relative">
+                                <div className="flex gap-1 bg-emerald-500/10 p-1 rounded-2xl border border-emerald-500/20">
+                                    <button
+                                        onClick={() => {
+                                            const teacherLessons = (schedule?.status === 'success' || schedule?.status === 'conflict')
+                                                ? schedule.schedule.filter((l: Lesson) => l.teacher_id === teacher.id)
+                                                : [];
+                                            exportTeacherSchedule(teacher, teacherLessons, data.subjects, data.classes);
+                                        }}
+                                        className="px-4 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                        title="Повний розклад (Предмет + Клас)"
+                                    >
+                                        <FileSpreadsheet size={14} />
+                                        Excel (Повний)
+                                    </button>
+                                    <div className="w-[1px] h-4 bg-emerald-500/20 self-center" />
+                                    <button
+                                        onClick={() => {
+                                            const teacherLessons = (schedule?.status === 'success' || schedule?.status === 'conflict')
+                                                ? schedule.schedule.filter((l: Lesson) => l.teacher_id === teacher.id)
+                                                : [];
+                                            exportTeacherSchedule(teacher, teacherLessons, data.subjects, data.classes, { onlyClassNames: true });
+                                        }}
+                                        className="px-4 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                        title="Тільки назви класів"
+                                    >
+                                        <GraduationCap size={14} />
+                                        Тільки Класи
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        const allLessons = (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [];
+                                        exportMasterTeacherSchedule(data.teachers, allLessons, data.subjects, data.classes);
+                                    }}
+                                    className="px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500/20 transition-all border border-indigo-500/20 flex items-center justify-center gap-2"
+                                    title="Звантажити розклад всіх вчителів"
+                                >
+                                    <FileSpreadsheet size={14} />
+                                    Всі (Master)
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

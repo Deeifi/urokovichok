@@ -61,4 +61,5 @@ export interface PerformanceSettings {
     disableShadows: boolean;
     hidePhotos: boolean;
     lowFrequencyClock: boolean;
+    disableHoverEffects: boolean;
 }

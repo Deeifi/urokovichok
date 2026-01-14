@@ -37,6 +37,7 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
 };
 import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
+import { useHover } from '../context/HoverContext';
 const EMPTY_ARRAY: Lesson[] = [];
 
 interface MemoizedTeacherCellProps {
@@ -58,16 +59,14 @@ interface MemoizedTeacherCellProps {
     setActiveGroupPicker: (p: any) => void;
     data: ScheduleRequest;
     perfSettings: PerformanceSettings;
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 const MemoizedTeacherCell = memo(({
     teacherId, day, period, lessons, isEditMode, isMonochrome,
     draggedLesson, setDraggedLesson, isDragOver, setDragOverCell, onCellClick, processTeacherDrop,
     getSubjectColor, getConflicts, getClassConflicts, setActiveGroupPicker, data,
-    hoveredLesson, setHoveredLesson
 }: MemoizedTeacherCellProps) => {
+    const { hoveredLesson, setHoveredLesson } = useHover();
     const hasLessons = lessons.length > 0;
 
     // Check for recommendation in Compact Teacher View
@@ -259,8 +258,6 @@ interface CompactTeacherScheduleProps {
     searchQuery?: string;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
-    hoveredLesson: Lesson | null;
-    setHoveredLesson: (l: Lesson | null) => void;
 }
 
 export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
@@ -282,8 +279,6 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
     searchQuery = '',
     perfSettings,
     getClassConflicts,
-    hoveredLesson,
-    setHoveredLesson
 }) => {
     const [activeGroupPicker, setActiveGroupPicker] = useState<{
         teacherId: string,
@@ -416,8 +411,7 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                                 setActiveGroupPicker={setActiveGroupPicker}
                                                 data={data}
                                                 perfSettings={perfSettings}
-                                                hoveredLesson={hoveredLesson}
-                                                setHoveredLesson={setHoveredLesson}
+
                                             />
                                         ))}
                                         {/* Vertical divider column */}

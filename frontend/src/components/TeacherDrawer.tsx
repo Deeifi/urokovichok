@@ -376,7 +376,7 @@ export function TeacherDrawer({ isOpen, onClose, teacher, allSubjects, data, onS
                 <div className="p-8 border-t border-white/5 bg-[#141416] flex gap-4 mt-auto">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-8 py-4 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5"
+                        className="px-8 py-4 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5 flex items-center justify-center gap-2"
                     >
                         Скасувати
                     </button>

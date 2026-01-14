@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import type { UnscheduledItem } from '../utils/scheduleHelpers';
-import type { Subject, Teacher, ClassGroup, Lesson } from '../types';
+import type { Subject, Teacher, ClassGroup } from '../types';
 import { createPortal } from 'react-dom';
 import { GripVertical, AlertTriangle, Pin, PinOff, Move, X } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { useHover } from '../context/HoverContext';
 
 interface UnscheduledPanelProps {
     items: UnscheduledItem[];
@@ -12,12 +13,12 @@ interface UnscheduledPanelProps {
     classes: ClassGroup[];
     isOpen: boolean;
     onToggle: () => void;
-    setHoveredLesson: (l: Lesson | null) => void;
     mode: 'docked' | 'floating';
     setMode: (mode: 'docked' | 'floating') => void;
 }
 
-export function UnscheduledPanel({ items, subjects, teachers, classes, isOpen, onToggle, setHoveredLesson, mode, setMode }: UnscheduledPanelProps) {
+export function UnscheduledPanel({ items, subjects, teachers, classes, isOpen, onToggle, mode, setMode }: UnscheduledPanelProps) {
+    const { setHoveredLesson } = useHover();
     const [position, setPosition] = useState({ x: window.innerWidth - 320, y: window.innerHeight - 300 });
     const [isDragging, setIsDragging] = useState(false);
     const dragOffset = useRef({ x: 0, y: 0 });

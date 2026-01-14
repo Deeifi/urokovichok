@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ScheduleRequest, Subject, ClassGroup, ScheduleResponse } from '../types';
 import {
     Plus, Trash2, Check, X, Pencil, ArrowLeft, Users, ClipboardList, Search, BookOpen, GraduationCap,
-    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock, ChevronDown, ChevronUp,
+    LayoutGrid, List, Filter, Clock, GripVertical, Minimize2, Lock,
     Calculator, FlaskConical, Languages, Book, Library, Globe2, Divide, Shapes, Dna, Atom, Map,
     Scroll, Landmark, Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
 } from 'lucide-react';
@@ -239,8 +239,10 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
     const [newColor, setNewColor] = useState('#6366f1');
     const [newRoom, setNewRoom] = useState('101');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
 
     const PRESETS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#f97316'];
+
     const ICON_OPTIONS = [
         { name: 'BookOpen', icon: BookOpen },
         { name: 'Calculator', icon: Calculator },
@@ -320,75 +322,6 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
 
     return (
         <div className="space-y-8">
-            {/* Add Form */}
-            <div className="bg-white/5 p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
-                <div className="absolute -top-12 -right-12 p-4 opacity-[0.03] group-hover:scale-110 transition-transform pointer-events-none">
-                    <Plus size={160} />
-                </div>
-                <h3 className="font-black text-white mb-6 flex items-center gap-2 uppercase tracking-widest text-xs">
-                    Додати новий предмет
-                </h3>
-                <div className="space-y-4">
-                    <input
-                        placeholder="Назва предмету (напр. Математика)"
-                        value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                        className="w-full px-5 py-4 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-white placeholder:text-white/20 transition-all"
-                    />
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex-1 flex gap-2">
-                            <input
-                                placeholder="Кабінет"
-                                value={newRoom}
-                                onChange={e => setNewRoom(e.target.value)}
-                                className="w-24 px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-white text-sm"
-                            />
-                            <div className="flex flex-col gap-2 p-1 bg-white/5 rounded-xl border border-white/5">
-                                <div className="flex gap-1.5 p-1">
-                                    {PRESETS.map(c => (
-                                        <button
-                                            key={c}
-                                            onClick={() => setNewColor(c)}
-                                            className={cn("w-6 h-6 rounded-md transition-all active:scale-95", newColor === c ? "ring-2 ring-white scale-110" : "opacity-60 hover:opacity-100")}
-                                            style={{ backgroundColor: c }}
-                                        />
-                                    ))}
-                                    <input
-                                        type="color"
-                                        value={newColor}
-                                        onChange={e => setNewColor(e.target.value)}
-                                        className="w-6 h-6 rounded-md bg-transparent border-none p-0 cursor-pointer overflow-hidden"
-                                    />
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 p-1 border-t border-white/5 mt-1 max-w-[300px]">
-                                    {ICON_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.name}
-                                            onClick={() => setNewIcon(opt.name)}
-                                            className={cn(
-                                                "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
-                                                newIcon === opt.name
-                                                    ? "bg-indigo-500 text-white shadow-lg"
-                                                    : "bg-white/5 text-[#a1a1aa] hover:bg-white/10 hover:text-white"
-                                            )}
-                                        >
-                                            <opt.icon size={16} />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleAdd}
-                            disabled={!newName.trim()}
-                            className="btn-premium flex items-center gap-2 whitespace-nowrap"
-                        >
-                            <Plus size={20} /> Додати
-                        </button>
-                    </div>
-                </div>
-            </div>
 
             {/* Search */}
             <div className="relative group">
@@ -404,6 +337,107 @@ function SubjectsEditor({ data, onChange, nextId }: SubjectsEditorProps) {
 
             {/* List */}
             <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {/* Ghost Card / Add Form */}
+                <div className={cn(
+                    "bento-card p-3 transition-all duration-300 overflow-hidden relative min-h-[140px]",
+                    isAdding
+                        ? "col-span-1 border-indigo-500/50 bg-indigo-500/5 shadow-lg shadow-indigo-500/10"
+                        : "border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20 cursor-pointer group"
+                )}>
+                    {!isAdding ? (
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="w-full h-full flex flex-col items-center justify-center gap-3"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#a1a1aa] group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
+                                <Plus size={24} />
+                            </div>
+                            <span className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-[0.2em] group-hover:text-white transition-colors">Додати</span>
+                        </button>
+                    ) : (
+                        <div className="flex flex-col h-full animate-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Нова дисципліна</span>
+                                <button onClick={() => setIsAdding(false)} className="p-1 text-[#a1a1aa] hover:text-white transition-colors">
+                                    <X size={14} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-2">
+                                <input
+                                    placeholder="Назва..."
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    className="w-full px-2.5 py-2 bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder:text-white/10"
+                                    autoFocus
+                                />
+                                <div className="grid grid-cols-[1fr_2fr] gap-2 items-start">
+                                    <input
+                                        placeholder="Каб."
+                                        value={newRoom}
+                                        onChange={e => setNewRoom(e.target.value)}
+                                        className="w-full px-2.5 py-2 bg-black/40 border border-white/10 rounded-lg text-[10px] font-bold text-white placeholder:text-white/10"
+                                    />
+                                    <div className="flex flex-wrap gap-1 p-1 bg-black/20 rounded-lg border border-white/5">
+                                        {PRESETS.map(c => (
+                                            <button
+                                                key={c}
+                                                onClick={() => setNewColor(c)}
+                                                className={cn(
+                                                    "w-4 h-4 rounded-sm transition-all active:scale-90",
+                                                    newColor === c ? "ring-1 ring-white scale-110 shadow-lg shadow-white/20" : "opacity-40 hover:opacity-100"
+                                                )}
+                                                style={{ backgroundColor: c }}
+                                            />
+                                        ))}
+                                        <div className="relative w-4 h-4 rounded-sm overflow-hidden border border-white/10 ml-auto">
+                                            <input
+                                                type="color"
+                                                value={newColor}
+                                                onChange={e => setNewColor(e.target.value)}
+                                                className="absolute inset-[-10px] w-[50px] h-[50px] cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-6 gap-1 p-1 bg-black/40 rounded-lg border border-white/5">
+                                    {ICON_OPTIONS.slice(0, 12).map(opt => (
+                                        <button
+                                            key={opt.name}
+                                            onClick={() => setNewIcon(opt.name)}
+                                            className={cn(
+                                                "w-6 h-6 rounded-md flex items-center justify-center transition-all",
+                                                newIcon === opt.name ? "bg-indigo-500 text-white" : "text-[#a1a1aa] hover:bg-white/5"
+                                            )}
+                                        >
+                                            <opt.icon size={12} />
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex gap-1.5 pt-1">
+                                    <button
+                                        onClick={() => setIsAdding(false)}
+                                        className="flex-1 py-2 rounded-lg bg-white/5 text-[#a1a1aa] text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                                    >
+                                        Скас.
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            handleAdd();
+                                            setIsAdding(false);
+                                        }}
+                                        disabled={!newName.trim()}
+                                        className="flex-[2] py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-30 transition-all"
+                                    >
+                                        Додати
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
                 {filteredSubjects.map(subject => {
                     const isEditing = editingId === subject.id;
                     const hours = data.plan.filter(p => p.subject_id === subject.id).reduce((acc, p) => acc + p.hours_per_week, 0);
@@ -896,7 +930,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                     </div>
 
                     {viewMode === 'details' ? (
-                        <TeacherDetails data={data} key={teacher.id} teacherId={teacher.id} />
+                        <TeacherDetails data={data} key={teacher.id} teacherId={teacher.id} schedule={schedule} />
                     ) : (
                         <div className="space-y-6">
                             <div className="flex items-center justify-between bg-white/5 p-6 rounded-3xl border border-white/5">
@@ -944,11 +978,10 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                                         hidePhotos: false,
                                         lowFrequencyClock: false,
                                         disableBlur: false,
-                                        disableShadows: false
+                                        disableShadows: false,
+                                        disableHoverEffects: false,
                                     }}
                                     getClassConflicts={() => []}
-                                    hoveredLesson={null}
-                                    setHoveredLesson={() => { }}
                                 />
                             </div>
 
@@ -972,124 +1005,7 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
 
     return (
         <div className="space-y-8">
-            {/* Collapsible Add Form */}
-            <div className="bg-white/5 rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
-                <button
-                    onClick={() => setIsAddFormOpen(!isAddFormOpen)}
-                    className="w-full p-6 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/10">
-                            <Plus size={24} />
-                        </div>
-                        <div>
-                            <h3 className="font-black text-white uppercase tracking-widest text-xs mb-1">Додати нового вчителя</h3>
-                            <p className="text-[10px] text-[#a1a1aa] font-bold">Створіть профіль вчителя, призначте предмети та обмеження</p>
-                        </div>
-                    </div>
-                    {isAddFormOpen ? <ChevronUp className="text-white/40" /> : <ChevronDown className="text-white/40" />}
-                </button>
-
-                {isAddFormOpen && (
-                    <div className="p-6 pt-0 space-y-6 animate-in slide-in-from-top-4 duration-300">
-                        <div className="h-px w-full bg-white/5 mb-6" />
-
-                        <div className="flex gap-4 items-start">
-                            <div className="flex flex-col gap-3 flex-1">
-                                <input
-                                    placeholder="Ім'я вчителя"
-                                    autoFocus
-                                    value={name}
-                                    onChange={e => setName(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                                    className="flex-1 px-5 py-4 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-white placeholder:text-white/20 transition-all"
-                                />
-                                <div className="flex items-center gap-3">
-                                    <label className="cursor-pointer group/upload">
-                                        <input type="file" accept="image/*" className="hidden" onChange={e => handlePhotoUpload(e)} />
-                                        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-[#a1a1aa] group-hover/upload:bg-white/10 group-hover/upload:text-white transition-all">
-                                            {photo ? <Check size={14} className="text-emerald-500" /> : <Plus size={14} />}
-                                            {photo ? 'Фото завантажено' : 'Завантажити фото'}
-                                        </div>
-                                    </label>
-                                    {photo && (
-                                        <button onClick={() => setPhoto(null)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20"><X size={14} /></button>
-                                    )}
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleAdd}
-                                disabled={!name.trim()}
-                                className="btn-premium from-emerald-500 to-teal-600 flex items-center gap-2 whitespace-nowrap shadow-emerald-500/20"
-                            >
-                                <Plus size={20} /> Додати
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={() => setIsPrimary(!is_primary)}
-                                className={cn(
-                                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
-                                    is_primary
-                                        ? "bg-emerald-500/20 border-emerald-500/50 shadow-lg shadow-emerald-500/10"
-                                        : "bg-white/5 border-white/10 hover:bg-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", is_primary ? "bg-emerald-500 border-emerald-500" : "border-white/20")}>
-                                        {is_primary && <Check size={14} className="text-white" />}
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-bold text-white text-sm">Вчитель поч. класів</div>
-                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Для 1-4 класів</div>
-                                    </div>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => setPrefersPeriodZero(!prefersPeriodZero)}
-                                className={cn(
-                                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300",
-                                    prefersPeriodZero
-                                        ? "bg-violet-500/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
-                                        : "bg-white/5 border-white/10 hover:bg-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={cn("w-5 h-5 rounded border flex items-center justify-center transition-colors", prefersPeriodZero ? "bg-violet-500 border-violet-500" : "border-white/20")}>
-                                        {prefersPeriodZero && <Check size={14} className="text-white" />}
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-bold text-white text-sm">Перевага 0 уроку</div>
-                                        <div className="text-[10px] text-[#a1a1aa] font-medium">Уроки о 7:50</div>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-black text-[#a1a1aa] mb-3 uppercase tracking-widest">Дисципліни:</label>
-                            <div className="flex flex-wrap gap-2">
-                                {data.subjects.length > 0 ? getSortedSubjects(data.subjects).map(sub => (
-                                    <button
-                                        key={sub.id}
-                                        onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
-                                        className={cn(
-                                            "px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-300",
-                                            selectedSubjects.includes(sub.id)
-                                                ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20"
-                                                : "bg-white/5 border-white/10 text-[#a1a1aa] hover:border-emerald-500/50"
-                                        )}
-                                    >
-                                        {sub.name}
-                                    </button>
-                                )) : <span className="text-sm text-white/30">Спочатку додайте предмети</span>}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            {/* Search, Filter and View Toggle */}
 
             {/* Search, Filter and View Toggle */}
             <div className="flex gap-4">
@@ -1238,6 +1154,115 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
                 <div className="flex-1 min-w-0">
                     {listMode === 'grid' ? (
                         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {/* Teacher Ghost Card */}
+                            {!isAddFormOpen ? (
+                                <button
+                                    onClick={() => setIsAddFormOpen(true)}
+                                    className="bento-card p-8 border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-4 group hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all min-h-[300px]"
+                                >
+                                    <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-lg">
+                                        <Plus size={32} />
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-sm font-black text-white uppercase tracking-widest mb-1">Додати вчителя</div>
+                                        <div className="text-[10px] text-[#a1a1aa] font-bold">Створити новий профіль</div>
+                                    </div>
+                                </button>
+                            ) : (
+                                <div className="bento-card p-5 border-emerald-500/30 bg-emerald-500/5 flex flex-col gap-4 animate-in zoom-in-95 duration-200 min-h-[300px] shadow-2xl shadow-emerald-500/10">
+                                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Новий вчитель</div>
+                                        <button onClick={() => setIsAddFormOpen(false)} className="p-1 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors">
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4 flex-1">
+                                        <div className="flex gap-3">
+                                            <div className="w-14 h-14 bg-black/40 border border-emerald-500/20 rounded-2xl flex items-center justify-center shrink-0 relative group/photo">
+                                                {photo ? (
+                                                    <img src={photo} className="w-full h-full object-cover rounded-2xl" alt="" />
+                                                ) : (
+                                                    <Plus size={20} className="text-white/20" />
+                                                )}
+                                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handlePhotoUpload} />
+                                            </div>
+                                            <input
+                                                placeholder="ПІБ вчителя"
+                                                autoFocus
+                                                value={name}
+                                                onChange={e => setName(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                                                className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all placeholder:text-white/10"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => setIsPrimary(!is_primary)}
+                                                className={cn(
+                                                    "p-2 rounded-xl border transition-all text-left",
+                                                    is_primary ? "bg-emerald-500/20 border-emerald-500/50" : "bg-black/20 border-white/5 hover:bg-white/5"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Check size={12} className={is_primary ? "text-emerald-400" : "text-white/10"} />
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-tight">Початкові</span>
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={() => setPrefersPeriodZero(!prefersPeriodZero)}
+                                                className={cn(
+                                                    "p-2 rounded-xl border transition-all text-left",
+                                                    prefersPeriodZero ? "bg-violet-500/20 border-violet-500/50" : "bg-black/20 border-white/5 hover:bg-white/5"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Check size={12} className={prefersPeriodZero ? "text-violet-400" : "text-white/10"} />
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-tight">0 Урок</span>
+                                                </div>
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-widest pl-1">Дисципліни</div>
+                                            <div className="max-h-[80px] overflow-y-auto pr-1 flex flex-wrap gap-1 custom-scrollbar">
+                                                {data.subjects.map(sub => (
+                                                    <button
+                                                        key={sub.id}
+                                                        onClick={() => setSelectedSubjects(prev => prev.includes(sub.id) ? prev.filter(s => s !== sub.id) : [...prev, sub.id])}
+                                                        className={cn(
+                                                            "px-2 py-1 rounded-lg text-[9px] font-black border transition-all",
+                                                            selectedSubjects.includes(sub.id)
+                                                                ? "bg-emerald-500 border-emerald-400 text-white"
+                                                                : "bg-white/5 border-white/5 text-[#a1a1aa] hover:border-emerald-500/30"
+                                                        )}
+                                                    >
+                                                        {sub.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-2 border-t border-white/5">
+                                        <button
+                                            onClick={() => setIsAddFormOpen(false)}
+                                            className="flex-1 py-2 rounded-xl bg-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 transition-all border border-white/5"
+                                        >
+                                            Скасувати
+                                        </button>
+                                        <button
+                                            onClick={() => { handleAdd(); setIsAddFormOpen(false); }}
+                                            disabled={!name.trim()}
+                                            className="flex-1 py-2 rounded-xl bg-emerald-500 text-[10px] font-black text-white uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:shadow-none"
+                                        >
+                                            Додати
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {filteredTeachers.map(teacher => {
                                 const hours = data.plan.filter(p => p.teacher_id === teacher.id).reduce((acc, p) => acc + p.hours_per_week, 0);
                                 const isSelected = selectedIds.includes(teacher.id);
