@@ -1,6 +1,8 @@
 import { useCallback, useState, useMemo, useEffect, memo, useDeferredValue } from 'react';
 import { useHover } from '../context/HoverContext';
 import { createPortal } from 'react-dom';
+import { List } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 import type { ScheduleRequest, ScheduleResponse, Lesson, ClassGroup, PerformanceSettings } from '../types';
 import {
     Plus,
@@ -267,27 +269,77 @@ const ByClassView = memo(({
     getClassConflicts, userRole, selectedTeacherId
 }: ByClassViewProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExportPDF = async () => {
+        setIsExporting(true);
+        try {
+            const { default: jsPDF } = await import('jspdf');
+            const { default: html2canvas } = await import('html2canvas');
+
+            const element = document.getElementById('class-schedule-export');
+            if (!element) return;
+
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#0f0f12',
+                logging: false,
+                onclone: (clonedDoc) => {
+                    const el = clonedDoc.getElementById('class-schedule-export');
+                    if (el) el.style.padding = '40px';
+                }
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? 'l' : 'p',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+            });
+
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            const className = sortedClasses.find(c => c.id === selectedClassId)?.name || 'класу';
+            pdf.save(`Розклад_${className}.pdf`);
+        } catch (error) {
+            console.error('Export failed:', error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div className={cn(!perfSettings.disableAnimations && "animate-in fade-in duration-300", isCompact ? "space-y-2" : "space-y-6")}>
-            <div className={cn("flex flex-wrap", isCompact ? "gap-1" : "gap-2")}>
-                {sortedClasses.map(cls => (
-                    <button
-                        key={cls.id}
-                        onClick={() => setSelectedClassId(cls.id)}
-                        className={cn(
-                            "font-bold transition-all border",
-                            isCompact ? "px-3 py-1 text-xs rounded-lg" : "px-4 py-2 rounded-xl",
-                            selectedClassId === cls.id
-                                ? "bg-indigo-600 border-indigo-500 text-white"
-                                : "bg-[#18181b] border-white/5 text-[#a1a1aa] hover:border-white/20"
-                        )}
-                    >
-                        {cls.name}
-                    </button>
-                ))}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className={cn("flex flex-wrap flex-1", isCompact ? "gap-1" : "gap-2")}>
+                    {sortedClasses.map(cls => (
+                        <button
+                            key={cls.id}
+                            onClick={() => setSelectedClassId(cls.id)}
+                            className={cn(
+                                "font-bold transition-all border",
+                                isCompact ? "px-3 py-1 text-xs rounded-lg" : "px-4 py-2 rounded-xl",
+                                selectedClassId === cls.id
+                                    ? "bg-indigo-600 border-indigo-500 text-white"
+                                    : "bg-[#18181b] border-white/5 text-[#a1a1aa] hover:border-white/20"
+                            )}
+                        >
+                            {cls.name}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                >
+                    {isExporting ? <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" /> : <Columns size={16} />}
+                    {isExporting ? 'Експорт...' : 'Експорт PDF'}
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div id="class-schedule-export" className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {apiDays.map((day, dIdx) => (
                     <div key={day} className={cn("bento-card border-white/5 bg-[#1a1a1e]", isCompact ? "p-2" : "p-4")}>
                         <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-0.5 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
@@ -818,12 +870,179 @@ interface TeachersMasterViewProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
 }
 
+const TeacherRow = memo(({ index, style, ariaAttributes, ...rowProps }: any) => {
+    const {
+        filteredTeachers, data, masterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor,
+        getConflicts, getClassConflicts, setViewingLesson, isEditMode, setEditingTeacherCell,
+        getTeacherStats, processTeacherDrop, perfSettings, periods, setDragOverCell
+    } = rowProps as any;
+
+    const teacher = filteredTeachers[index];
+    const { hoveredLesson, setHoveredLesson } = useHover();
+
+    const teacherPlan = data.plan.filter((p: any) => p.teacher_id === teacher.id);
+    const mainSubject = data.subjects.find((s: any) => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
+
+    return (
+        <div style={style} {...ariaAttributes} className={cn(
+            "flex border-b border-white/5 group transition-colors min-w-[1280px]",
+            !perfSettings.disableAnimations && "hover:bg-white/[0.01]"
+        )}>
+            {/* Teacher Info Column */}
+            <div className="w-[160px] p-4 border-r border-white/5 text-center shrink-0 flex flex-col items-center gap-2 justify-center bg-[#18181b]">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white text-[10px] font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
+                    {teacher.photo && !perfSettings.hidePhotos ? (
+                        <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                        <span className="text-sm font-black text-white">{teacher.name.slice(0, 1)}</span>
+                    )}
+                </div>
+                <div className="flex flex-col min-w-0 items-center">
+                    <span className="font-black text-white uppercase truncate text-xs">
+                        {teacher.name.split(' ').slice(0, 2).join(' ')}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
+                        <span className="text-[8px] px-1 bg-white/5 rounded text-[#a1a1aa] font-black uppercase tracking-tighter shrink-0">
+                            {getTeacherStats(teacher.id).totalHours}г / {getTeacherStats(teacher.id).days}д
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Lesson Columns */}
+            {periods.map((p: number) => {
+                const teacherLessons = findAllLessonsByTeacher(teacher.id, masterDay, p);
+                const hasLessons = teacherLessons.length > 0;
+
+                const handleClick = (lesson?: Lesson) => {
+                    if (isEditMode) {
+                        setEditingTeacherCell({ teacherId: teacher.id, day: masterDay, period: p });
+                    } else if (lesson) {
+                        setViewingLesson({ classId: lesson.class_id, day: masterDay, period: p });
+                    }
+                };
+
+                const isTeacherHighlighted = hoveredLesson && (
+                    (teacherLessons.some((l: Lesson) => l.teacher_id === hoveredLesson.teacher_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period) ||
+                    (teacherLessons.some((l: Lesson) => l.class_id === hoveredLesson.class_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period)
+                );
+
+                const hasOtherClasses = teacherLessons.some((l: Lesson) => getConflicts(l.teacher_id, masterDay, p, l.class_id).length > 0);
+                const hasOtherTeachers = teacherLessons.some((l: Lesson) => getClassConflicts(l.class_id, masterDay, p, l.teacher_id).length > 0);
+                const isActualConflict = isTeacherHighlighted && (teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers);
+
+                const isRecommendedSlot = !hasLessons && hoveredLesson &&
+                    hoveredLesson.teacher_id === teacher.id &&
+                    getClassConflicts(hoveredLesson.class_id, masterDay, p).length === 0 &&
+                    findAllLessonsByTeacher(teacher.id, masterDay, p).length === 0;
+
+                const isStaticConflict = teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers;
+
+                return (
+                    <div key={p} className={cn(
+                        "flex-1 min-w-[140px] p-2 border-r border-white/5 h-[80px] transition-all last:border-r-0 flex flex-col justify-center",
+                        isStaticConflict && (teacherLessons.length > 1 || hasOtherClasses ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/30" : "bg-violet-500/5 ring-1 ring-inset ring-violet-500/30"),
+                        isTeacherHighlighted && (isActualConflict
+                            ? "bg-amber-500/20 ring-2 ring-inset ring-amber-400 animate-pulse z-30 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-105"
+                            : "bg-white/10 ring-2 ring-inset ring-white animate-pulse z-20 shadow-[0_0_25px_rgba(255,255,255,0.4)] scale-105"
+                        )
+                    )}
+                        onDragOver={(e) => {
+                            if (isEditMode) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                setDragOverCell({ teacherId: teacher.id, day: masterDay, period: p });
+                            }
+                        }}
+                        onDragLeave={() => isEditMode && setDragOverCell(null)}
+                        onDrop={(e) => {
+                            if (isEditMode) {
+                                e.preventDefault();
+                                const dataStr = e.dataTransfer.getData('lesson');
+                                const externalLesson = dataStr ? JSON.parse(dataStr) : undefined;
+                                processTeacherDrop(teacher.id, masterDay, p, externalLesson);
+                            }
+                        }}
+                    >
+                        {hasLessons ? (
+                            <div className="flex flex-col gap-1 h-full justify-center">
+                                {teacherLessons.map((lesson: Lesson, idx: number) => {
+                                    const cls = data.classes.find((c: any) => c.id === lesson.class_id);
+                                    const room = lesson.room || data.subjects.find((s: any) => s.id === lesson.subject_id)?.defaultRoom;
+                                    const subjectName = data.subjects.find((s: any) => s.id === lesson.subject_id)?.name || "";
+
+                                    return (
+                                        <div
+                                            key={idx}
+                                            onMouseEnter={() => lesson && setHoveredLesson(lesson)}
+                                            onMouseLeave={() => setHoveredLesson(null)}
+                                            onClick={() => handleClick(lesson)}
+                                            className={cn(
+                                                "w-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group/card cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
+                                                teacherLessons.length > 1 ? "flex-1" : "h-full",
+                                                isTeacherHighlighted && (isActualConflict
+                                                    ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
+                                                    : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
+                                                ),
+                                            )}
+                                            style={{ borderLeftColor: getSubjectColor(lesson.subject_id) }}
+                                        >
+                                            <div className="text-xs font-black text-white group-hover/card:text-indigo-400 transition-colors truncate relative z-0">
+                                                {cls?.name}
+                                            </div>
+                                            <div className="flex justify-between items-end mt-2">
+                                                <div className="text-[10px] font-bold text-[#a1a1aa] truncate mr-2 uppercase tracking-tighter">
+                                                    {subjectName}
+                                                </div>
+                                                <div className={cn(
+                                                    "text-[8px] font-black px-1.5 py-0.5 rounded transition-colors uppercase tracking-tight",
+                                                    getRoomColor(room)
+                                                )}>
+                                                    {room || '—'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div
+                                onClick={() => handleClick()}
+                                className={cn(
+                                    "h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group/empty",
+                                    isRecommendedSlot && "opacity-100 bg-emerald-500/20 border-emerald-500/50 border-solid shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 ring-offset-2 ring-offset-[#0f0f11] animate-pulse-slow"
+                                )}
+                            >
+                                <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover/empty:text-white text-center">
+                                    {isEditMode ? (
+                                        <>
+                                            <div className={cn(
+                                                "mb-1",
+                                                isRecommendedSlot ? "text-emerald-400 scale-125 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "text-white"
+                                            )}>
+                                                <Plus size={isRecommendedSlot ? 18 : 14} className="mx-auto" />
+                                            </div>
+                                            <span className={isRecommendedSlot ? "text-emerald-400 font-black text-[9px]" : ""}>
+                                                {isRecommendedSlot ? "ВСТАВИТИ СЮДИ" : "ДОДАТИ"}
+                                            </span>
+                                        </>
+                                    ) : null}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+});
+
 const TeachersMasterView = memo(({
     data, masterDay, setMasterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor, getConflicts, getClassConflicts,
     periods, days, apiDays, setViewingLesson, isEditMode, setEditingTeacherCell, getTeacherStats, isCompact, setIsCompact, isMonochrome, setIsMonochrome, lessons,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop, perfSettings,
 }: TeachersMasterViewProps) => {
-    const { hoveredLesson, setHoveredLesson } = useHover();
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -834,15 +1053,34 @@ const TeachersMasterView = memo(({
     }, [data.teachers, deferredSearchQuery]);
 
     const dayName = days[apiDays.indexOf(masterDay)];
-    // Access lessons from parent Scope (ScheduleGrid)
-    // Actually, we should pass lessons as a prop or rely on the fact that this is defined inside ScheduleGrid?
-    // Wait, TeachersMasterView IS defined OUTSIDE of ScheduleGrid in this file currently.
-    // I need to make sure the props are correct.
 
-    // I will check the props in TeachersMasterViewProps again.
-    // It doesn't have 'lessons'. I should add it or use the data we have.
-    // Actually, lessons are available in the ScheduleGrid scope, but this component is outside.
-    // I will modify the props to include lessons.
+    const rowProps = useMemo(() => ({
+        filteredTeachers,
+        data,
+        masterDay,
+        findAllLessonsByTeacher,
+        getRoomColor,
+        getSubjectColor,
+        getConflicts,
+        getClassConflicts,
+        setViewingLesson,
+        isEditMode,
+        setEditingTeacherCell,
+        getTeacherStats,
+        lessons,
+        draggedLesson,
+        setDraggedLesson,
+        dragOverCell,
+        setDragOverCell,
+        processTeacherDrop,
+        perfSettings,
+        periods
+    }), [
+        filteredTeachers, data, masterDay, findAllLessonsByTeacher, getRoomColor, getSubjectColor,
+        getConflicts, getClassConflicts, setViewingLesson, isEditMode, setEditingTeacherCell,
+        getTeacherStats, lessons, draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell,
+        processTeacherDrop, perfSettings, periods
+    ]);
 
     return (
         <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
@@ -857,7 +1095,6 @@ const TeachersMasterView = memo(({
                 )}
 
                 <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
-                    {/* Teacher Search & Stats */}
                     <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transition-all", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
                         <div className="flex items-center gap-2 border-r border-white/5 pr-3 mr-1">
                             <div className="relative">
@@ -875,6 +1112,7 @@ const TeachersMasterView = memo(({
                                 placeholder="ПОШУК..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 text-xs font-bold text-white placeholder-white/20 w-32"
                             />
                         </div>
                     </div>
@@ -954,190 +1192,42 @@ const TeachersMasterView = memo(({
                 />
             ) : (
                 <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
-                    <div className="overflow-auto custom-scrollbar flex-1">
-                        <table className="w-full border-separate border-spacing-0 text-left table-fixed">
-                            <thead>
-                                <tr>
-                                    <th className="sticky top-0 left-0 z-50 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-b border-r border-white/5 w-[160px] shrink-0">
-                                        ВИКЛАДАЧ
-                                    </th>
-                                    {periods.map(p => (
-                                        <th key={p} className="sticky top-0 z-40 bg-[#18181b] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5 w-[140px] min-w-[140px] text-center">
-                                            {p}<br />
-                                            <span className="text-[8px] opacity-50 font-black">УРОК</span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredTeachers.map(teacher => {
-                                    const teacherPlan = data.plan.filter(p => p.teacher_id === teacher.id);
-                                    const mainSubject = data.subjects.find(s => s.id === (teacherPlan[0]?.subject_id || ''))?.name || "—";
+                    <div className="flex-1 overflow-x-auto custom-scrollbar">
+                        <div className="min-w-[1280px] h-full flex flex-col">
+                            {/* Sticky Header */}
+                            <div className="flex border-b border-white/5 bg-[#18181b] sticky top-0 z-50">
+                                <div className="w-[160px] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest text-center border-r border-white/5 shrink-0">
+                                    ВИКЛАДАЧ
+                                </div>
+                                {periods.map(p => (
+                                    <div key={p} className="flex-1 min-w-[140px] p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-r border-white/5 text-center last:border-r-0">
+                                        {p}<br />
+                                        <span className="text-[8px] opacity-50 font-black">УРОК</span>
+                                    </div>
+                                ))}
+                            </div>
 
-                                    return (
-                                        <tr key={teacher.id} className={cn(
-                                            "group transition-colors",
-                                            !perfSettings.disableAnimations && "hover:bg-white/[0.01]"
-                                        )}>
-                                            <td className="sticky left-0 z-30 bg-[#18181b] p-4 border-b border-r border-white/5 text-center">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white text-[10px] font-black uppercase group-hover:bg-indigo-500 transition-all duration-500 overflow-hidden border border-white/5">
-                                                        {teacher.photo && !perfSettings.hidePhotos ? (
-                                                            <img src={teacher.photo} className="w-full h-full object-cover" alt="" />
-                                                        ) : (
-                                                            <span className="text-sm font-black text-white">{teacher.name.slice(0, 1)}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex flex-col min-w-0 items-center">
-                                                        <span className="font-black text-white uppercase truncate text-xs">
-                                                            {teacher.name.split(' ').slice(0, 2).join(' ')}
-                                                        </span>
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-[9px] font-black text-[#a1a1aa] uppercase tracking-tighter opacity-70 truncate">{mainSubject}</span>
-                                                            <span className="text-[8px] px-1 bg-white/5 rounded text-[#a1a1aa] font-black uppercase tracking-tighter shrink-0">
-                                                                {getTeacherStats(teacher.id).totalHours}г / {getTeacherStats(teacher.id).days}д
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            {periods.map(p => {
-                                                const teacherLessons = findAllLessonsByTeacher(teacher.id, masterDay, p);
-                                                const hasLessons = teacherLessons.length > 0;
-
-                                                const handleClick = (lesson?: Lesson) => {
-                                                    if (isEditMode) {
-                                                        setEditingTeacherCell({ teacherId: teacher.id, day: masterDay, period: p });
-                                                    } else if (lesson) {
-                                                        setViewingLesson({ classId: lesson.class_id, day: masterDay, period: p });
-                                                    }
-                                                };
-
-                                                const isTeacherHighlighted = hoveredLesson && (
-                                                    (teacherLessons.some(l => l.teacher_id === hoveredLesson.teacher_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period) ||
-                                                    (teacherLessons.some(l => l.class_id === hoveredLesson.class_id) && masterDay === hoveredLesson.day && p === hoveredLesson.period)
-                                                );
-
-                                                const hasOtherClasses = teacherLessons.some(l => getConflicts(l.teacher_id, masterDay, p, l.class_id).length > 0);
-                                                const hasOtherTeachers = teacherLessons.some(l => getClassConflicts(l.class_id, masterDay, p, l.teacher_id).length > 0);
-                                                const isActualConflict = isTeacherHighlighted && (teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers);
-
-                                                // Check for recommendation in Teacher View
-                                                const isRecommendedSlot = !hasLessons && hoveredLesson &&
-                                                    hoveredLesson.teacher_id === teacher.id &&
-                                                    // REQUIREMENT: Valid only if the target class is free (no other teacher teaches this class at this time)
-                                                    getClassConflicts(hoveredLesson.class_id, masterDay, p).length === 0 &&
-                                                    findAllLessonsByTeacher(teacher.id, masterDay, p).length === 0;
-
-                                                const isStaticConflict = teacherLessons.length > 1 || hasOtherClasses || hasOtherTeachers;
-
-                                                return (
-                                                    <td key={p} className={cn(
-                                                        "p-2 border-b border-r border-white/5 h-[80px] transition-all",
-                                                        isStaticConflict && (teacherLessons.length > 1 || hasOtherClasses ? "bg-amber-500/5 ring-1 ring-inset ring-amber-500/30" : "bg-violet-500/5 ring-1 ring-inset ring-violet-500/30"),
-                                                        isTeacherHighlighted && (isActualConflict
-                                                            ? "bg-amber-500/20 ring-2 ring-inset ring-amber-400 animate-pulse z-30 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-105"
-                                                            : "bg-white/10 ring-2 ring-inset ring-white animate-pulse z-20 shadow-[0_0_25px_rgba(255,255,255,0.4)] scale-105"
-                                                        )
-                                                    )}
-                                                        onDragOver={(e) => {
-                                                            if (isEditMode) {
-                                                                e.preventDefault();
-                                                                e.dataTransfer.dropEffect = 'move';
-                                                                setDragOverCell({ teacherId: teacher.id, day: masterDay, period: p });
-                                                            }
-                                                        }}
-                                                        onDragLeave={() => isEditMode && setDragOverCell(null)}
-                                                        onDrop={(e) => {
-                                                            if (isEditMode) {
-                                                                e.preventDefault();
-                                                                const data = e.dataTransfer.getData('lesson');
-                                                                const externalLesson = data ? JSON.parse(data) : undefined;
-                                                                processTeacherDrop(teacher.id, masterDay, p, externalLesson);
-                                                            }
-                                                        }}
-                                                    >
-                                                        {hasLessons ? (
-                                                            <div className="flex flex-col gap-1 h-full justify-center">
-                                                                {teacherLessons.map((lesson, idx) => {
-                                                                    const cls = data.classes.find(c => c.id === lesson.class_id);
-                                                                    const room = lesson.room || data.subjects.find(s => s.id === lesson.subject_id)?.defaultRoom;
-                                                                    const subjectName = data.subjects.find(s => s.id === lesson.subject_id)?.name || "";
-
-                                                                    return (
-                                                                        <div
-                                                                            key={idx}
-                                                                            onMouseEnter={() => lesson && setHoveredLesson(lesson)}
-                                                                            onMouseLeave={() => setHoveredLesson(null)}
-                                                                            onClick={() => handleClick(lesson)}
-                                                                            className={cn(
-                                                                                "w-full bg-white/[0.03] hover:bg-white/[0.06] rounded-lg p-2 border-l-4 transition-all group/card cursor-pointer shadow-sm active:scale-95 relative overflow-hidden",
-                                                                                teacherLessons.length > 1 ? "flex-1" : "h-full",
-                                                                                isTeacherHighlighted && (isActualConflict
-                                                                                    ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-[1.05] bg-amber-500/20"
-                                                                                    : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-[1.03] bg-white/10"
-                                                                                ),
-                                                                            )}
-                                                                            style={{ borderLeftColor: getSubjectColor(lesson.subject_id) }}
-                                                                        >
-                                                                            <div className="text-xs font-black text-white group-hover/card:text-indigo-400 transition-colors truncate relative z-0">
-                                                                                {cls?.name}
-                                                                            </div>
-                                                                            <div className="flex justify-between items-end mt-2">
-                                                                                <div className="text-[10px] font-bold text-[#a1a1aa] truncate mr-2 uppercase tracking-tighter">
-                                                                                    {subjectName}
-                                                                                </div>
-                                                                                <div className={cn(
-                                                                                    "text-[8px] font-black px-1.5 py-0.5 rounded transition-colors uppercase tracking-tight",
-                                                                                    getRoomColor(room)
-                                                                                )}>
-                                                                                    {room || '—'}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div
-                                                                onClick={() => handleClick()}
-                                                                className={cn(
-                                                                    "h-full rounded-xl border border-dashed border-white/5 flex items-center justify-center bg-black/5 opacity-30 hover:opacity-100 hover:border-white/20 transition-all cursor-pointer group/empty",
-                                                                    isRecommendedSlot && "opacity-100 bg-emerald-500/20 border-emerald-500/50 border-solid shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500/20 ring-offset-2 ring-offset-[#0f0f11] animate-pulse-slow"
-                                                                )}
-                                                            >
-                                                                <div className="text-[8px] font-black text-[#a1a1aa] uppercase tracking-widest group-hover/empty:text-white text-center">
-                                                                    {isEditMode ? (
-                                                                        <>
-                                                                            <div className={cn(
-                                                                                "mb-1",
-                                                                                isRecommendedSlot ? "text-emerald-400 scale-125 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "text-white"
-                                                                            )}>
-                                                                                <Plus size={isRecommendedSlot ? 18 : 14} className="mx-auto" />
-                                                                            </div>
-                                                                            <span className={isRecommendedSlot ? "text-emerald-400 font-black text-[9px]" : ""}>
-                                                                                {isRecommendedSlot ? "ВСТАВИТИ СЮДИ" : "ДОДАТИ"}
-                                                                            </span>
-                                                                        </>
-                                                                    ) : null}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                            {/* Virtualized List */}
+                            <div className="flex-1">
+                                <AutoSizer
+                                    renderProp={({ height, width }: { height: number | undefined; width: number | undefined }) => (
+                                        <List
+                                            style={{ height, width }}
+                                            rowCount={filteredTeachers.length}
+                                            rowHeight={80}
+                                            rowProps={rowProps}
+                                            rowComponent={TeacherRow as any}
+                                        />
+                                    )}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
         </div>
     );
 });
-
 // --- Main ScheduleGrid Component ---
 
 export function ScheduleGrid({
