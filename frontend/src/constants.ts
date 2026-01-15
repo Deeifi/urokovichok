@@ -8,3 +8,7 @@ export const BELL_SCHEDULE = [
     { period: 6, start: '12:55', end: '13:40' },
     { period: 7, start: '13:50', end: '14:35' },
 ];
+
+export const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+export const API_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+export const PERIODS = [0, 1, 2, 3, 4, 5, 6, 7];

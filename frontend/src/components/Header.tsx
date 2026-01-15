@@ -1,53 +1,42 @@
 import React from 'react';
 import { LayoutDashboard, Columns, Table, Users, Lock, Unlock, RotateCcw, FileSpreadsheet, GraduationCap, Calendar, Loader2, Maximize2, Bell } from 'lucide-react';
 import { cn } from '../utils/cn';
-import type { ScheduleResponse, Teacher, Subject, ClassGroup, ViewType } from '../types';
+import type { ViewType } from '../types';
 import { exportMasterTeacherSchedule } from '../utils/excelExport';
+import { useUIStore } from '../store/useUIStore';
+import { useDataStore } from '../store/useDataStore';
+import { useScheduleStore } from '../store/useScheduleStore';
 
 interface HeaderProps {
-    viewType: ViewType;
-    setViewType: (view: ViewType) => void;
-    activeTab: string;
-    setActiveTab: (tab: any) => void;
-    isEditMode: boolean;
-    setIsEditMode: (edit: boolean) => void;
-    schedule: ScheduleResponse | null;
-    historyLength: number;
-    handleUndo: () => void;
-    isCompact: boolean;
-    effectiveIsCompact: boolean;
-    userRole: 'admin' | 'teacher';
-    teachers: Teacher[];
-    subjects: Subject[];
-    classes: ClassGroup[];
-    handleReset: () => void;
     handleGenerate: () => void;
     loading: boolean;
-    setIsFullScreen: (full: boolean) => void;
-    isHeaderCollapsed: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-    viewType,
-    setViewType,
-    activeTab,
-    isEditMode,
-    setIsEditMode,
-    schedule,
-    historyLength,
-    handleUndo,
-    isCompact,
-    effectiveIsCompact,
-    userRole,
-    teachers,
-    subjects,
-    classes,
-    handleReset,
     handleGenerate,
-    loading,
-    setIsFullScreen,
-    isHeaderCollapsed
+    loading
 }) => {
+    // UI Store
+    const {
+        viewType, setViewType,
+        activeTab,
+        isEditMode, setIsEditMode,
+        isCompact,
+        userRole,
+        setIsFullScreen,
+        isHeaderCollapsed
+    } = useUIStore();
+
+    // Data Store
+    const { data, resetData } = useDataStore();
+    const { teachers, subjects, classes } = data;
+
+    // Schedule Store
+    const { schedule, history, undo } = useScheduleStore();
+    const historyLength = history.past.length;
+
+    const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
+
     const formattedDate = new Date().toLocaleDateString('uk-UA', {
         weekday: 'long',
         day: 'numeric',
@@ -121,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {activeTab === 'schedule' && schedule && (
                     <button
-                        onClick={handleUndo}
+                        onClick={undo}
                         disabled={historyLength === 0 || !isEditMode}
                         className={cn(
                             "flex items-center gap-2 bg-[#18181b] border border-white/5 rounded-xl text-[#a1a1aa] hover:text-white transition-all disabled:opacity-20 active:scale-95 group",
@@ -162,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {activeTab === 'data' && (
                     <>
                         <button
-                            onClick={handleReset}
+                            onClick={resetData}
                             className="px-6 py-2.5 rounded-xl font-bold text-red-500 hover:bg-red-500/10 transition-all border border-red-500/20 active:scale-95"
                         >
                             Скинути дані

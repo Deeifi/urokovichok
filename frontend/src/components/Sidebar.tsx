@@ -1,22 +1,17 @@
 import React from 'react';
 import { Calendar, LayoutDashboard, Settings, LogOut, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { useUIStore } from '../store/useUIStore';
 
-interface SidebarProps {
-    isSidebarCollapsed: boolean;
-    setIsSidebarCollapsed: (collapsed: boolean) => void;
-    activeTab: string;
-    setActiveTab: (tab: any) => void;
-    isFullScreen: boolean;
-}
+export const Sidebar: React.FC = () => {
+    const {
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        activeTab,
+        setActiveTab,
+        isFullScreen
+    } = useUIStore();
 
-export const Sidebar: React.FC<SidebarProps> = ({
-    isSidebarCollapsed,
-    setIsSidebarCollapsed,
-    activeTab,
-    setActiveTab,
-    isFullScreen
-}) => {
     const menuItems = [
         { id: 'schedule', label: 'Розклад', icon: Calendar },
         { id: 'data', label: 'База даних', icon: LayoutDashboard },

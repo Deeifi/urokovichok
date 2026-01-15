@@ -1,8 +1,8 @@
-import React, { useState, useMemo, memo, useEffect } from 'react';
+import React, { useMemo, memo } from 'react';
 import type { Lesson, ScheduleRequest, Subject, PerformanceSettings } from '../types';
 import { cn } from '../utils/cn';
 import {
-    Users, Search, Clock, AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book,
+    Users, Clock, AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book,
     Library, Globe2, Divide, Shapes, Dna, Atom, Map, Scroll, Landmark, Users2, Palette, Hammer,
     Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
 } from 'lucide-react';
@@ -241,18 +241,9 @@ export const CompactMatrixSchedule = ({
     getSubjectColor, getConflicts, isEditMode, onCellClick,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
     isMonochrome = false, perfSettings,
-    getClassConflicts, userRole, selectedTeacherId, showIcons
-}: CompactMatrixScheduleProps) => {
+    getClassConflicts, userRole, selectedTeacherId, showIcons, filteredClasses
+}: CompactMatrixScheduleProps & { filteredClasses: import('../types').ClassGroup[] }) => {
     const { hoveredLesson } = useHover();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearchQuery(searchQuery);
-        }, 150);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
 
     const lessonLookup = useMemo(() => {
         const map: Record<string, Lesson> = {};
@@ -262,54 +253,13 @@ export const CompactMatrixSchedule = ({
         return map;
     }, [lessons]);
 
-    const sortedClasses = useMemo(() => {
-        return [...data.classes].sort((a, b) => {
-            const gradeA = parseInt(a.name) || 0;
-            const gradeB = parseInt(b.name) || 0;
-            if (gradeA !== gradeB) return gradeA - gradeB;
-            return a.name.localeCompare(b.name);
-        });
-    }, [data.classes]);
-
-    const filteredClasses = useMemo(() => {
-        return sortedClasses.filter(c =>
-            c.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-        );
-    }, [sortedClasses, debouncedSearchQuery]);
-
     const findLesson = (classId: string, day: string, period: number) => {
         return lessonLookup[`${classId}-${day}-${period}`];
     };
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-[#050507] rounded-3xl border border-white/5 shadow-2xl">
-            {/* Header / Toolbar */}
-            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-[#0c0c0e]/80 backdrop-blur-xl shrink-0">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <Clock size={16} className="text-indigo-400" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">ТИТЖНЕВА СІТКА КЛАСІВ</span>
-                    </div>
-                    <div className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
-                        <Search size={12} className="text-white/40" />
-                        <input
-                            type="text"
-                            placeholder="ПОШУК КЛАСУ..."
-                            className="bg-transparent border-none outline-none text-[10px] font-black text-white placeholder:text-white/20 w-32 uppercase tracking-widest"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-500/20">
-                        <Users size={12} className="text-indigo-400" />
-                        <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">
-                            {filteredClasses.length} КЛАСІВ
-                        </span>
-                    </div>
-                </div>
-            </div>
+
 
             {/* Grid Container */}
             <div className="flex-1 overflow-auto custom-scrollbar relative">

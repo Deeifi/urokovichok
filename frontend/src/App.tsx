@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ScheduleRequest, Lesson, PerformanceSettings, ViewType } from './types';
+import type { Lesson } from './types';
 import { generateSchedule } from './api';
 import { Calendar, Minimize2, CircleAlert, CheckCircle2 } from 'lucide-react';
 import { DataEntry } from './components/DataEntry';
@@ -10,147 +10,78 @@ import { cn } from './utils/cn';
 import { getUnscheduledLessons, removeExcessLessons } from './utils/scheduleHelpers';
 import { UnscheduledPanel } from './components/UnscheduledPanel';
 import { HoverProvider } from './context/HoverContext';
-import { useScheduleHistory } from './hooks/useScheduleHistory';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+import { useDataStore } from './store/useDataStore';
+import { useScheduleStore } from './store/useScheduleStore';
+import { useUIStore } from './store/useUIStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Tabs
-type Tab = 'data' | 'schedule' | 'settings';
-
-import { INITIAL_DATA } from './initialData';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('schedule');
-  const [data, setData] = useState<ScheduleRequest>(() => {
-    const saved = localStorage.getItem('school_os_data');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.teachers) && Array.isArray(parsed.classes)) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error("Data load failed", e);
-      }
-    }
-    return INITIAL_DATA;
-  });
-  const {
-    schedule,
-    setSchedule,
-    history,
-    pushToHistory,
-    handleUndo
-  } = useScheduleHistory(JSON.parse(localStorage.getItem('school_os_schedule') || 'null'));
+  // Store Hooks
+  const data = useDataStore(s => s.data);
+  const setData = useDataStore(s => s.setData);
+  const resetData = useDataStore(s => s.resetData);
 
+  const schedule = useScheduleStore(s => s.schedule);
+  const setSchedule = useScheduleStore(s => s.setSchedule);
+  const pushToHistory = useScheduleStore(s => s.pushToHistory);
+
+  const activeTab = useUIStore(s => s.activeTab);
+  const setActiveTab = useUIStore(s => s.setActiveTab);
+  const viewType = useUIStore(s => s.viewType);
+  const setViewType = useUIStore(s => s.setViewType);
+  const isCompact = useUIStore(s => s.isCompact);
+  // setIsCompact removed as it's not used in App component anymore
+  const isFullScreen = useUIStore(s => s.isFullScreen);
+
+  const setIsFullScreen = useUIStore(s => s.setIsFullScreen);
+  const isEditMode = useUIStore(s => s.isEditMode);
+  const setIsEditMode = useUIStore(s => s.setIsEditMode);
+  const perfSettings = useUIStore(s => s.perfSettings);
+  const setPerfSettings = useUIStore(s => s.setPerfSettings);
+  const userRole = useUIStore(s => s.userRole);
+  const setUserRole = useUIStore(s => s.setUserRole);
+  const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
+  const setSelectedTeacherId = useUIStore(s => s.setSelectedTeacherId);
+  const isHeaderCollapsed = useUIStore(s => s.isHeaderCollapsed);
+  const setIsHeaderCollapsed = useUIStore(s => s.setIsHeaderCollapsed);
+
+
+  // Local UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [conflictData, setConflictData] = useState<{ schedule: Lesson[], violations: string[] } | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isCompact, setIsCompact] = useState(() => {
-    const saved = localStorage.getItem('school_os_compact');
-    return saved === 'true';
-  });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('school_os_sidebar_collapsed');
-    return saved === 'true';
-  });
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  const [viewType, setViewType] = useState<ViewType>('dashboard');
-  const [perfSettings, setPerfSettings] = useState<PerformanceSettings>(() => {
-    const saved = localStorage.getItem('school_os_perf');
-    const defaults = {
-      disableAnimations: false,
-      disableBlur: false,
-      disableShadows: false,
-      hidePhotos: false,
-      lowFrequencyClock: false,
-      disableHoverEffects: false
-    };
-    return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
-  });
-
   const [panelMode, setPanelMode] = useState<'docked' | 'floating'>('docked');
-
-  // -- RBAC State --
-  const [userRole, setUserRole] = useState<'admin' | 'teacher'>('admin');
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-
-  // Repair state if missing keys (Hotfix for white screen issue)
-  useEffect(() => {
-    setPerfSettings(prev => {
-      const defaults = {
-        disableAnimations: false,
-        disableBlur: false,
-        disableShadows: false,
-        hidePhotos: false,
-        lowFrequencyClock: false
-      };
-      return { ...defaults, ...prev };
-    });
-  }, []);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
-  // Debounced Persistence
+  // Business Logic: Remove excess lessons
   useEffect(() => {
-    // Check if we need to remove excess lessons due to plan changes
-    // This runs whenever 'data' changes, which includes 'plan' updates
     if (schedule && schedule.status === 'success') {
       const cleanedSchedule = removeExcessLessons(data.plan, schedule.schedule);
-      // Optimization: Only update if length changed or content changed
-      // For simplicity, we just check length for now or deep equality
       if (cleanedSchedule.length !== schedule.schedule.length) {
         setSchedule({ ...schedule, schedule: cleanedSchedule });
       }
     }
-
-    const timer = setTimeout(() => {
-      localStorage.setItem('school_os_data', JSON.stringify(data));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [data]);
-
-  useEffect(() => {
-    if (schedule) {
-      const timer = setTimeout(() => {
-        localStorage.setItem('school_os_schedule', JSON.stringify(schedule));
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [schedule]);
-
-  useEffect(() => {
-    localStorage.setItem('school_os_compact', isCompact.toString());
-  }, [isCompact]);
-
-  useEffect(() => {
-    localStorage.setItem('school_os_sidebar_collapsed', isSidebarCollapsed.toString());
-  }, [isSidebarCollapsed]);
-
-  useEffect(() => {
-    localStorage.setItem('school_os_perf', JSON.stringify(perfSettings));
-    // Apply attributes to body for global CSS targeting
-    document.body.setAttribute('data-perf-animations', (!perfSettings.disableAnimations).toString());
-    document.body.setAttribute('data-perf-blur', (!perfSettings.disableBlur).toString());
-    document.body.setAttribute('data-perf-shadows', (!perfSettings.disableShadows).toString());
-  }, [perfSettings]);
+  }, [data, schedule, setSchedule]);
 
   // Reset header collapse when switching views or tabs
   useEffect(() => {
     if (viewType !== 'dashboard' || activeTab !== 'schedule') {
       setIsHeaderCollapsed(false);
     }
-  }, [viewType, activeTab]);
+  }, [viewType, activeTab, setIsHeaderCollapsed]);
 
   const handleReset = () => {
     setShowResetConfirm(true);
   };
 
   const confirmReset = () => {
-    setData(INITIAL_DATA);
+    resetData();
     setSchedule(null);
     localStorage.removeItem('school_os_data');
     localStorage.removeItem('school_os_schedule');
@@ -169,7 +100,6 @@ function App() {
         setActiveTab('schedule');
       } else if (result.status === 'conflict') {
         setConflictData({ schedule: result.schedule, violations: result.violations });
-        // Show the conflicted schedule in the background
         setSchedule(result);
         setActiveTab('schedule');
       } else {
@@ -182,15 +112,9 @@ function App() {
     }
   };
 
-
   const unscheduledLessons = (schedule?.status === 'success' && schedule.schedule)
     ? getUnscheduledLessons(data.plan, schedule.schedule)
     : [];
-
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-
-  // Auto-open panel if there are unscheduled lessons and we just generated/loaded?
-  // Or just rely on user. Let's rely on user + small bounce animation in trigger.
 
   return (
     <div
@@ -200,13 +124,7 @@ function App() {
       data-perf-shadows={(!perfSettings.disableShadows).toString()}
     >
       <HoverProvider disableHoverEffects={perfSettings.disableHoverEffects}>
-        <Sidebar
-          isSidebarCollapsed={isSidebarCollapsed}
-          setIsSidebarCollapsed={setIsSidebarCollapsed}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isFullScreen={isFullScreen}
-        />
+        <Sidebar />
 
         {/* Main Content Area */}
         <main className={cn(
@@ -217,26 +135,8 @@ function App() {
           {/* Header */}
           {!isFullScreen ? (
             <Header
-              viewType={viewType}
-              setViewType={setViewType}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              isEditMode={isEditMode}
-              setIsEditMode={setIsEditMode}
-              schedule={schedule}
-              historyLength={history.length}
-              handleUndo={handleUndo}
-              isCompact={isCompact}
-              effectiveIsCompact={effectiveIsCompact}
-              userRole={userRole}
-              teachers={data.teachers}
-              subjects={data.subjects}
-              classes={data.classes}
-              handleReset={handleReset}
               handleGenerate={handleGenerate}
               loading={loading}
-              setIsFullScreen={setIsFullScreen}
-              isHeaderCollapsed={isHeaderCollapsed}
             />
           ) : (
             <button
@@ -264,40 +164,41 @@ function App() {
 
             {activeTab === 'data' ? (
               <div className="space-y-6">
-                <DataEntry
-                  data={data}
-                  onChange={setData}
-                  schedule={schedule}
-                  onScheduleChange={setSchedule}
-                  isEditMode={isEditMode}
-                  setIsEditMode={setIsEditMode}
-                  isPerformanceMode={perfSettings.disableAnimations}
-                />
+                <ErrorBoundary>
+                  <DataEntry
+                    data={data}
+                    onChange={setData}
+                    schedule={schedule}
+                    onScheduleChange={setSchedule}
+                    isEditMode={isEditMode}
+                    setIsEditMode={setIsEditMode}
+                    isPerformanceMode={perfSettings.disableAnimations}
+                  />
+                </ErrorBoundary>
               </div>
             ) : activeTab === 'schedule' ? (
               <div className="flex-1 flex flex-col min-h-0">
                 {schedule ? (
                   <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 flex-1 min-h-0">
-                    <ScheduleGrid
-                      schedule={schedule!}
-                      data={data}
-                      onScheduleChange={(newSchedule) => {
-                        if (schedule) pushToHistory(schedule);
-                        setSchedule(newSchedule);
-                      }}
-                      isEditMode={isEditMode}
-                      setIsEditMode={setIsEditMode}
-                      isCompact={isCompact}
-                      setIsCompact={setIsCompact}
-                      viewType={viewType}
-                      setViewType={setViewType}
-                      perfSettings={perfSettings}
-                      userRole={userRole}
-                      selectedTeacherId={selectedTeacherId}
-                      isHeaderCollapsed={isHeaderCollapsed}
-                      setIsHeaderCollapsed={setIsHeaderCollapsed}
-                    />
+                    <ErrorBoundary>
+                      <ScheduleGrid
+                        schedule={schedule!}
+                        data={data}
+                        onScheduleChange={pushToHistory}
+                        isEditMode={isEditMode}
+                        setIsEditMode={setIsEditMode}
+                        isCompact={isCompact}
+                        viewType={viewType}
+                        setViewType={setViewType}
+                        perfSettings={perfSettings}
+                        userRole={userRole}
+                        selectedTeacherId={selectedTeacherId}
+                        isHeaderCollapsed={isHeaderCollapsed}
+                        setIsHeaderCollapsed={setIsHeaderCollapsed}
+                      />
+                    </ErrorBoundary>
                   </div>
+
                 ) : (
                   <div className="text-center py-20 bg-[#18181b] rounded-[24px] border border-dashed border-white/10">
                     <Calendar size={48} className="mx-auto mb-4 text-[#a1a1aa] opacity-50" />
@@ -384,17 +285,20 @@ function App() {
         />
 
         {activeTab === 'schedule' && userRole === 'admin' && (
-          <UnscheduledPanel
-            items={unscheduledLessons}
-            subjects={data.subjects}
-            teachers={data.teachers}
-            classes={data.classes}
-            isOpen={isPanelOpen}
-            onToggle={() => setIsPanelOpen(!isPanelOpen)}
-            mode={panelMode}
-            setMode={setPanelMode}
-          />
+          <ErrorBoundary>
+            <UnscheduledPanel
+              items={unscheduledLessons}
+              subjects={data.subjects}
+              teachers={data.teachers}
+              classes={data.classes}
+              isOpen={isPanelOpen}
+              onToggle={() => setIsPanelOpen(!isPanelOpen)}
+              mode={panelMode}
+              setMode={setPanelMode}
+            />
+          </ErrorBoundary>
         )}
+
       </HoverProvider>
     </div >
   );
