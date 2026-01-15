@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import type { ScheduleRequest, ScheduleResponse, Lesson, PerformanceSettings } from '../types';
 import {
     X, Check, Trash2, LayoutDashboard, Columns, Table as TableIcon, Users,
-    Lock, Unlock, AlertTriangle, Pencil, Info, ArrowRightLeft
+    Lock, Unlock, AlertTriangle, Pencil, Info, ArrowRightLeft, Copy
 } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
 import { cn } from '../utils/cn';
 import { MatrixView } from './views/MatrixView';
 import { TeachersView } from './views/TeachersView';
@@ -17,6 +18,7 @@ import { API_DAYS, DAYS, PERIODS } from '../constants';
 import { getSubjectColor, getRoomColor } from '../utils/gridHelpers';
 import { ConfirmationModal } from './ConfirmationModal';
 import { ErrorBoundary } from './ErrorBoundary';
+import { BulkActionsToolbar } from './BulkActionsToolbar';
 
 
 
@@ -63,7 +65,9 @@ export function ScheduleGrid({
         handleSaveLesson,
         executeDragAction,
         processDrop,
-        processTeacherDrop
+        processTeacherDrop,
+        deleteLessons,
+        assignTeacherToLessons
     } = useScheduleOperations(schedule, onScheduleChange);
 
 
@@ -84,6 +88,8 @@ export function ScheduleGrid({
         ([...data.classes].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))),
         [data.classes]
     );
+    const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
     const handleExportPDF = async () => {
         setIsExporting(true);
@@ -331,12 +337,12 @@ export function ScheduleGrid({
                     <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-4">
                             <div className={cn("p-3 rounded-full", dragConfirm.conflicts.length > 0 ? "bg-red-500/20 text-red-500" : "bg-indigo-500/20 text-indigo-500")}>
-                                {dragConfirm.conflicts.length > 0 ? <AlertTriangle size={24} /> : <ArrowRightLeft size={24} />}
+                                {dragConfirm.conflicts.length > 0 ? <AlertTriangle size={24} /> : (dragConfirm.type === 'copy' ? <Copy size={24} /> : <ArrowRightLeft size={24} />)}
                             </div>
                             <div>
-                                <h4 className="font-black text-white text-lg">{dragConfirm.conflicts.length > 0 ? "Увага, конфлікт!" : "Підтвердіть дію"}</h4>
+                                <h4 className="font-black text-white text-lg">{dragConfirm.conflicts.length > 0 ? "Увага, конфлікт!" : (dragConfirm.type === 'copy' ? "Дублювання уроку" : "Підтвердіть дію")}</h4>
                                 <p className="text-sm text-[#a1a1aa]">
-                                    {dragConfirm.type === 'swap' ? 'Ви хочете поміняти уроки місцями?' : 'Ви хочете перенести урок?'}
+                                    {dragConfirm.type === 'swap' ? 'Ви хочете поміняти уроки місцями?' : (dragConfirm.type === 'copy' ? 'Ви хочете створити копію цього уроку?' : 'Ви хочете перенести урок?')}
                                 </p>
                             </div>
                         </div>
@@ -356,7 +362,7 @@ export function ScheduleGrid({
                                 Скасувати
                             </button>
                             <button onClick={executeDragAction} className={cn("flex-1 py-2.5 rounded-xl font-bold text-white transition-colors", dragConfirm.conflicts.length > 0 ? "bg-red-500 hover:bg-red-600" : "bg-indigo-600 hover:bg-indigo-500")}>
-                                {dragConfirm.conflicts.length > 0 ? "Все одно виконати" : "Так, виконати"}
+                                {dragConfirm.conflicts.length > 0 ? "Все одно виконати" : (dragConfirm.type === 'copy' ? "Так, дублювати" : "Так, виконати")}
                             </button>
                         </div>
                     </div>
@@ -380,6 +386,85 @@ export function ScheduleGrid({
                 />,
                 document.body
             )}
+
+            <BulkActionsToolbar
+                onDelete={() => setShowBulkDeleteConfirm(true)}
+                onAssignTeacher={() => setShowBulkAssignModal(true)}
+            />
+
+            {showBulkAssignModal && createPortal(
+                <BulkAssignModal
+                    teachers={data.teachers}
+                    onConfirm={(teacherId) => {
+                        const { selectedLessonIds, clearSelection } = useUIStore.getState();
+                        assignTeacherToLessons(selectedLessonIds, teacherId);
+                        clearSelection();
+                        setShowBulkAssignModal(false);
+                    }}
+                    onClose={() => setShowBulkAssignModal(false)}
+                />,
+                document.body
+            )}
+
+            <ConfirmationModal
+                isOpen={showBulkDeleteConfirm}
+                onClose={() => setShowBulkDeleteConfirm(false)}
+                onConfirm={() => {
+                    const { selectedLessonIds, clearSelection } = useUIStore.getState();
+                    deleteLessons(selectedLessonIds);
+                    clearSelection();
+                    setShowBulkDeleteConfirm(false);
+                }}
+                title="Видалити обрані уроки?"
+                description={`Ви впевнені, що хочете видалити обрані уроки (${useUIStore.getState().selectedLessonIds.length})? Цю дію не можна скасувати.`}
+            />
+        </div>
+    );
+}
+
+// --- Bulk Assign Modal ---
+interface BulkAssignModalProps {
+    teachers: import('../types').Teacher[];
+    onConfirm: (teacherId: string) => void;
+    onClose: () => void;
+}
+
+function BulkAssignModal({ teachers, onConfirm, onClose }: BulkAssignModalProps) {
+    const [teacherId, setTeacherId] = useState('');
+    const sortedTeachers = [...teachers].sort((a, b) => a.name.localeCompare(b.name));
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-[#18181b] w-full max-w-sm rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                    <h3 className="text-lg font-black text-white">Призначити вчителя</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-[#a1a1aa] hover:text-white">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Оберіть вчителя</label>
+                        <select
+                            value={teacherId}
+                            onChange={e => setTeacherId(e.target.value)}
+                            className="w-full bg-[#09090b] border border-white/10 rounded-xl px-4 py-3 font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                        >
+                            <option value="">-- Оберіть вчителя --</option>
+                            {sortedTeachers.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <button
+                        onClick={() => onConfirm(teacherId)}
+                        disabled={!teacherId}
+                        className="w-full py-3 rounded-xl font-black text-white bg-indigo-500 hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                    >
+                        Призначити
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

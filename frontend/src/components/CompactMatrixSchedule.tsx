@@ -2,7 +2,7 @@ import React, { useMemo, memo } from 'react';
 import type { Lesson, ScheduleRequest, Subject, PerformanceSettings } from '../types';
 import { cn } from '../utils/cn';
 import {
-    Users, Clock, AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book,
+    AlertTriangle, Plus, BookOpen, Calculator, FlaskConical, Languages, Book,
     Library, Globe2, Divide, Shapes, Dna, Atom, Map, Scroll, Landmark, Users2, Palette, Hammer,
     Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
 } from 'lucide-react';
@@ -39,6 +39,7 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
 };
 
 import { useHover } from '../context/HoverContext';
+import { useUIStore } from '../store/useUIStore';
 
 interface MemoizedCellProps {
     classId: string;
@@ -49,12 +50,12 @@ interface MemoizedCellProps {
     setDragOverCell: (pos: { classId: string; day: string; period: number } | null) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    onCellClick: (classId: string, day: string, period: number, lesson?: Lesson) => void;
+    onCellClick: (classId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
     isEditMode: boolean;
     isMonochrome: boolean;
     getSubjectColor: (id: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
-    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     subjects: Subject[];
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -76,6 +77,9 @@ const MemoizedCell = memo(({
     const subColor = lesson ? getSubjectColor(lesson.subject_id) : 'transparent';
     const teacherConflicts = lesson ? getConflicts(lesson.teacher_id, day, period, classId) : [];
     const classConflicts = getClassConflicts(classId, day, period, lesson?.teacher_id);
+
+    const selectedLessonIds = useUIStore(s => s.selectedLessonIds);
+    const isSelected = lesson && selectedLessonIds.includes(`${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`);
 
     const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
     const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && period === hoveredLesson.period && teacherConflicts.length > 0;
@@ -99,10 +103,10 @@ const MemoizedCell = memo(({
     // This allows seeing "Oh, the teacher is free on Monday 1st period", so I can look at Monday 1st period in MY class row.
     // So YES, highlight ALL empty cells where teacher is free.
 
-    const isRecommendedSlot = !lesson && hoveredLesson &&
-        hoveredLesson.teacher_id &&
-        hoveredLesson.class_id === classId && // REQUIREMENT: Only highlight for the target class row
-        getConflicts(hoveredLesson.teacher_id, day, period).length === 0;
+    const isRecommendedSlot = !lesson && draggedLesson &&
+        draggedLesson.teacher_id &&
+        draggedLesson.class_id === classId && // REQUIREMENT: Only highlight for the target class row
+        getConflicts(draggedLesson.teacher_id, day, period).length === 0;
 
     return (
         <td
@@ -118,20 +122,24 @@ const MemoizedCell = memo(({
             onMouseLeave={() => {
                 setHoveredLesson(null);
             }}
-            onClick={() => onCellClick(classId, day, period, lesson)}
+            onClick={(e) => {
+                e.stopPropagation();
+                onCellClick(classId, day, period, lesson, e);
+            }}
             onDragOver={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
                     setDragOverCell({ classId, day, period });
                 }
             }}
             onDrop={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
-                    e.preventDefault();
+                    e.stopPropagation();
                     const data = e.dataTransfer.getData('lesson');
                     const externalLesson = data ? JSON.parse(data) : undefined;
-                    processDrop(classId, day, period, externalLesson);
+                    processDrop(classId, day, period, externalLesson, e.altKey);
                 }
             }}
         >
@@ -147,6 +155,7 @@ const MemoizedCell = memo(({
                         ),
                         userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id !== selectedTeacherId && "opacity-10 grayscale blur-[0.3px] pointer-events-none",
                         userRole === 'teacher' && selectedTeacherId && lesson && lesson.teacher_id === selectedTeacherId && "z-20 scale-125 ring-2 ring-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)] brightness-125",
+                        isSelected && "ring-2 ring-indigo-400 bg-indigo-500/20 z-40 brightness-125",
                         isMonochrome ? "opacity-60" : ""
                     )}
                     style={{
@@ -158,6 +167,7 @@ const MemoizedCell = memo(({
                         if (isEditMode) {
                             setDraggedLesson(lesson);
                             e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
+                            e.dataTransfer.effectAllowed = e.altKey ? 'copy' : 'move';
                         }
                     }}
                     onDragEnd={() => {
@@ -220,14 +230,14 @@ interface CompactMatrixScheduleProps {
     getSubjectColor: (subjectId: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     isEditMode: boolean;
-    onCellClick: (classId: string, day: string, period: number, lesson?: Lesson) => void;
+    onCellClick: (classId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
 
     // Drag and drop props
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: { classId: string, day: string, period: number } | null;
     setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
-    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     isMonochrome?: boolean;
     perfSettings: PerformanceSettings;
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -277,7 +287,7 @@ export const CompactMatrixSchedule = ({
                                         className="sticky top-0 z-30 bg-[#0c0c0e] py-2 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/10 text-center"
                                     >
                                         <div className="flex items-center justify-center gap-2">
-                                            <span className="opacity-40">{days[dIdx].slice(0, 2)}</span>
+                                            <div className="w-1 h-3 bg-indigo-500 rounded-full" />
                                             <span>{days[dIdx].toUpperCase()}</span>
                                         </div>
                                     </th>

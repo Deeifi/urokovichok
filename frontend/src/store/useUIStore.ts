@@ -20,6 +20,8 @@ interface UIState {
     setIsHeaderCollapsed: (collapsed: boolean) => void;
     isMonochrome: boolean;
     setIsMonochrome: (monochrome: boolean) => void;
+    showIcons: boolean;
+    setShowIcons: (show: boolean) => void;
 
     // Edit Mode
     isEditMode: boolean;
@@ -34,6 +36,12 @@ interface UIState {
     setUserRole: (role: 'admin' | 'teacher') => void;
     selectedTeacherId: string | null;
     setSelectedTeacherId: (id: string | null) => void;
+
+    // Multi-select for Bulk Actions
+    selectedLessonIds: string[];
+    toggleSelectedLesson: (id: string) => void;
+    clearSelection: () => void;
+    setSelectedLessons: (ids: string[]) => void;
 }
 
 const DEFAULT_PERF_SETTINGS: PerformanceSettings = {
@@ -69,6 +77,9 @@ export const useUIStore = create<UIState>()(
             isMonochrome: false,
             setIsMonochrome: (isMonochrome) => set({ isMonochrome }),
 
+            showIcons: true,
+            setShowIcons: (showIcons) => set({ showIcons }),
+
             isEditMode: false,
             setIsEditMode: (isEditMode) => set({ isEditMode }),
 
@@ -87,6 +98,15 @@ export const useUIStore = create<UIState>()(
 
             selectedTeacherId: null,
             setSelectedTeacherId: (selectedTeacherId) => set({ selectedTeacherId }),
+
+            selectedLessonIds: [],
+            toggleSelectedLesson: (id) => set((state) => ({
+                selectedLessonIds: state.selectedLessonIds.includes(id)
+                    ? state.selectedLessonIds.filter(lid => lid !== id)
+                    : [...state.selectedLessonIds, id]
+            })),
+            clearSelection: () => set({ selectedLessonIds: [] }),
+            setSelectedLessons: (ids) => set({ selectedLessonIds: ids }),
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment
@@ -96,6 +116,7 @@ export const useUIStore = create<UIState>()(
                 isCompact: state.isCompact,
                 isSidebarCollapsed: state.isSidebarCollapsed,
                 isMonochrome: state.isMonochrome,
+                showIcons: state.showIcons,
                 perfSettings: state.perfSettings,
                 // userRole: state.userRole (maybe?)
             }),

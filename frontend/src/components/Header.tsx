@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
     const { schedule, history, undo } = useScheduleStore();
     const historyLength = history.past.length;
 
-    const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
+    const effectiveIsCompact = isCompact && activeTab === 'schedule' && (viewType === 'matrix' || viewType === 'teachers');
 
     const formattedDate = new Date().toLocaleDateString('uk-UA', {
         weekday: 'long',
@@ -124,27 +124,33 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
 
                 {activeTab === 'schedule' && schedule && userRole === 'admin' && viewType === 'teachers' && (
-                    <div className="flex gap-1 bg-emerald-500/10 p-1 rounded-2xl border border-emerald-500/20">
+                    <div className={cn("flex gap-1 bg-emerald-500/10 rounded-2xl border border-emerald-500/20", effectiveIsCompact ? "p-0.5" : "p-1")}>
                         <button
                             onClick={() => exportMasterTeacherSchedule(teachers, lessons, subjects, classes)}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-all active:scale-95 group"
+                                "flex items-center hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-all active:scale-95 group",
+                                effectiveIsCompact ? "px-2 py-1 gap-1" : "px-3 py-2 gap-2"
                             )}
                             title="Повний розклад (Всі)"
                         >
-                            <FileSpreadsheet size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Excel (Всі)</span>
+                            <FileSpreadsheet size={effectiveIsCompact ? 14 : 16} />
+                            <span className={cn("font-black uppercase tracking-widest", effectiveIsCompact ? "text-[8px]" : "text-[10px]")}>
+                                {effectiveIsCompact ? "Excel" : "Excel (Всі)"}
+                            </span>
                         </button>
-                        <div className="w-[1px] h-4 bg-emerald-500/20 self-center" />
+                        <div className={cn("bg-emerald-500/20 self-center", effectiveIsCompact ? "w-[1px] h-3" : "w-[1px] h-4")} />
                         <button
                             onClick={() => exportMasterTeacherSchedule(teachers, lessons, subjects, classes, { onlyClassNames: true })}
                             className={cn(
-                                "flex items-center gap-2 px-3 py-2 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-all active:scale-95 group"
+                                "flex items-center hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-all active:scale-95 group",
+                                effectiveIsCompact ? "px-2 py-1 gap-1" : "px-3 py-2 gap-2"
                             )}
                             title="Тільки назви класів (Всі)"
                         >
-                            <GraduationCap size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Класи</span>
+                            <GraduationCap size={effectiveIsCompact ? 14 : 16} />
+                            <span className={cn("font-black uppercase tracking-widest", effectiveIsCompact ? "text-[8px]" : "text-[10px]")}>
+                                Класи
+                            </span>
                         </button>
                     </div>
                 )}

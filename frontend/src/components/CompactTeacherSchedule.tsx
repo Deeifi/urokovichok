@@ -38,6 +38,7 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
 import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
 import { useHover } from '../context/HoverContext';
+import { useUIStore } from '../store/useUIStore';
 const EMPTY_ARRAY: Lesson[] = [];
 
 interface MemoizedTeacherCellProps {
@@ -51,8 +52,8 @@ interface MemoizedTeacherCellProps {
     setDraggedLesson: (l: Lesson | null) => void;
     isDragOver: boolean;
     setDragOverCell: (c: any) => void;
-    onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson) => void;
-    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
+    onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     getSubjectColor: (id: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
@@ -68,13 +69,14 @@ const MemoizedTeacherCell = memo(({
 }: MemoizedTeacherCellProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
     const hasLessons = lessons.length > 0;
+    const selectedLessonIds = useUIStore(s => s.selectedLessonIds);
 
     // Check for recommendation in Compact Teacher View
     // Check for recommendation in Compact Teacher View
-    const isRecommendedSlot = !hasLessons && hoveredLesson &&
-        hoveredLesson.teacher_id === teacherId &&
+    const isRecommendedSlot = !hasLessons && draggedLesson &&
+        draggedLesson.teacher_id === teacherId &&
         // REQUIREMENT: Valid only if the target class is free
-        getClassConflicts(hoveredLesson.class_id, day, period).length === 0 &&
+        getClassConflicts(draggedLesson.class_id, day, period).length === 0 &&
         getConflicts(teacherId, day, period).length === 0;
 
     return (
@@ -82,6 +84,7 @@ const MemoizedTeacherCell = memo(({
             onDragOver={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
                     setDragOverCell({ teacherId, day, period });
                 }
             }}
@@ -89,9 +92,10 @@ const MemoizedTeacherCell = memo(({
             onDrop={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
+                    e.stopPropagation();
                     const data = e.dataTransfer.getData('lesson');
                     const externalLesson = data ? JSON.parse(data) : undefined;
-                    processTeacherDrop(teacherId, day, period, externalLesson);
+                    processTeacherDrop(teacherId, day, period, externalLesson, e.altKey);
                 }
             }}
             className={cn(
@@ -119,6 +123,8 @@ const MemoizedTeacherCell = memo(({
                             (lesson.class_id === hoveredLesson.class_id && day === hoveredLesson.day && period === hoveredLesson.period)
                         );
 
+                        const isSelected = selectedLessonIds.includes(`${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`);
+
                         return (
                             <div
                                 key={idx}
@@ -129,7 +135,7 @@ const MemoizedTeacherCell = memo(({
                                     if (isEditMode) {
                                         setDraggedLesson(lesson);
                                         e.dataTransfer.setData('text/plain', JSON.stringify(lesson));
-                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.effectAllowed = e.altKey ? 'copy' : 'move';
                                     }
                                 }}
                                 onDragEnd={() => setDraggedLesson(null)}
@@ -145,7 +151,8 @@ const MemoizedTeacherCell = memo(({
                                             rect
                                         });
                                     } else {
-                                        onCellClick(teacherId, day, period, lesson);
+                                        e.stopPropagation();
+                                        onCellClick(teacherId, day, period, lesson, e);
                                     }
                                 }}
                                 className={cn(
@@ -156,7 +163,8 @@ const MemoizedTeacherCell = memo(({
                                     isTeacherHighlighted && ((lessons.length > 1 || teacherConflicts.length > 0 || classConflicts.length > 0)
                                         ? "ring-2 ring-amber-400 ring-inset animate-pulse z-30 brightness-200 shadow-[0_0_30px_rgba(251,191,36,0.8)] scale-110 bg-amber-500/20"
                                         : "ring-2 ring-white ring-inset animate-pulse z-20 brightness-200 shadow-[0_0_25px_rgba(255,255,255,0.6)] scale-110"
-                                    )
+                                    ),
+                                    isSelected && "ring-2 ring-indigo-400 bg-indigo-500/20 z-40 brightness-125"
                                 )}
                                 style={{
                                     borderLeft: lessons.length === 2 ? `1px solid ${isMonochrome ? '#52525b' : subColor}` : `2px solid ${isMonochrome ? '#52525b' : subColor}`,
@@ -214,7 +222,12 @@ const MemoizedTeacherCell = memo(({
                 </div>
             ) : (
                 <div
-                    onClick={() => isEditMode && onCellClick(teacherId, day, period)}
+                    onClick={(e) => {
+                        if (isEditMode) {
+                            e.stopPropagation();
+                            onCellClick(teacherId, day, period, undefined, e);
+                        }
+                    }}
                     className={cn(
                         "h-full w-full flex items-center justify-center text-[10px] text-white/[0.02] select-none transition-all group/empty",
                         isEditMode ? "cursor-pointer hover:bg-white/5" : "",
@@ -248,12 +261,12 @@ interface CompactTeacherScheduleProps {
     getSubjectColor: (subjectId: string) => string;
     getConflicts: (teacherId: string, day: string, period: number, excludeClassId?: string) => string[];
     isEditMode: boolean;
-    onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson) => void;
+    onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: any;
     setDragOverCell: (c: any) => void;
-    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
+    processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     isMonochrome?: boolean;
     searchQuery?: string;
     perfSettings: PerformanceSettings;
@@ -449,6 +462,8 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                 const cls = data.classes.find(c => c.id === lesson.class_id);
                                 const sub = data.subjects.find(s => s.id === lesson.subject_id);
                                 const color = getSubjectColor(lesson.subject_id);
+                                const isSelected = useUIStore.getState().selectedLessonIds.includes(`${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`);
+
                                 return (
                                     <button
                                         key={idx}
@@ -462,11 +477,14 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                             }
                                         }}
                                         onDragEnd={() => setDraggedLesson(null)}
-                                        onClick={() => {
-                                            onCellClick(activeGroupPicker.teacherId, activeGroupPicker.day, activeGroupPicker.period, lesson);
+                                        onClick={(e) => {
+                                            onCellClick(activeGroupPicker.teacherId, activeGroupPicker.day, activeGroupPicker.period, lesson, e);
                                             closePicker();
                                         }}
-                                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group/btn text-left"
+                                        className={cn(
+                                            "w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group/btn text-left",
+                                            isSelected && "bg-indigo-500/20 ring-1 ring-indigo-500"
+                                        )}
                                     >
                                         <div
                                             className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center bg-white/5 border border-white/5"
@@ -485,8 +503,8 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
 
                             {isEditMode && (
                                 <button
-                                    onClick={() => {
-                                        onCellClick(activeGroupPicker.teacherId, activeGroupPicker.day, activeGroupPicker.period);
+                                    onClick={(e) => {
+                                        onCellClick(activeGroupPicker.teacherId, activeGroupPicker.day, activeGroupPicker.period, undefined, e);
                                         closePicker();
                                     }}
                                     className="w-full flex items-center gap-3 p-2 rounded-lg border border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group/add text-left mt-2"

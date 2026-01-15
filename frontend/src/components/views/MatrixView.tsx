@@ -6,7 +6,7 @@ import { useScheduleStore } from '../../store/useScheduleStore';
 import { useUIStore } from '../../store/useUIStore';
 import { getRoomColor, getSubjectColor } from '../../utils/gridHelpers';
 import { CompactMatrixSchedule } from '../CompactMatrixSchedule';
-import { useHover } from '../../context/HoverContext';
+import { UnifiedGridView } from '../UnifiedGridView';
 import type { Lesson } from '../../types';
 
 interface MatrixViewProps {
@@ -34,16 +34,14 @@ export const MatrixView = memo(({
     const isMonochrome = useUIStore(s => s.isMonochrome);
     const setIsMonochrome = useUIStore(s => s.setIsMonochrome);
     const userRole = useUIStore(s => s.userRole);
+    const showIcons = useUIStore(s => s.showIcons);
+    const setShowIcons = useUIStore(s => s.setShowIcons);
     const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
-
 
     const [day, setDay] = useState<string>('Mon');
     const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
     const [searchQuery, setSearchQuery] = useState('');
-    const [showIcons, setShowIcons] = useState(true);
     const deferredSearchQuery = useDeferredValue(searchQuery);
-
-    const { setHoveredLesson } = useHover();
 
     const days = ["Пн", "Вт", "Ср", "Чт", "Пт"];
     const apiDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -77,7 +75,6 @@ export const MatrixView = memo(({
             .map(l => data.teachers.find(t => t.id === l.teacher_id)?.name || '???');
     }, [lessons, data.teachers]);
 
-
     const sortedClasses = useMemo(() =>
         ([...data.classes].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))),
         [data.classes]
@@ -85,21 +82,22 @@ export const MatrixView = memo(({
 
     const filteredClasses = useMemo(() => {
         let classes = sortedClasses;
-        if (activeGradeGroup === '1-4') classes = classes.filter(c => parseInt(c.name) <= 4);
-        else if (activeGradeGroup === '5-9') classes = classes.filter(c => parseInt(c.name) >= 5 && parseInt(c.name) <= 9);
-        else if (activeGradeGroup === '10-11') classes = classes.filter(c => parseInt(c.name) >= 10);
+        if (!isCompact) {
+            if (activeGradeGroup === '1-4') classes = classes.filter(c => parseInt(c.name) <= 4);
+            else if (activeGradeGroup === '5-9') classes = classes.filter(c => parseInt(c.name) >= 5 && parseInt(c.name) <= 9);
+            else if (activeGradeGroup === '10-11') classes = classes.filter(c => parseInt(c.name) >= 10);
+        }
 
         if (deferredSearchQuery) {
             classes = classes.filter(c => c.name.toLowerCase().includes(deferredSearchQuery.toLowerCase()));
         }
         return classes;
-    }, [sortedClasses, activeGradeGroup, deferredSearchQuery]);
+    }, [sortedClasses, activeGradeGroup, deferredSearchQuery, isCompact]);
 
     const dayName = days[apiDays.indexOf(day)];
 
     return (
         <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
-            {/* Header controls */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 {!isCompact && (
                     <div className="flex flex-col">
@@ -122,57 +120,73 @@ export const MatrixView = memo(({
                         />
                     </div>
 
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                        {apiDays.map((d, idx) => (
-                            <button
-                                key={d}
-                                onClick={() => setDay(d)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                    day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
-                                )}
-                            >
-                                {days[idx].toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
+                    {!isCompact && (
+                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                            {apiDays.map((d, idx) => (
+                                <button
+                                    key={d}
+                                    onClick={() => setDay(d)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                        day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
+                                    )}
+                                >
+                                    {days[idx].toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        <button onClick={() => setActiveGradeGroup('1-4')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '1-4' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>1-4</button>
-                        <button onClick={() => setActiveGradeGroup('5-9')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-9' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-9</button>
-                        <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
-                    </div>
+                    {!isCompact && (
+                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                            <button onClick={() => setActiveGradeGroup('1-4')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '1-4' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>1-4</button>
+                            <button onClick={() => setActiveGradeGroup('5-9')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-9' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-9</button>
+                            <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
+                        </div>
+                    )}
 
                     <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
                         <button
                             onClick={() => setIsMonochrome(!isMonochrome)}
                             className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center p-2",
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
+                                isCompact ? "min-w-[110px] px-3 py-1" : "min-w-[130px] px-3 py-1.5",
                                 isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
                             )}
-                            title="Колір"
                         >
-                            <Droplet size={14} />
+                            <Droplet size={isCompact ? 12 : 14} className="shrink-0" />
+                            {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
                         </button>
+                    </div>
+
+                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
                         <button
                             onClick={() => setIsCompact(!isCompact)}
                             className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center p-2",
-                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-[#a1a1aa] hover:text-white"
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
+                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 min-w-[130px] px-3 py-1" : "text-[#a1a1aa] hover:text-white min-w-[160px] px-3 py-1.5"
                             )}
-                            title="Компактний режим"
                         >
-                            <LayoutGrid size={14} />
+                            <LayoutGrid size={isCompact ? 12 : 14} className="shrink-0" />
+                            {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
                         </button>
+                    </div>
+
+                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
                         <button
                             onClick={() => setShowIcons(!showIcons)}
                             className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center p-2",
+                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
+                                isCompact ? "min-w-[120px] px-3 py-1" : "min-w-[150px] px-3 py-1.5",
                                 showIcons ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-[#a1a1aa] hover:text-white"
                             )}
-                            title="Іконки предметів"
                         >
-                            {showIcons ? <Eye size={14} /> : <EyeOff size={14} />}
+                            {showIcons ? (
+                                <Eye size={isCompact ? 12 : 14} className="shrink-0" />
+                            ) : (
+                                <EyeOff size={isCompact ? 12 : 14} className="shrink-0" />
+                            )}
+                            {showIcons ? "ІКОНКИ: УВІМК." : "ІКОНКИ: ВИМК."}
                         </button>
                     </div>
                 </div>
@@ -188,7 +202,14 @@ export const MatrixView = memo(({
                     getSubjectColor={filledGetSubjectColor}
                     getConflicts={getConflicts}
                     isEditMode={isEditMode}
-                    onCellClick={(classId, d, period, lesson) => {
+                    onCellClick={(classId, d, period, lesson, e) => {
+                        const isCtrlPressed = e?.ctrlKey || e?.metaKey;
+                        if (isCtrlPressed && lesson) {
+                            const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
+                            useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            return;
+                        }
+
                         if (isEditMode) {
                             setEditingCell({ classId, day: d, period });
                         } else if (lesson) {
@@ -209,107 +230,49 @@ export const MatrixView = memo(({
                     filteredClasses={filteredClasses}
                 />
             ) : (
-                <div className="bento-card border-white/5 overflow-hidden flex-1 flex flex-col">
-                    <div className="overflow-auto flex-1 custom-scrollbar">
-                        <table className="w-full border-collapse text-left table-fixed relative">
-                            <thead>
-                                <tr>
-                                    <th className="sticky top-0 left-0 z-20 w-[60px] bg-[#18181b] p-3 text-center text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-b border-r border-white/5">ЧАС</th>
-                                    {filteredClasses.map(cls => (
-                                        <th key={cls.id} className="sticky top-0 z-10 min-w-[120px] bg-[#18181b] p-3 text-left text-[10px] font-black text-white uppercase tracking-widest border-b border-white/5 border-r last:border-r-0">
-                                            {cls.name}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {periods.map(p => (
-                                    <tr key={p} className="border-b border-white/5 last:border-b-0">
-                                        <th className="sticky left-0 z-10 w-[60px] bg-[#18181b] p-3 text-center text-[10px] font-black text-[#a1a1aa] border-r border-white/5">
-                                            {p}
-                                        </th>
-                                        {filteredClasses.map(cls => {
-                                            const lesson = findLesson(cls.id, day, p);
-                                            const room = lesson?.room || data.subjects.find(s => s.id === lesson?.subject_id)?.defaultRoom;
+                <UnifiedGridView
+                    items={filteredClasses.map(c => ({ ...c, type: 'class' as const }))}
+                    day={day}
+                    periods={periods}
+                    data={data}
+                    isEditMode={isEditMode}
+                    isMonochrome={isMonochrome}
+                    perfSettings={perfSettings}
+                    getLessons={(cls, d, p) => [findLesson(cls.id, d, p)].filter((l): l is Lesson => !!l)}
+                    getConflicts={getConflicts}
+                    getClassConflicts={getClassConflicts}
+                    getSubjectColor={filledGetSubjectColor}
+                    getRoomColor={getRoomColor}
+                    getItemIdentifier={(c) => c.id}
+                    renderItemInfo={(cls) => (
+                        <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 mb-2 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-500">
+                                <span className="text-sm font-black">{cls.name}</span>
+                            </div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">{cls.name} КЛАС</span>
+                        </div>
+                    )}
+                    onCellClick={(classId, d, p, lesson, e) => {
+                        const isCtrlPressed = e?.ctrlKey || e?.metaKey;
+                        if (isCtrlPressed && lesson) {
+                            const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
+                            useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            return;
+                        }
 
-                                            // TODO: Add conflict checks visual logic if needed here, consistent with other views
-
-                                            return (
-                                                <td
-                                                    key={cls.id}
-                                                    className={cn(
-                                                        "p-1 h-[80px] border-r border-white/5 last:border-r-0 min-w-[120px] relative transition-colors",
-                                                        !lesson && "hover:bg-white/[0.02]"
-                                                    )}
-                                                    onDragOver={(e) => {
-                                                        if (isEditMode) {
-                                                            e.preventDefault();
-                                                            e.dataTransfer.dropEffect = 'move';
-                                                            setDragOverCell({ classId: cls.id, day, period: p });
-                                                        }
-                                                    }}
-                                                    onDragLeave={() => isEditMode && setDragOverCell(null)}
-                                                    onDrop={(e) => {
-                                                        if (isEditMode) {
-                                                            e.preventDefault();
-                                                            const dataStr = e.dataTransfer.getData('lesson');
-                                                            const externalLesson = dataStr ? JSON.parse(dataStr) : undefined;
-                                                            processDrop(cls.id, day, p, externalLesson);
-                                                        }
-                                                    }}
-                                                >
-                                                    {lesson ? (
-                                                        <div
-                                                            className="h-full w-full rounded bg-white/[0.05] p-2 flex flex-col justify-between border-l-2 cursor-pointer hover:bg-white/[0.1] transition-colors group"
-                                                            style={{
-                                                                borderLeftColor: isMonochrome ? '#a1a1aa' : filledGetSubjectColor(lesson.subject_id),
-                                                                backgroundColor: isMonochrome ? 'rgba(255,255,255,0.05)' : undefined
-                                                            }}
-                                                            onClick={() => isEditMode ? setEditingCell({ classId: cls.id, day, period: p }) : setViewingLesson({ classId: cls.id, day, period: p })}
-                                                            draggable={isEditMode}
-                                                            onDragStart={(e) => {
-                                                                if (isEditMode) {
-                                                                    setDraggedLesson(lesson);
-                                                                    e.dataTransfer.setData('lesson', JSON.stringify(lesson));
-                                                                    e.dataTransfer.effectAllowed = 'move';
-                                                                }
-                                                            }}
-                                                            onMouseEnter={() => setHoveredLesson(lesson)}
-                                                            onMouseLeave={() => setHoveredLesson(null)}
-                                                        >
-                                                            <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">
-                                                                {data.subjects.find(s => s.id === lesson.subject_id)?.name}
-                                                            </div>
-                                                            <div className="flex justify-between items-end mt-1">
-                                                                <div className="text-[8px] font-black text-[#a1a1aa] truncate max-w-[60%]">
-                                                                    {data.teachers.find(t => t.id === lesson.teacher_id)?.name.split(' ')[0]}
-                                                                </div>
-                                                                <div className={cn("text-[8px] font-black px-1 rounded", getRoomColor(room))}>
-                                                                    {room || '—'}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        isEditMode && (
-                                                            <div
-                                                                className="h-full w-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group"
-                                                                onClick={() => setEditingCell({ classId: cls.id, day, period: p })}
-                                                            >
-                                                                <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:text-white group-hover:bg-white/10">
-                                                                    +
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                        if (isEditMode) {
+                            setEditingCell({ classId, day: d, period: p });
+                        } else if (lesson) {
+                            setViewingLesson({ classId: lesson.class_id, day: d, period: p });
+                        }
+                    }}
+                    onDrop={processDrop}
+                    draggedLesson={draggedLesson}
+                    setDraggedLesson={setDraggedLesson}
+                    dragOverCell={dragOverCell}
+                    setDragOverCell={setDragOverCell}
+                    infoColumnWidth="w-[120px]"
+                />
             )}
         </div>
     );
