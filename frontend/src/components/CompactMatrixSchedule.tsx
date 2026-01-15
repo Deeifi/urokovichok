@@ -284,7 +284,18 @@ export const CompactMatrixSchedule = ({
                                 <React.Fragment key={day}>
                                     <th
                                         colSpan={periods.length}
-                                        className="sticky top-0 z-30 bg-[#0c0c0e] py-2 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/10 text-center"
+                                        onClick={(e) => {
+                                            if (e.ctrlKey || e.metaKey) {
+                                                e.stopPropagation();
+                                                const dayLessons = lessons.filter(l => l.day === day);
+                                                const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                            }
+                                        }}
+                                        className={cn(
+                                            "sticky top-0 z-30 bg-[#0c0c0e] py-2 text-[10px] font-black text-white uppercase tracking-widest border-b border-r border-white/10 text-center cursor-pointer hover:bg-white/5 transition-colors",
+                                        )}
                                     >
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="w-1 h-3 bg-indigo-500 rounded-full" />
@@ -303,8 +314,22 @@ export const CompactMatrixSchedule = ({
                                     {periods.map(p => (
                                         <th
                                             key={p}
+                                            onClick={(e) => {
+                                                if (e.ctrlKey || e.metaKey) {
+                                                    e.stopPropagation();
+                                                    const visibleClassIds = filteredClasses.map(c => c.id);
+                                                    const periodLessons = lessons.filter(l =>
+                                                        l.day === day &&
+                                                        l.period === p &&
+                                                        visibleClassIds.includes(l.class_id)
+                                                    );
+                                                    const newIds = periodLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                    const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                    useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                                }
+                                            }}
                                             className={cn(
-                                                "sticky top-[37px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75",
+                                                "sticky top-[37px] z-30 p-1 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75 cursor-pointer hover:bg-white/5",
                                                 "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
@@ -327,10 +352,20 @@ export const CompactMatrixSchedule = ({
                                 )}
                             >
                                 {/* Sticky Class Name */}
-                                <td className={cn(
-                                    "sticky left-0 z-20 p-1 border-b border-r border-white/10 transition-colors w-[80px] min-w-[80px] text-center font-black text-white group-hover:text-indigo-400 uppercase text-[10px]",
-                                    cIdx % 2 === 0 ? "bg-[#0c0c0e]" : "bg-[#08080a]"
-                                )}>
+                                <td
+                                    onClick={(e) => {
+                                        if (e.ctrlKey || e.metaKey) {
+                                            e.stopPropagation();
+                                            const classLessons = lessons.filter(l => l.class_id === cls.id);
+                                            const newIds = classLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                            const currentSelected = useUIStore.getState().selectedLessonIds;
+                                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                        }
+                                    }}
+                                    className={cn(
+                                        "sticky left-0 z-20 p-1 border-b border-r border-white/10 transition-colors w-[80px] min-w-[80px] text-center font-black text-white group-hover:text-indigo-400 uppercase text-[10px] cursor-pointer hover:bg-white/5",
+                                        cIdx % 2 === 0 ? "bg-[#0c0c0e]" : "bg-[#08080a]"
+                                    )}>
                                     {cls.name}
                                 </td>
 

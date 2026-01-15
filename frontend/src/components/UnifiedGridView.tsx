@@ -26,8 +26,10 @@ interface UnifiedGridViewProps<T> {
     getItemIdentifier: (item: T) => string;
 
     // Interaction
+    // Interaction
     onCellClick: (itemId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
     onDrop: (itemId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
+    onRowHeaderClick?: (itemId: string, e: React.MouseEvent) => void;
 
     // Drag and Drop
     draggedLesson: Lesson | null;
@@ -56,7 +58,22 @@ export const UnifiedGridView = <T extends { id: string, type: 'teacher' | 'class
                             ОБ'ЄКТ
                         </div>
                         {periods.map(p => (
-                            <div key={p} className={cn("flex-1 p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-r border-white/5 text-center last:border-r-0", minCellWidth)}>
+                            <div
+                                key={p}
+                                onClick={(e) => {
+                                    if (e.ctrlKey || e.metaKey) {
+                                        const allLessons: Lesson[] = [];
+                                        items.forEach(item => {
+                                            const cellLessons = props.getLessons(item, props.day, p);
+                                            allLessons.push(...cellLessons);
+                                        });
+                                        const newIds = allLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                        const currentSelected = useUIStore.getState().selectedLessonIds;
+                                        useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                    }
+                                }}
+                                className={cn("flex-1 p-3 text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest border-r border-white/5 text-center last:border-r-0 cursor-pointer hover:bg-white/5 transition-colors", minCellWidth)}
+                            >
                                 {p}<br />
                                 <span className="text-[8px] opacity-50 font-black">УРОК</span>
                             </div>
@@ -91,7 +108,7 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
         day, periods = [], data, isEditMode, isMonochrome, perfSettings = {},
         getLessons, getConflicts, getClassConflicts, renderItemInfo,
         onCellClick, onDrop, setDragOverCell, setDraggedLesson,
-        draggedLesson, dragOverCell,
+        draggedLesson, dragOverCell, onRowHeaderClick,
         emptyCellLabel = "ДОДАТИ", infoColumnWidth, minCellWidth
     } = props;
 
@@ -104,7 +121,10 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
             !perfSettings?.disableAnimations && "hover:bg-white/[0.01]"
         )}>
             {/* Info Column */}
-            <div className={cn("p-4 border-r border-white/5 text-center shrink-0 flex flex-col items-center gap-2 justify-center bg-[#18181b]", infoColumnWidth)}>
+            <div
+                onClick={(e) => onRowHeaderClick?.(item.id, e)}
+                className={cn("p-4 border-r border-white/5 text-center shrink-0 flex flex-col items-center gap-2 justify-center bg-[#18181b] cursor-pointer hover:bg-white/5 transition-colors", infoColumnWidth)}
+            >
                 {renderItemInfo(item)}
             </div>
 

@@ -28,6 +28,7 @@ function App() {
   const setSchedule = useScheduleStore(s => s.setSchedule);
   const pushToHistory = useScheduleStore(s => s.pushToHistory);
 
+
   const activeTab = useUIStore(s => s.activeTab);
   const setActiveTab = useUIStore(s => s.setActiveTab);
   const viewType = useUIStore(s => s.viewType);
@@ -42,6 +43,8 @@ function App() {
   const perfSettings = useUIStore(s => s.perfSettings);
   const setPerfSettings = useUIStore(s => s.setPerfSettings);
   const userRole = useUIStore(s => s.userRole);
+  const selectedLessonIds = useUIStore(s => s.selectedLessonIds);
+  const clearSelection = useUIStore(s => s.clearSelection);
   const setUserRole = useUIStore(s => s.setUserRole);
   const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
   const setSelectedTeacherId = useUIStore(s => s.setSelectedTeacherId);
@@ -61,6 +64,10 @@ function App() {
 
   // Business Logic: Remove excess lessons
   useEffect(() => {
+    if (schedule && !useScheduleStore.getState().history.present) {
+      useScheduleStore.setState(s => ({ history: { ...s.history, present: schedule } }));
+    }
+
     if (schedule && schedule.status === 'success') {
       const cleanedSchedule = removeExcessLessons(data.plan, schedule.schedule);
       if (cleanedSchedule.length !== schedule.schedule.length) {
@@ -75,6 +82,54 @@ function App() {
       setIsHeaderCollapsed(false);
     }
   }, [viewType, activeTab, setIsHeaderCollapsed]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Tab: Toggle between Data and Schedule
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        setActiveTab(activeTab === 'schedule' ? 'data' : 'schedule');
+      }
+
+      // Esc: Clear selection or close modals (local modals handled locally, but we can clear selection here)
+      if (e.key === 'Escape') {
+        if (activeTab === 'schedule' && selectedLessonIds.length > 0) {
+          clearSelection();
+          // We also might want to close modals if any are open, but they usually capture Esc themselves.
+          // If we want a global "Close All", we'd need a modal store. 
+          // For now, clearing selection is the primary global action for Esc in this context.
+        }
+        // Also handling local modal closure via state if they don't capture it? 
+        // Ideally modals render specifically, so let's stick to selection clearing for now.
+        if (showResetConfirm) setShowResetConfirm(false);
+        if (conflictData) setConflictData(null);
+      }
+
+      // Undo/Redo
+      if ((e.ctrlKey || e.metaKey)) {
+        // Use e.code OR e.key to support all keyboard layouts (e.g. Cyrillic)
+        const isZ = e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'я';
+        const isY = e.code === 'KeyY' || e.key.toLowerCase() === 'y' || e.key.toLowerCase() === 'н';
+
+        if (isZ) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            useScheduleStore.getState().redo();
+          } else {
+            useScheduleStore.getState().undo();
+          }
+        }
+        if (isY) {
+          e.preventDefault();
+          useScheduleStore.getState().redo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, setActiveTab, selectedLessonIds, clearSelection, showResetConfirm, conflictData]);
 
   const handleReset = () => {
     setShowResetConfirm(true);

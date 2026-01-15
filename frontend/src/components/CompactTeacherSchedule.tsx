@@ -347,7 +347,18 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                 <React.Fragment key={day}>
                                     <th
                                         colSpan={periods.length}
-                                        className="sticky top-0 z-30 bg-[#121214] py-2 text-[10px] font-black text-white uppercase tracking-widest text-center border-b border-white/10"
+                                        onClick={(e) => {
+                                            if (e.ctrlKey || e.metaKey) {
+                                                e.stopPropagation();
+                                                const dayLessons = lessons.filter(l => l.day === day);
+                                                const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                            }
+                                        }}
+                                        className={cn(
+                                            "sticky top-0 z-30 bg-[#121214] py-2 text-[10px] font-black text-white uppercase tracking-widest text-center border-b border-white/10 cursor-pointer hover:bg-white/5 transition-colors",
+                                        )}
                                     >
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="w-1 h-3 bg-indigo-500 rounded-full" />
@@ -367,8 +378,22 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                     {periods.map((p) => (
                                         <th
                                             key={`${day}-${p}`}
+                                            onClick={(e) => {
+                                                if (e.ctrlKey || e.metaKey) {
+                                                    e.stopPropagation();
+                                                    const visibleTeacherIds = sortedTeachers.map(t => t.id);
+                                                    const periodLessons = lessons.filter(l =>
+                                                        l.day === day &&
+                                                        l.period === p &&
+                                                        visibleTeacherIds.includes(l.teacher_id)
+                                                    );
+                                                    const newIds = periodLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                    const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                    useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                                }
+                                            }}
                                             className={cn(
-                                                "sticky top-[30px] z-30 p-0 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75",
+                                                "sticky top-[30px] z-30 p-0 text-[9px] font-black uppercase tracking-tighter border-b border-white/10 text-center w-[32px] min-w-[32px] transition-colors duration-75 cursor-pointer hover:bg-white/5",
                                                 "bg-[#121214] text-[#a1a1aa]"
                                             )}
                                         >
@@ -390,10 +415,20 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                 )}
                             >
                                 {/* Teacher Sticky Name */}
-                                <td className={cn(
-                                    "sticky left-0 z-20 p-1 border-b border-r border-white/20 transition-colors w-[90px] min-w-[90px]",
-                                    tIdx % 2 === 0 ? "bg-[#121214]" : "bg-[#0c0c0e]"
-                                )}>
+                                <td
+                                    onClick={(e) => {
+                                        if (e.ctrlKey || e.metaKey) {
+                                            e.stopPropagation();
+                                            const teacherLessons = lessons.filter(l => l.teacher_id === teacher.id);
+                                            const newIds = teacherLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                            const currentSelected = useUIStore.getState().selectedLessonIds;
+                                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                        }
+                                    }}
+                                    className={cn(
+                                        "sticky left-0 z-20 p-1 border-b border-r border-white/20 transition-colors w-[90px] min-w-[90px] cursor-pointer hover:bg-white/5",
+                                        tIdx % 2 === 0 ? "bg-[#121214]" : "bg-[#0c0c0e]"
+                                    )}>
                                     <div className="flex flex-col justify-center min-w-0 h-full text-left">
                                         <span className="font-black text-white group-hover:text-indigo-400 transition-colors uppercase truncate text-[8px] leading-none">
                                             {teacher.name}

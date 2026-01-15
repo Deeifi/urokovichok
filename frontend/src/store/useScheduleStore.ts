@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ScheduleResponse, Lesson } from '../types';
+import type { ScheduleResponse } from '../types';
 
 interface ScheduleHistory {
     past: ScheduleResponse[];
@@ -38,15 +38,19 @@ export const useScheduleStore = create<ScheduleState>()(
 
             pushToHistory: (newSchedule) => set((state) => {
                 const { past, present } = state.history;
-                if (!present) return {
+                // If history.present is lost (rehydration), use current schedule state
+                const effectivePresent = present || state.schedule;
+
+                if (!effectivePresent) return {
                     schedule: newSchedule,
                     history: { past: [], present: newSchedule, future: [] }
                 };
 
-                const newPast = [...past, present];
+                const newPast = [...past, effectivePresent];
                 // Limit history size to 50
                 if (newPast.length > 50) newPast.shift();
 
+                // console.log("Pushing to history. New Past Length:", newPast.length);
                 return {
                     schedule: newSchedule,
                     history: {
@@ -61,6 +65,7 @@ export const useScheduleStore = create<ScheduleState>()(
 
             undo: () => set((state) => {
                 const { past, present, future } = state.history;
+                // console.log("Undoing. Past size:", past.length);
                 if (past.length === 0) return state;
 
                 const previous = past[past.length - 1];
@@ -100,11 +105,7 @@ export const useScheduleStore = create<ScheduleState>()(
         {
             name: 'school_os_schedule',
             storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({
-                schedule: state.schedule,
-                // We might not want to persist huge history arrays across reloads
-                // or maybe we do? Let's keep it simple for now and persist everything.
-            }),
+            // Removed partialize to persist EVERYTHING including history
         }
     )
 );

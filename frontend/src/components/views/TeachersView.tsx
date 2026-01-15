@@ -139,7 +139,16 @@ export const TeachersView = memo(({
                             {apiDays.map((d, idx) => (
                                 <button
                                     key={d}
-                                    onClick={() => setDay(d)}
+                                    onClick={(e) => {
+                                        if (e.ctrlKey || e.metaKey) {
+                                            const dayLessons = lessons.filter(l => l.day === d);
+                                            const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                            const currentSelected = useUIStore.getState().selectedLessonIds;
+                                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                        } else {
+                                            setDay(d);
+                                        }
+                                    }}
                                     className={cn(
                                         "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
                                         day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
@@ -193,8 +202,15 @@ export const TeachersView = memo(({
                     onCellClick={(teacherId, d, period, lesson, e) => {
                         const isCtrlPressed = e?.ctrlKey || e?.metaKey;
                         if (isCtrlPressed && lesson) {
-                            const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
-                            useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            if (e.shiftKey) {
+                                const teacherLessons = lessons.filter(l => l.teacher_id === lesson.teacher_id);
+                                const newIds = teacherLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                            } else {
+                                const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
+                                useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            }
                             return;
                         }
 
@@ -260,8 +276,15 @@ export const TeachersView = memo(({
                     onCellClick={(teacherId, d, p, lesson, e) => {
                         const isCtrlPressed = e?.ctrlKey || e?.metaKey;
                         if (isCtrlPressed && lesson) {
-                            const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
-                            useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            if (e.shiftKey) {
+                                const teacherLessons = lessons.filter(l => l.teacher_id === lesson.teacher_id);
+                                const newIds = teacherLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                            } else {
+                                const uniqueId = `${lesson.class_id}-${lesson.day}-${lesson.period}-${lesson.subject_id}`;
+                                useUIStore.getState().toggleSelectedLesson(uniqueId);
+                            }
                             return;
                         }
 
@@ -277,6 +300,14 @@ export const TeachersView = memo(({
                     dragOverCell={dragOverCell}
                     setDragOverCell={setDragOverCell}
                     infoColumnWidth="w-[160px]"
+                    onRowHeaderClick={(teacherId, e) => {
+                        if (e.ctrlKey || e.metaKey) {
+                            const teacherLessons = lessons.filter(l => l.teacher_id === teacherId);
+                            const newIds = teacherLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                            const currentSelected = useUIStore.getState().selectedLessonIds;
+                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                        }
+                    }}
                 />
             )}
         </div>

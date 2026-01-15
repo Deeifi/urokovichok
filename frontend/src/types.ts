@@ -48,6 +48,7 @@ export interface Lesson {
     period: number;
     room?: string;
     isUnscheduled?: boolean;
+    isDouble?: boolean;
 }
 
 export type ScheduleResponse =

@@ -1,14 +1,22 @@
 import { memo } from 'react';
-import { Trash2, UserPlus, X, CheckSquare } from 'lucide-react';
+import { Trash2, UserPlus, X, CheckSquare, MapPin, Copy, Layers, Pencil, ArrowUp, ArrowDown } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { cn } from '../utils/cn';
 
 interface BulkActionsToolbarProps {
     onDelete?: (ids: string[]) => void;
     onAssignTeacher?: (ids: string[]) => void;
+    onAssignRoom?: (ids: string[]) => void;
+    onChangeSubject?: (ids: string[]) => void;
+    onToggleDouble?: (ids: string[]) => void;
+    onClone?: (ids: string[]) => void;
+    onShift?: (ids: string[], direction: 'up' | 'down') => void;
 }
 
-export const BulkActionsToolbar = memo(({ onDelete, onAssignTeacher }: BulkActionsToolbarProps) => {
+export const BulkActionsToolbar = memo(({
+    onDelete, onAssignTeacher, onAssignRoom, onChangeSubject,
+    onToggleDouble, onClone, onShift
+}: BulkActionsToolbarProps) => {
     const selectedLessonIds = useUIStore(s => s.selectedLessonIds);
     const clearSelection = useUIStore(s => s.clearSelection);
 
@@ -34,8 +42,63 @@ export const BulkActionsToolbar = memo(({ onDelete, onAssignTeacher }: BulkActio
                         title="Assign Teacher"
                     >
                         <UserPlus size={16} />
-                        <span className="text-xs">Призначити</span>
+                        <span className="text-xs">Вчитель</span>
                     </button>
+
+                    <button
+                        onClick={() => onAssignRoom?.(selectedLessonIds)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold hover:bg-white/10 transition-colors"
+                        title="Assign Room"
+                    >
+                        <MapPin size={16} />
+                        <span className="text-xs">Кабінет</span>
+                    </button>
+
+                    <button
+                        onClick={() => onChangeSubject?.(selectedLessonIds)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold hover:bg-white/10 transition-colors"
+                        title="Change Subject"
+                    >
+                        <Pencil size={16} />
+                        <span className="text-xs">Предмет</span>
+                    </button>
+
+                    <button
+                        onClick={() => onToggleDouble?.(selectedLessonIds)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold hover:bg-white/10 transition-colors"
+                        title="Toggle Double Lesson"
+                    >
+                        <Layers size={16} />
+                        <span className="text-xs">Спарені</span>
+                    </button>
+
+                    <button
+                        onClick={() => onClone?.(selectedLessonIds)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold hover:bg-white/10 transition-colors"
+                        title="Clone Lessons"
+                    >
+                        <Copy size={16} />
+                        <span className="text-xs">Копія</span>
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-white/10 mx-1" />
+
+                    <button
+                        onClick={() => onShift?.(selectedLessonIds, 'up')}
+                        className="p-2 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Shift Up"
+                    >
+                        <ArrowUp size={16} />
+                    </button>
+                    <button
+                        onClick={() => onShift?.(selectedLessonIds, 'down')}
+                        className="p-2 text-white hover:bg-white/10 rounded-xl transition-colors"
+                        title="Shift Down"
+                    >
+                        <ArrowDown size={16} />
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-white/10 mx-1" />
 
                     <button
                         onClick={() => onDelete?.(selectedLessonIds)}

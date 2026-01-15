@@ -289,6 +289,105 @@ export const useScheduleOperations = (
         onScheduleChange(newResponse);
     }, [lessons, schedule, onScheduleChange]);
 
+    const assignRoomToLessons = useCallback((lessonIds: string[], room: string) => {
+        const updatedLessons = lessons.map(l => {
+            const uid = `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`;
+            if (lessonIds.includes(uid)) {
+                return { ...l, room: room || undefined };
+            }
+            return l;
+        });
+        const newResponse: ScheduleResponse = schedule?.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+        onScheduleChange(newResponse);
+    }, [lessons, schedule, onScheduleChange]);
+
+    const changeSubjectForLessons = useCallback((lessonIds: string[], subjectId: string) => {
+        const updatedLessons = lessons.map(l => {
+            const uid = `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`;
+            if (lessonIds.includes(uid)) {
+                return { ...l, subject_id: subjectId };
+            }
+            return l;
+        });
+        const newResponse: ScheduleResponse = schedule?.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+        onScheduleChange(newResponse);
+    }, [lessons, schedule, onScheduleChange]);
+
+    const toggleDoubleLessons = useCallback((lessonIds: string[]) => {
+        const updatedLessons = lessons.map(l => {
+            const uid = `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`;
+            if (lessonIds.includes(uid)) {
+                return { ...l, isDouble: !l.isDouble };
+            }
+            return l;
+        });
+        const newResponse: ScheduleResponse = schedule?.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+        onScheduleChange(newResponse);
+    }, [lessons, schedule, onScheduleChange]);
+
+    const shiftLessons = useCallback((lessonIds: string[], direction: 'up' | 'down') => {
+        const delta = direction === 'down' ? 1 : -1;
+
+        // We need to check bounds and conflicts, but for "Bulk" valid actions often force-move or just try.
+        // Let's implement a "try move" strategy.
+        // Also need to handle "collisions" within the selected set if we shift them all.
+        // Simplest approach: map all, clip to 0-max_period.
+
+        const updatedLessons = lessons.map(l => {
+            const uid = `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`;
+            if (lessonIds.includes(uid)) {
+                const newPeriod = l.period + delta;
+                if (newPeriod >= 0 && newPeriod <= 7) { // Assuming 0-7 is the range from constants
+                    return { ...l, period: newPeriod };
+                }
+                // If out of bounds, keep original? Or delete? safely keep original for now.
+                return l;
+            }
+            return l;
+        });
+
+        // Basic collision resolution: if multiple lessons end up in same slot (e.g. shift into existing), 
+        // we might want to let the 'conflict' status handle it or try to merge.
+        // For now, let's just update and let the UI show red if conflicts arise.
+
+        const newResponse: ScheduleResponse = schedule?.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+        onScheduleChange(newResponse);
+    }, [lessons, schedule, onScheduleChange]);
+
+    const cloneLessonsToDay = useCallback((lessonIds: string[], targetDay: string) => {
+        // Filter lessons to copy
+        const lessonsToClone = lessons.filter(l => {
+            const uid = `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`;
+            return lessonIds.includes(uid);
+        });
+
+        const newLessons = lessonsToClone.map(l => ({
+            ...l,
+            day: targetDay,
+            // Keep period, subject, teacher, etc.
+        }));
+
+        // Merge with existing logic:
+        // We should add these to the schedule. If there are existing lessons in those slots on targetDay,
+        // we technically create a conflict (two lessons same slot).
+        // This is acceptable behavior for "Bulk Clone", user can sort it out.
+
+        const updatedLessons = [...lessons, ...newLessons];
+
+        const newResponse: ScheduleResponse = schedule?.status === 'conflict'
+            ? { status: 'conflict', schedule: updatedLessons, violations: schedule.violations }
+            : { status: 'success', schedule: updatedLessons };
+        onScheduleChange(newResponse);
+    }, [lessons, schedule, onScheduleChange]);
+
     return {
         draggedLesson, setDraggedLesson,
         dragOverCell, setDragOverCell,
@@ -298,6 +397,11 @@ export const useScheduleOperations = (
         processDrop,
         processTeacherDrop,
         deleteLessons,
-        assignTeacherToLessons
+        assignTeacherToLessons,
+        assignRoomToLessons,
+        changeSubjectForLessons,
+        toggleDoubleLessons,
+        shiftLessons,
+        cloneLessonsToDay
     };
 };

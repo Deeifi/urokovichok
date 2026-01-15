@@ -67,7 +67,12 @@ export function ScheduleGrid({
         processDrop,
         processTeacherDrop,
         deleteLessons,
-        assignTeacherToLessons
+        assignTeacherToLessons,
+        assignRoomToLessons,
+        changeSubjectForLessons,
+        toggleDoubleLessons,
+        shiftLessons,
+        cloneLessonsToDay
     } = useScheduleOperations(schedule, onScheduleChange);
 
 
@@ -90,6 +95,14 @@ export function ScheduleGrid({
     );
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+    // Extended Bulk Action States
+    const [showBulkRoomModal, setShowBulkRoomModal] = useState(false);
+    const [bulkRoomValue, setBulkRoomValue] = useState('');
+
+    const [showBulkSubjectModal, setShowBulkSubjectModal] = useState(false);
+
+    const [showBulkCloneModal, setShowBulkCloneModal] = useState(false);
 
     const handleExportPDF = async () => {
         setIsExporting(true);
@@ -390,6 +403,17 @@ export function ScheduleGrid({
             <BulkActionsToolbar
                 onDelete={() => setShowBulkDeleteConfirm(true)}
                 onAssignTeacher={() => setShowBulkAssignModal(true)}
+                onAssignRoom={() => setShowBulkRoomModal(true)}
+                onChangeSubject={() => setShowBulkSubjectModal(true)}
+                onToggleDouble={(ids) => {
+                    const { clearSelection } = useUIStore.getState();
+                    toggleDoubleLessons(ids);
+                    clearSelection();
+                }}
+                onShift={(ids, dir) => {
+                    shiftLessons(ids, dir);
+                }}
+                onClone={() => setShowBulkCloneModal(true)}
             />
 
             {showBulkAssignModal && createPortal(
@@ -403,6 +427,94 @@ export function ScheduleGrid({
                     }}
                     onClose={() => setShowBulkAssignModal(false)}
                 />,
+                document.body
+            )}
+
+            {showBulkRoomModal && createPortal(
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" onClick={() => setShowBulkRoomModal(false)}>
+                    <div className="bg-[#18181b] border border-white/10 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold text-white">Призначити кабінет</h3>
+                        <p className="text-sm text-[#a1a1aa]">Введіть номер кабінету (або залиште пустим щоб очистити):</p>
+                        <input
+                            type="text"
+                            value={bulkRoomValue}
+                            onChange={(e) => setBulkRoomValue(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                            placeholder="Напр. 101"
+                            autoFocus
+                        />
+                        <div className="flex gap-2 justify-end pt-2">
+                            <button onClick={() => setShowBulkRoomModal(false)} className="px-4 py-2 rounded-xl text-white hover:bg-white/10 transition-colors">Скасувати</button>
+                            <button onClick={() => {
+                                const { selectedLessonIds, clearSelection } = useUIStore.getState();
+                                assignRoomToLessons(selectedLessonIds, bulkRoomValue);
+                                clearSelection();
+                                setShowBulkRoomModal(false);
+                                setBulkRoomValue('');
+                            }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors">Зберегти</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {showBulkSubjectModal && createPortal(
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" onClick={() => setShowBulkSubjectModal(false)}>
+                    <div className="bg-[#18181b] border border-white/10 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold text-white">Змінити предмет</h3>
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
+                            {data.subjects.map(sub => (
+                                <button
+                                    key={sub.id}
+                                    onClick={() => {
+                                        const { selectedLessonIds, clearSelection } = useUIStore.getState();
+                                        changeSubjectForLessons(selectedLessonIds, sub.id);
+                                        clearSelection();
+                                        setShowBulkSubjectModal(false);
+                                    }}
+                                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all text-left group w-full"
+                                >
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold shadow-sm" style={{ backgroundColor: getSubjectColor(sub.id, data.subjects) + '30', color: getSubjectColor(sub.id, data.subjects) }}>
+                                        {sub.name[0]}
+                                    </div>
+                                    <span className="font-medium text-gray-200 group-hover:text-white">{sub.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 justify-end pt-2">
+                            <button onClick={() => setShowBulkSubjectModal(false)} className="px-4 py-2 rounded-xl text-white hover:bg-white/10 transition-colors">Скасувати</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {showBulkCloneModal && createPortal(
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" onClick={() => setShowBulkCloneModal(false)}>
+                    <div className="bg-[#18181b] border border-white/10 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold text-white">Клонувати уроки</h3>
+                        <p className="text-sm text-[#a1a1aa]">Оберіть день, на який скопіювати обрані уроки:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {API_DAYS.map((day, i) => (
+                                <button
+                                    key={day}
+                                    onClick={() => {
+                                        const { selectedLessonIds, clearSelection } = useUIStore.getState();
+                                        cloneLessonsToDay(selectedLessonIds, day);
+                                        clearSelection();
+                                        setShowBulkCloneModal(false);
+                                    }}
+                                    className="p-3 rounded-xl bg-white/5 hover:bg-indigo-600 hover:text-white transition-all text-center border border-white/5 hover:border-indigo-400 font-medium"
+                                >
+                                    {DAYS[i]}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 justify-end pt-2">
+                            <button onClick={() => setShowBulkCloneModal(false)} className="px-4 py-2 rounded-xl text-white hover:bg-white/10 transition-colors">Скасувати</button>
+                        </div>
+                    </div>
+                </div>,
                 document.body
             )}
 
