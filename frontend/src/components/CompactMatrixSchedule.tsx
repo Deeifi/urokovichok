@@ -103,10 +103,12 @@ const MemoizedCell = memo(({
     // This allows seeing "Oh, the teacher is free on Monday 1st period", so I can look at Monday 1st period in MY class row.
     // So YES, highlight ALL empty cells where teacher is free.
 
-    const isRecommendedSlot = !lesson && draggedLesson &&
-        draggedLesson.teacher_id &&
-        draggedLesson.class_id === classId && // REQUIREMENT: Only highlight for the target class row
-        getConflicts(draggedLesson.teacher_id, day, period).length === 0;
+    const activeForRec = draggedLesson || (hoveredLesson?.isUnscheduled ? hoveredLesson : null);
+
+    const isRecommendedSlot = !lesson && activeForRec &&
+        activeForRec.teacher_id &&
+        activeForRec.class_id === classId &&
+        getConflicts(activeForRec.teacher_id, day, period).length === 0;
 
     return (
         <td

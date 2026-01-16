@@ -152,10 +152,12 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
                     dragOverCell.period === p;
 
                 // Recommended slot logic
-                const isRecommendedSlot = !hasLessons && draggedLesson && (
+                const activeForRec = draggedLesson || (hoveredLesson?.isUnscheduled ? hoveredLesson : null);
+
+                const isRecommendedSlot = !hasLessons && activeForRec && (
                     item.type === 'teacher'
-                        ? (draggedLesson.teacher_id === item.id && getClassConflicts?.(draggedLesson.class_id, day, p)?.length === 0)
-                        : (draggedLesson.class_id === item.id && getConflicts?.(draggedLesson.teacher_id, day, p, draggedLesson.class_id)?.length === 0)
+                        ? (activeForRec.teacher_id === item.id && getClassConflicts?.(activeForRec.class_id, day, p)?.length === 0)
+                        : (activeForRec.class_id === item.id && getConflicts?.(activeForRec.teacher_id, day, p, activeForRec.class_id)?.length === 0)
                 );
 
                 const isStaticConflict = cellLessons.length > 1 || hasOtherClasses || hasOtherTeachers;

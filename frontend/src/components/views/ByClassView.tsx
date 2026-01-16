@@ -100,6 +100,11 @@ export const ByClassView = memo(({
                                 const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
                                 const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && p === hoveredLesson.period && (teacherConflicts.length > 0 || classConflicts.length > 0);
 
+                                const activeForRec = draggedLesson || (hoveredLesson?.isUnscheduled ? hoveredLesson : null);
+                                const isRecommendedSlot = !lesson && activeForRec &&
+                                    activeForRec.class_id === selectedClassId &&
+                                    getTeacherConflicts(activeForRec.teacher_id, day, p, selectedClassId).length === 0;
+
                                 return (
                                     <div
                                         key={p}
@@ -108,7 +113,8 @@ export const ByClassView = memo(({
                                         className={cn(
                                             "relative group cursor-pointer transition-all -mx-2 border-2",
                                             isCompact ? "p-1 rounded-md" : "p-2 rounded-lg",
-                                            isDragOver ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent",
+                                            (isDragOver || isRecommendedSlot) ? "border-indigo-500 bg-indigo-500/10 scale-105 z-10" : "border-transparent",
+                                            isRecommendedSlot && "bg-emerald-500/30 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse-slow",
                                             classConflicts.length > 0 && "ring-1 ring-violet-500/50 bg-violet-500/[0.02]",
                                             teacherConflicts.length > 0 && "ring-1 ring-amber-500/50 bg-amber-500/[0.02]",
                                             !perfSettings.disableAnimations && "hover:bg-white/5",

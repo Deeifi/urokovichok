@@ -167,7 +167,7 @@ function App() {
     }
   };
 
-  const unscheduledLessons = (schedule?.status === 'success' && schedule.schedule)
+  const unscheduledLessons = ((schedule?.status === 'success' || schedule?.status === 'conflict') && schedule.schedule)
     ? getUnscheduledLessons(data.plan, schedule.schedule)
     : [];
 

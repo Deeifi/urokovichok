@@ -73,10 +73,12 @@ const MemoizedTeacherCell = memo(({
 
     // Check for recommendation in Compact Teacher View
     // Check for recommendation in Compact Teacher View
-    const isRecommendedSlot = !hasLessons && draggedLesson &&
-        draggedLesson.teacher_id === teacherId &&
+    const activeForRec = draggedLesson || (hoveredLesson?.isUnscheduled ? hoveredLesson : null);
+
+    const isRecommendedSlot = !hasLessons && activeForRec &&
+        activeForRec.teacher_id === teacherId &&
         // REQUIREMENT: Valid only if the target class is free
-        getClassConflicts(draggedLesson.class_id, day, period).length === 0 &&
+        getClassConflicts(activeForRec.class_id, day, period).length === 0 &&
         getConflicts(teacherId, day, period).length === 0;
 
     return (
