@@ -28,6 +28,15 @@ function BulkEditModal({ isOpen, onClose, onSave, allSubjects, selectedCount }: 
     const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
     const [workload, setWorkload] = useState<number | undefined>(undefined);
 
+    // Esc listener
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (isOpen && e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return createPortal(
@@ -759,6 +768,22 @@ function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, is
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+
+    // Esc listener for DataEntry modals
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (isGalleryOpen) setIsGalleryOpen(false);
+                if (isSidebarOpen) setIsSidebarOpen(false);
+                if (selectedIds.length > 0) setSelectedIds([]);
+                if (isBulkEditModalOpen) setIsBulkEditModalOpen(false);
+                if (isBulkDeleteModalOpen) setIsBulkDeleteModalOpen(false);
+                if (isFilterOpen) setIsFilterOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isGalleryOpen, isSidebarOpen, selectedIds, isBulkEditModalOpen, isBulkDeleteModalOpen, isFilterOpen, setIsGalleryOpen, setIsSidebarOpen, setSelectedIds, setIsBulkEditModalOpen, setIsBulkDeleteModalOpen, setIsFilterOpen]);
 
     const handleBulkDelete = () => {
         setIsBulkDeleteModalOpen(true);

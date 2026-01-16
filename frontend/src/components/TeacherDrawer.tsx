@@ -35,17 +35,24 @@ export function TeacherDrawer({ isOpen, onClose, teacher, allSubjects, data, onS
         }
     }, [teacher]);
 
-    // Scroll Lock
+    // Scroll Lock & Esc listener
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
         }
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (isOpen && e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+
         return () => {
             document.body.style.overflow = '';
+            window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isOpen]);
+    }, [isOpen, onClose]);
 
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

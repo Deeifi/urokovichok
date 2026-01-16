@@ -104,6 +104,29 @@ export function ScheduleGrid({
 
     const [showBulkCloneModal, setShowBulkCloneModal] = useState(false);
 
+    // Central Escape Handler for ScheduleGrid Modals
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (showBulkAssignModal) setShowBulkAssignModal(false);
+                if (showBulkDeleteConfirm) setShowBulkDeleteConfirm(false);
+                if (showBulkRoomModal) setShowBulkRoomModal(false);
+                if (showBulkSubjectModal) setShowBulkSubjectModal(false);
+                if (showBulkCloneModal) setShowBulkCloneModal(false);
+                if (editingCell) setEditingCell(null);
+                if (viewingLesson) setViewingLesson(null);
+                if (editingTeacherCell) setEditingTeacherCell(null);
+                if (dragConfirm) setDragConfirm(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        showBulkAssignModal, showBulkDeleteConfirm, showBulkRoomModal,
+        showBulkSubjectModal, showBulkCloneModal, editingCell,
+        viewingLesson, editingTeacherCell, dragConfirm
+    ]);
+
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {

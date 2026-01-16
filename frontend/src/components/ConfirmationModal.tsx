@@ -1,4 +1,4 @@
-
+import { useEffect } from 'react';
 import { Trash2, X, AlertTriangle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
@@ -24,6 +24,15 @@ export function ConfirmationModal({
     cancelText = 'Скасувати',
     variant = 'danger'
 }: ConfirmationModalProps) {
+    // Esc listener
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (isOpen && e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return createPortal(

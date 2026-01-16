@@ -31,9 +31,20 @@ export function UnscheduledPanel({ items, subjects, teachers, classes, isOpen, o
                 y: Math.min(prev.y, window.innerHeight - 100)
             }));
         };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (isOpen && e.key === 'Escape') {
+                onToggle();
+            }
+        };
+
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onToggle]);
 
     // Drag Logic
     useEffect(() => {

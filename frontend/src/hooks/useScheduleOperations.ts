@@ -116,7 +116,7 @@ export const useScheduleOperations = (
             if (target.lesson) {
                 updatedLessons.push({
                     ...target.lesson,
-                    teacher_id: source.teacher_id,
+                    teacher_id: target.teacherId ? source.teacher_id : target.lesson.teacher_id,
                     day: source.day,
                     period: source.period
                 });
