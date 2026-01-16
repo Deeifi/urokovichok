@@ -15,6 +15,7 @@ import { TeacherEditModal } from './ScheduleGrid';
 import type { Lesson, Teacher } from '../types';
 import { PlanSubjectCard } from './PlanSubjectCard';
 import { TeacherDrawer } from './TeacherDrawer';
+import { useUIStore } from '../store/useUIStore';
 
 interface BulkEditModalProps {
     isOpen: boolean;
@@ -156,7 +157,8 @@ export function DataEntry({ data, onChange, schedule, onScheduleChange, isEditMo
         return ids.length === 0 ? "1" : (Math.max(...ids) + 1).toString();
     };
 
-    const [section, setSection] = useState<Section>('subjects');
+    const section = useUIStore(s => s.dataEntrySection);
+    const setSection = useUIStore(s => s.setDataEntrySection);
 
     // Summary stats
     const stats = useMemo(() => ({
@@ -642,8 +644,10 @@ interface TeachersEditorProps {
 }
 
 function TeachersEditor({ data, onChange, nextId, schedule, onScheduleChange, isEditMode, setIsEditMode, isPerformanceMode = false }: TeachersEditorProps) {
-    const [viewMode, setViewMode] = useState<'list' | 'details' | 'schedule'>('list');
-    const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+    const viewMode = useUIStore(s => s.dataEntryViewMode);
+    const setViewMode = useUIStore(s => s.setDataEntryViewMode);
+    const selectedTeacherId = useUIStore(s => s.dataEntrySelectedTeacherId);
+    const setSelectedTeacherId = useUIStore(s => s.setDataEntrySelectedTeacherId);
     const [editingTeacherCell, setEditingTeacherCell] = useState<{ teacherId: string, day: string, period: number } | null>(null);
     const [isAddFormOpen, setIsAddFormOpen] = useState(false);
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
@@ -1936,10 +1940,8 @@ interface ClassesEditorProps {
 function ClassesEditor({ data, onChange }: ClassesEditorProps) {
     const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
     const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
-    const [viewingClassId, setViewingClassId] = useState<string | null>(null);
-    const [editingPlanSubjectId, setEditingPlanSubjectId] = useState<string | null>(null);
-    const [tempTeacherId, setTempTeacherId] = useState('');
-    const [tempHours, setTempHours] = useState(1);
+    const viewingClassId = useUIStore(s => s.dataEntrySelectedClassId);
+    const setViewingClassId = useUIStore(s => s.setDataEntrySelectedClassId);
 
     const grades = Array.from({ length: 11 }, (_, i) => (i + 1).toString());
     const letters = ['А', 'Б', 'В', 'Г', 'Д'];
@@ -1981,23 +1983,8 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
         setDeleteId(null);
     };
 
-    const handleSavePlanEdit = (subjectId: string) => {
-        if (!viewingClassId) return;
-        let newPlan = [...data.plan];
-        const existingIdx = newPlan.findIndex(p => p.class_id === viewingClassId && p.subject_id === subjectId);
-
-        if (tempHours <= 0) {
-            if (existingIdx !== -1) newPlan.splice(existingIdx, 1);
-        } else if (tempTeacherId) {
-            const newItem = { class_id: viewingClassId, subject_id: subjectId, teacher_id: tempTeacherId, hours_per_week: tempHours };
-            if (existingIdx !== -1) newPlan[existingIdx] = newItem;
-            else newPlan.push(newItem);
-        }
-        onChange({ ...data, plan: newPlan });
-        setEditingPlanSubjectId(null);
-    };
-
-    const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'plan'>('overview');
+    const activeTab = useUIStore(s => s.dataEntryClassDetailTab);
+    const setActiveTab = useUIStore(s => s.setDataEntryClassDetailTab);
 
     // Generate mock students
     const mockStudents = useMemo(() => {
@@ -2033,7 +2020,7 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
 
                 {/* Tabs */}
                 <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
-                    {(['overview', 'plan', 'students'] as const).map(tab => (
+                    {(['overview', 'students'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -2045,7 +2032,6 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                             )}
                         >
                             {tab === 'overview' && 'Огляд'}
-                            {tab === 'plan' && 'Навчальний План'}
                             {tab === 'students' && 'Учні'}
                         </button>
                     ))}
@@ -2138,71 +2124,6 @@ function ClassesEditor({ data, onChange }: ClassesEditorProps) {
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'plan' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in zoom-in-95 duration-300">
-                            {getSortedSubjects(data.subjects).map(subject => {
-                                const planItem = classPlan.find(p => p.subject_id === subject.id);
-                                const teacher = planItem ? data.teachers.find(t => t.id === planItem.teacher_id) : null;
-                                const isEditing = editingPlanSubjectId === subject.id;
-
-                                const grade = parseInt(viewingClass.name);
-                                const isPrimaryGrade = !isNaN(grade) && grade >= 1 && grade <= 4;
-
-                                const subjectTeachers = data.teachers.filter(t => {
-                                    if (t.subjects.includes(subject.id)) return true;
-                                    if (isPrimaryGrade && t.is_primary) return true;
-                                    return false;
-                                });
-
-                                return (
-                                    <div key={subject.id} className={cn(
-                                        "bento-card p-5 border-white/5 transition-all duration-300",
-                                        isEditing ? "ring-2 ring-violet-500/50 bg-white/5" : planItem ? "bg-white/[0.04]" : "bg-white/[0.01] opacity-50"
-                                    )}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className={cn(
-                                                    "w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg",
-                                                    planItem ? "bg-violet-500/20 text-violet-400" : "bg-white/5 text-white/20"
-                                                )}>
-                                                    {planItem?.hours_per_week || 0}
-                                                </div>
-                                                <div>
-                                                    <div className="font-black text-white text-lg tracking-tight">{subject.name}</div>
-                                                    {isEditing ? (
-                                                        <div className="flex gap-2 mt-3">
-                                                            <select value={tempTeacherId} onChange={e => setTempTeacherId(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-3 py-1 outline-none focus:ring-1 focus:ring-violet-500 max-w-[150px]">
-                                                                <option value="" className="bg-[#18181b]">Вчитель</option>
-                                                                {subjectTeachers.map(t => (
-                                                                    <option key={t.id} value={t.id} className="bg-[#18181b]">
-                                                                        {t.name} {t.is_primary && !t.subjects.includes(subject.id) ? "(Поч.)" : ""}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            <input type="number" min={0} value={tempHours} onChange={e => setTempHours(parseInt(e.target.value) || 0)} className="w-16 bg-white/5 border border-white/10 rounded-lg text-sm font-bold text-white px-2 py-1 outline-none text-center focus:ring-1 focus:ring-violet-500" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-xs text-[#a1a1aa] font-black uppercase tracking-widest">{teacher?.name || 'Вчителя не призначено'}</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                {isEditing ? (
-                                                    <>
-                                                        <button onClick={() => handleSavePlanEdit(subject.id)} className="p-2 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-all"><Check size={20} /></button>
-                                                        <button onClick={() => setEditingPlanSubjectId(null)} className="p-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all"><X size={20} /></button>
-                                                    </>
-                                                ) : (
-                                                    <button onClick={() => { setEditingPlanSubjectId(subject.id); setTempTeacherId(planItem?.teacher_id || ''); setTempHours(planItem?.hours_per_week || 1); }} className="p-2 bg-white/5 text-[#a1a1aa] rounded-xl hover:bg-white/10 hover:text-white transition-all"><Pencil size={18} /></button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
                         </div>
                     )}
                 </div>
@@ -2337,7 +2258,8 @@ interface PlanEditorProps {
 }
 
 function PlanEditor({ data, onChange }: PlanEditorProps) {
-    const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+    const selectedClassId = useUIStore(s => s.dataEntrySelectedPlanClassId);
+    const setSelectedClassId = useUIStore(s => s.setDataEntrySelectedPlanClassId);
     const [searchQuery, setSearchQuery] = useState('');
 
     const selectedClass = data.classes.find(c => c.id === selectedClassId);

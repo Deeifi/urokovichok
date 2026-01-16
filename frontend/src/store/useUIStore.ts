@@ -42,6 +42,20 @@ interface UIState {
     toggleSelectedLesson: (id: string) => void;
     clearSelection: () => void;
     setSelectedLessons: (ids: string[]) => void;
+
+    // Data Entry Sections
+    dataEntrySection: 'subjects' | 'teachers' | 'classes' | 'plan';
+    setDataEntrySection: (section: 'subjects' | 'teachers' | 'classes' | 'plan') => void;
+    dataEntryViewMode: 'list' | 'details' | 'schedule';
+    setDataEntryViewMode: (mode: 'list' | 'details' | 'schedule') => void;
+    dataEntrySelectedTeacherId: string | null;
+    setDataEntrySelectedTeacherId: (id: string | null) => void;
+    dataEntrySelectedClassId: string | null;
+    setDataEntrySelectedClassId: (id: string | null) => void;
+    dataEntrySelectedPlanClassId: string | null;
+    setDataEntrySelectedPlanClassId: (id: string | null) => void;
+    dataEntryClassDetailTab: 'overview' | 'students';
+    setDataEntryClassDetailTab: (tab: 'overview' | 'students') => void;
 }
 
 const DEFAULT_PERF_SETTINGS: PerformanceSettings = {
@@ -107,6 +121,19 @@ export const useUIStore = create<UIState>()(
             })),
             clearSelection: () => set({ selectedLessonIds: [] }),
             setSelectedLessons: (ids) => set({ selectedLessonIds: ids }),
+
+            dataEntrySection: 'subjects',
+            setDataEntrySection: (dataEntrySection) => set({ dataEntrySection }),
+            dataEntryViewMode: 'list',
+            setDataEntryViewMode: (dataEntryViewMode) => set({ dataEntryViewMode }),
+            dataEntrySelectedTeacherId: null,
+            setDataEntrySelectedTeacherId: (dataEntrySelectedTeacherId) => set({ dataEntrySelectedTeacherId }),
+            dataEntrySelectedClassId: null,
+            setDataEntrySelectedClassId: (dataEntrySelectedClassId) => set({ dataEntrySelectedClassId }),
+            dataEntrySelectedPlanClassId: null,
+            setDataEntrySelectedPlanClassId: (dataEntrySelectedPlanClassId) => set({ dataEntrySelectedPlanClassId }),
+            dataEntryClassDetailTab: 'overview',
+            setDataEntryClassDetailTab: (dataEntryClassDetailTab) => set({ dataEntryClassDetailTab }),
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment
@@ -118,6 +145,12 @@ export const useUIStore = create<UIState>()(
                 isMonochrome: state.isMonochrome,
                 showIcons: state.showIcons,
                 perfSettings: state.perfSettings,
+                dataEntrySection: state.dataEntrySection,
+                dataEntryViewMode: state.dataEntryViewMode,
+                dataEntrySelectedTeacherId: state.dataEntrySelectedTeacherId,
+                dataEntrySelectedClassId: state.dataEntrySelectedClassId,
+                dataEntrySelectedPlanClassId: state.dataEntrySelectedPlanClassId,
+                dataEntryClassDetailTab: state.dataEntryClassDetailTab,
                 // userRole: state.userRole (maybe?)
             }),
         }
