@@ -17,6 +17,7 @@ import { useScheduleStore } from './store/useScheduleStore';
 import { useUIStore } from './store/useUIStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getWeekId } from './utils/scheduleHelpers';
+import { ScheduleToolbar } from './components/ScheduleToolbar';
 
 
 function App() {
@@ -220,6 +221,11 @@ function App() {
               <Minimize2 size={20} className="group-hover:scale-110 transition-transform" />
             </button>
           )}
+
+          {/* Persistent Toolbar */}
+          <div className="px-2 lg:px-4">
+            <ScheduleToolbar />
+          </div>
 
           {/* Content Container */}
           <div className={cn("flex-1 px-2", activeTab === 'schedule' ? "overflow-hidden flex flex-col" : "overflow-y-auto scrollbar-hide")}>

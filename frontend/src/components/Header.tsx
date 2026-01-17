@@ -1,8 +1,6 @@
-import { LayoutDashboard, Columns, Table, Users, Lock, Unlock, RotateCcw, FileSpreadsheet, GraduationCap, Calendar, Loader2, Maximize2, Bell, RefreshCw, Layers, CalendarClock } from 'lucide-react';
+import { Lock, Unlock, RotateCcw, FileSpreadsheet, GraduationCap, Calendar, Loader2, Maximize2, Bell, RefreshCw, Layers, CalendarClock } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { WeekSwitcher } from './WeekSwitcher';
 import { getWeekId } from '../utils/scheduleHelpers';
-import type { ViewType } from '../types';
 import { exportMasterTeacherSchedule } from '../utils/excelExport';
 import { useUIStore } from '../store/useUIStore';
 import { useDataStore } from '../store/useDataStore';
@@ -19,7 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
     // UI Store
     const {
-        viewType, setViewType,
+        viewType,
         activeTab,
         isEditMode, setIsEditMode,
         isCompact,
@@ -51,6 +49,11 @@ export const Header: React.FC<HeaderProps> = ({
 
     const lessons = (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [];
 
+    // Hide Header completely in Schedule View (except Dashboard) as controls are now in ScheduleToolbar
+    if (activeTab === 'schedule' && viewType !== 'dashboard') {
+        return null;
+    }
+
     return (
         <header className={cn("flex justify-between items-center px-2 transition-all duration-500 shrink-0",
             isHeaderCollapsed ? "h-0 opacity-0 mb-0 overflow-hidden" : (effectiveIsCompact ? "h-8 mb-1" : (viewType === 'dashboard' ? "h-16 mb-4 lg:mb-6" : "h-16 mb-4"))
@@ -61,35 +64,36 @@ export const Header: React.FC<HeaderProps> = ({
                     {!effectiveIsCompact && <div className="text-[#a1a1aa] font-medium mt-0.5 uppercase text-[9px] md:text-[10px] tracking-widest">{formattedDate}</div>}
                 </div>
 
+                {/* Navigation removed, moved to ScheduleToolbar */}
+
+            </div>
+
+            <div className="flex items-center gap-4">
                 {activeTab === 'schedule' && viewType !== 'dashboard' && (
-                    <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all animate-in fade-in slide-in-from-left-4 duration-500", effectiveIsCompact ? "p-1" : "p-1.5")}>
-                        <WeekSwitcher compact={effectiveIsCompact} />
-                        <div className={cn("bg-white/5 self-center", effectiveIsCompact ? "w-[1px] h-3" : "w-[1px] h-4")} />
-                        {[
-                            { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
-                            { id: 'byClass', label: 'По класах', icon: Columns },
-                            { id: 'matrix', label: 'Загальний', icon: Table },
-                            { id: 'teachers', label: 'Вчителі', icon: Users },
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setViewType(tab.id as ViewType)}
-                                className={cn(
-                                    "flex items-center gap-2 rounded-xl font-bold transition-colors",
-                                    effectiveIsCompact ? "px-3 py-1 text-[10px]" : "px-4 py-2 text-xs",
-                                    viewType === tab.id
-                                        ? "bg-white/10 text-white shadow-lg shadow-black/20"
-                                        : "text-[#a1a1aa] hover:text-white"
-                                )}
-                            >
-                                <tab.icon size={effectiveIsCompact ? 14 : 16} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    <button
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        className={cn(
+                            "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group animate-in fade-in slide-in-from-right-4",
+                            effectiveIsCompact ? "px-3 py-1.5 text-[10px]" : "px-4 py-2.5 text-xs",
+                            isEditMode
+                                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
+                                : "bg-[#18181b] border border-white/5 text-[#a1a1aa] hover:text-white"
+                        )}
+                    >
+                        {isEditMode ? (
+                            <>
+                                <Unlock size={effectiveIsCompact ? 14 : 16} className="animate-pulse" />
+                                <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Lock size={effectiveIsCompact ? 14 : 16} />
+                                <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
+                            </>
+                        )}
+                    </button>
                 )}
 
-                {/* Edit Scope Toggle */}
                 {activeTab === 'schedule' && viewType !== 'dashboard' && isEditMode && (
                     <div className={cn(
                         "flex items-center gap-0.5 bg-[#18181b] rounded-2xl border border-white/5 transition-all animate-in fade-in slide-in-from-left-4 duration-500",
@@ -124,33 +128,6 @@ export const Header: React.FC<HeaderProps> = ({
                             Цей тиждень
                         </button>
                     </div>
-                )}
-            </div>
-
-            <div className="flex items-center gap-4">
-                {activeTab === 'schedule' && viewType !== 'dashboard' && (
-                    <button
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        className={cn(
-                            "flex items-center gap-2 rounded-xl font-bold transition-all duration-300 group animate-in fade-in slide-in-from-right-4",
-                            effectiveIsCompact ? "px-3 py-1.5 text-[10px]" : "px-4 py-2.5 text-xs",
-                            isEditMode
-                                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                                : "bg-[#18181b] border border-white/5 text-[#a1a1aa] hover:text-white"
-                        )}
-                    >
-                        {isEditMode ? (
-                            <>
-                                <Unlock size={effectiveIsCompact ? 14 : 16} className="animate-pulse" />
-                                <span>{effectiveIsCompact ? 'РЕДАКТ.: УВІМК.' : 'Редагування УВІМК.'}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Lock size={effectiveIsCompact ? 14 : 16} />
-                                <span>{effectiveIsCompact ? 'РЕДАКТ.: ВИМК.' : 'Редагування ВИМК.'}</span>
-                            </>
-                        )}
-                    </button>
                 )}
 
                 {activeTab === 'schedule' && schedule && (

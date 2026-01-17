@@ -60,6 +60,10 @@ interface UIState {
     // Schedule Edit Scope
     scheduleEditScope: 'template' | 'week';
     setScheduleEditScope: (scope: 'template' | 'week') => void;
+
+    // Shared Search State
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
 }
 
 const DEFAULT_PERF_SETTINGS: PerformanceSettings = {
@@ -141,6 +145,9 @@ export const useUIStore = create<UIState>()(
 
             scheduleEditScope: 'template',
             setScheduleEditScope: (scheduleEditScope) => set({ scheduleEditScope }),
+
+            searchQuery: '',
+            setSearchQuery: (searchQuery) => set({ searchQuery }),
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment

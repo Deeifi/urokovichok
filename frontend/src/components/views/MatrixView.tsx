@@ -1,5 +1,5 @@
 import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
-import { Search, Droplet, LayoutGrid, Eye, EyeOff } from 'lucide-react';
+// import { Search, Droplet, LayoutGrid, Eye, EyeOff } from 'lucide-react'; // Removed unused icons
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
 // import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
@@ -30,19 +30,20 @@ export const MatrixView = memo(({
     // const lessons = (scheduleResponse?.status === 'success' || scheduleResponse?.status === 'conflict') ? scheduleResponse.schedule : []; // Removed
 
     const isCompact = useUIStore(s => s.isCompact);
-    const setIsCompact = useUIStore(s => s.setIsCompact);
+    // const setIsCompact = useUIStore(s => s.setIsCompact); // Unused
     const isEditMode = useUIStore(s => s.isEditMode);
     const perfSettings = useUIStore(s => s.perfSettings);
     const isMonochrome = useUIStore(s => s.isMonochrome);
-    const setIsMonochrome = useUIStore(s => s.setIsMonochrome);
+    // const setIsMonochrome = useUIStore(s => s.setIsMonochrome); // Unused
     const userRole = useUIStore(s => s.userRole);
     const showIcons = useUIStore(s => s.showIcons);
-    const setShowIcons = useUIStore(s => s.setShowIcons);
+    // const setShowIcons = useUIStore(s => s.setShowIcons); // Unused
     const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
+    const searchQuery = useUIStore(s => s.searchQuery); // Use shared state
 
     const [day, setDay] = useState<string>('Mon');
     const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
-    const [searchQuery, setSearchQuery] = useState('');
+    // const [searchQuery, setSearchQuery] = useState(''); // Removed local state
     const deferredSearchQuery = useDeferredValue(searchQuery);
 
     const days = ["Пн", "Вт", "Ср", "Чт", "Пт"];
@@ -111,17 +112,6 @@ export const MatrixView = memo(({
                 )}
 
                 <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
-                    <div className="flex items-center gap-2 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 p-1 px-3 shadow-xl">
-                        <Search size={14} className="text-white/20" />
-                        <input
-                            type="text"
-                            placeholder="ПОШУК КЛАСУ..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-transparent border-none focus:ring-0 text-xs font-bold text-white placeholder-white/20 w-32 outline-none"
-                        />
-                    </div>
-
                     {!isCompact && (
                         <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
                             {apiDays.map((d, idx) => (
@@ -155,51 +145,6 @@ export const MatrixView = memo(({
                             <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
                         </div>
                     )}
-
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        <button
-                            onClick={() => setIsMonochrome(!isMonochrome)}
-                            className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
-                                isCompact ? "min-w-[110px] px-3 py-1" : "min-w-[130px] px-3 py-1.5",
-                                isMonochrome ? "text-[#a1a1aa] hover:text-white" : "bg-amber-600 text-white shadow-lg shadow-amber-500/20"
-                            )}
-                        >
-                            <Droplet size={isCompact ? 12 : 14} className="shrink-0" />
-                            {isMonochrome ? "КОЛІР: ВИМК." : "КОЛІР: УВІМК."}
-                        </button>
-                    </div>
-
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        <button
-                            onClick={() => setIsCompact(!isCompact)}
-                            className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
-                                isCompact ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 min-w-[130px] px-3 py-1" : "text-[#a1a1aa] hover:text-white min-w-[160px] px-3 py-1.5"
-                            )}
-                        >
-                            <LayoutGrid size={isCompact ? 12 : 14} className="shrink-0" />
-                            {isCompact ? "КОМПАКТ: УВІМК." : "КОМПАКТНО: ВИМК."}
-                        </button>
-                    </div>
-
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                        <button
-                            onClick={() => setShowIcons(!showIcons)}
-                            className={cn(
-                                "flex items-center gap-2 rounded-lg text-[10px] font-black transition-all whitespace-nowrap justify-center",
-                                isCompact ? "min-w-[120px] px-3 py-1" : "min-w-[150px] px-3 py-1.5",
-                                showIcons ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-[#a1a1aa] hover:text-white"
-                            )}
-                        >
-                            {showIcons ? (
-                                <Eye size={isCompact ? 12 : 14} className="shrink-0" />
-                            ) : (
-                                <EyeOff size={isCompact ? 12 : 14} className="shrink-0" />
-                            )}
-                            {showIcons ? "ІКОНКИ: УВІМК." : "ІКОНКИ: ВИМК."}
-                        </button>
-                    </div>
                 </div>
             </div>
 
