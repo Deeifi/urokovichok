@@ -1,5 +1,27 @@
 import type { Lesson, TeachingPlanItem } from '../types';
 
+/**
+ * Gets the ISO week ID for a given date (e.g., "2024-W01")
+ */
+export function getWeekId(date: Date): string {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Returns the Monday of the week for a given date.
+ */
+export function getMonday(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
+}
+
 export interface UnscheduledItem {
     subject_id: string;
     class_id: string;

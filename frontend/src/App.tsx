@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Lesson } from './types';
 import { generateSchedule } from './api';
 import { Calendar, Minimize2, CircleAlert, CheckCircle2 } from 'lucide-react';
@@ -16,6 +16,7 @@ import { useDataStore } from './store/useDataStore';
 import { useScheduleStore } from './store/useScheduleStore';
 import { useUIStore } from './store/useUIStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { getWeekId } from './utils/scheduleHelpers';
 
 
 function App() {
@@ -24,7 +25,21 @@ function App() {
   const setData = useDataStore(s => s.setData);
   const resetData = useDataStore(s => s.resetData);
 
-  const schedule = useScheduleStore(s => s.schedule);
+  const baseSchedule = useScheduleStore(s => s.schedule);
+  const selectedDate = useScheduleStore(s => s.selectedDate);
+  const weeklySchedules = useScheduleStore(s => s.weeklySchedules);
+  const scheduleEditScope = useUIStore(s => s.scheduleEditScope);
+  const isEditMode = useUIStore(s => s.isEditMode);
+
+  // Derive the current week's schedule using useMemo for proper reactivity
+  const weekId = useMemo(() => getWeekId(new Date(selectedDate)), [selectedDate]);
+  const schedule = useMemo(() => {
+    if (isEditMode && scheduleEditScope === 'template') {
+      return baseSchedule;
+    }
+    return weeklySchedules[weekId] || baseSchedule;
+  }, [weeklySchedules, weekId, baseSchedule, isEditMode, scheduleEditScope]);
+
   const setSchedule = useScheduleStore(s => s.setSchedule);
   const pushToHistory = useScheduleStore(s => s.pushToHistory);
 
@@ -38,7 +53,7 @@ function App() {
   const isFullScreen = useUIStore(s => s.isFullScreen);
 
   const setIsFullScreen = useUIStore(s => s.setIsFullScreen);
-  const isEditMode = useUIStore(s => s.isEditMode);
+  // isEditMode moved up
   const setIsEditMode = useUIStore(s => s.setIsEditMode);
   const perfSettings = useUIStore(s => s.perfSettings);
   const setPerfSettings = useUIStore(s => s.setPerfSettings);
@@ -135,9 +150,12 @@ function App() {
     setShowResetConfirm(true);
   };
 
+  // const setSchedule = useScheduleStore(s => s.setSchedule); // No longer needed directly here
+  const clearAllSchedules = useScheduleStore(s => s.clearAllSchedules);
+
   const confirmReset = () => {
     resetData();
-    setSchedule(null);
+    clearAllSchedules();
     localStorage.removeItem('school_os_data');
     localStorage.removeItem('school_os_schedule');
     setShowResetConfirm(false);

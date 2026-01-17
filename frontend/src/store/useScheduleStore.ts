@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ScheduleResponse } from '../types';
+import { getWeekId, getMonday } from '../utils/scheduleHelpers';
+import { useUIStore } from './useUIStore';
 
 interface ScheduleHistory {
     past: ScheduleResponse[];
@@ -10,7 +12,14 @@ interface ScheduleHistory {
 
 interface ScheduleState {
     schedule: ScheduleResponse | null;
+    selectedDate: string; // ISO String of the Monday of the selected week
+    weeklySchedules: Record<string, ScheduleResponse>; // key: YYYY-Www, value: schedule
     setSchedule: (schedule: ScheduleResponse | null) => void;
+
+    // Date Management
+    setCurrentDate: (date: Date) => void;
+    resetWeekToTemplate: (weekId?: string) => void;
+    clearAllSchedules: () => void;
 
     // History
     history: ScheduleHistory;
@@ -25,7 +34,40 @@ export const useScheduleStore = create<ScheduleState>()(
     persist(
         (set, get) => ({
             schedule: null,
-            setSchedule: (schedule) => set({ schedule, history: { ...get().history, present: schedule } }),
+            selectedDate: getMonday(new Date()).toISOString(),
+            weeklySchedules: {},
+            setSchedule: (schedule) => {
+                const date = new Date(get().selectedDate);
+                const weekId = getWeekId(date);
+                set((state) => ({
+                    schedule,
+                    weeklySchedules: schedule ? { ...state.weeklySchedules, [weekId]: schedule } : state.weeklySchedules,
+                    history: { ...state.history, present: schedule }
+                }));
+            },
+
+            setCurrentDate: (date: Date) => {
+                const monday = getMonday(date);
+
+                set({
+                    selectedDate: monday.toISOString(),
+                });
+            },
+
+            resetWeekToTemplate: (weekId) => {
+                const id = weekId || getWeekId(new Date(get().selectedDate));
+                set((state) => {
+                    const newWeekly = { ...state.weeklySchedules };
+                    delete newWeekly[id];
+                    return { weeklySchedules: newWeekly };
+                });
+            },
+
+            clearAllSchedules: () => set({
+                schedule: null,
+                weeklySchedules: {},
+                history: { past: [], present: null, future: [] }
+            }),
 
             history: {
                 past: [],
@@ -38,29 +80,58 @@ export const useScheduleStore = create<ScheduleState>()(
 
             pushToHistory: (newSchedule) => set((state) => {
                 const { past, present } = state.history;
+                const date = new Date(state.selectedDate);
+                const weekId = getWeekId(date);
+
+                // Get edit scope from UI store
+                const editScope = useUIStore.getState().scheduleEditScope;
+
                 // If history.present is lost (rehydration), use current schedule state
                 const effectivePresent = present || state.schedule;
 
-                if (!effectivePresent) return {
-                    schedule: newSchedule,
-                    history: { past: [], present: newSchedule, future: [] }
-                };
+                if (!effectivePresent) {
+                    if (editScope === 'template') {
+                        return {
+                            schedule: newSchedule,
+                            history: { past: [], present: newSchedule, future: [] }
+                        };
+                    } else {
+                        return {
+                            weeklySchedules: { ...state.weeklySchedules, [weekId]: newSchedule },
+                            history: { past: [], present: newSchedule, future: [] }
+                        };
+                    }
+                }
 
                 const newPast = [...past, effectivePresent];
                 // Limit history size to 50
                 if (newPast.length > 50) newPast.shift();
 
-                // console.log("Pushing to history. New Past Length:", newPast.length);
-                return {
-                    schedule: newSchedule,
-                    history: {
-                        past: newPast,
-                        present: newSchedule,
-                        future: []
-                    },
-                    canUndo: true,
-                    canRedo: false
-                };
+                if (editScope === 'template') {
+                    // Template mode: update base schedule (affects all weeks)
+                    return {
+                        schedule: newSchedule,
+                        history: {
+                            past: newPast,
+                            present: newSchedule,
+                            future: []
+                        },
+                        canUndo: true,
+                        canRedo: false
+                    };
+                } else {
+                    // Week mode: update only this week's override
+                    return {
+                        weeklySchedules: { ...state.weeklySchedules, [weekId]: newSchedule },
+                        history: {
+                            past: newPast,
+                            present: newSchedule,
+                            future: []
+                        },
+                        canUndo: true,
+                        canRedo: false
+                    };
+                }
             }),
 
             undo: () => set((state) => {

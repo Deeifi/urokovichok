@@ -306,6 +306,7 @@ export function ScheduleGrid({
                 ) : viewType === 'matrix' ? (
                     <ErrorBoundary>
                         <MatrixView
+                            lessons={lessons}
                             draggedLesson={draggedLesson}
                             setDraggedLesson={setDraggedLesson}
                             dragOverCell={dragOverCell}
@@ -318,6 +319,7 @@ export function ScheduleGrid({
                 ) : (
                     <ErrorBoundary>
                         <TeachersView
+                            lessons={lessons}
                             draggedLesson={draggedLesson}
                             setDraggedLesson={setDraggedLesson}
                             dragOverCell={dragOverCell}

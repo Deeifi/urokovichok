@@ -56,6 +56,10 @@ interface UIState {
     setDataEntrySelectedPlanClassId: (id: string | null) => void;
     dataEntryClassDetailTab: 'overview' | 'students';
     setDataEntryClassDetailTab: (tab: 'overview' | 'students') => void;
+
+    // Schedule Edit Scope
+    scheduleEditScope: 'template' | 'week';
+    setScheduleEditScope: (scope: 'template' | 'week') => void;
 }
 
 const DEFAULT_PERF_SETTINGS: PerformanceSettings = {
@@ -134,6 +138,9 @@ export const useUIStore = create<UIState>()(
             setDataEntrySelectedPlanClassId: (dataEntrySelectedPlanClassId) => set({ dataEntrySelectedPlanClassId }),
             dataEntryClassDetailTab: 'overview',
             setDataEntryClassDetailTab: (dataEntryClassDetailTab) => set({ dataEntryClassDetailTab }),
+
+            scheduleEditScope: 'template',
+            setScheduleEditScope: (scheduleEditScope) => set({ scheduleEditScope }),
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment

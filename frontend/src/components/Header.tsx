@@ -1,6 +1,7 @@
-import React from 'react';
-import { LayoutDashboard, Columns, Table, Users, Lock, Unlock, RotateCcw, FileSpreadsheet, GraduationCap, Calendar, Loader2, Maximize2, Bell } from 'lucide-react';
+import { LayoutDashboard, Columns, Table, Users, Lock, Unlock, RotateCcw, FileSpreadsheet, GraduationCap, Calendar, Loader2, Maximize2, Bell, RefreshCw, Layers, CalendarClock } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { WeekSwitcher } from './WeekSwitcher';
+import { getWeekId } from '../utils/scheduleHelpers';
 import type { ViewType } from '../types';
 import { exportMasterTeacherSchedule } from '../utils/excelExport';
 import { useUIStore } from '../store/useUIStore';
@@ -24,7 +25,9 @@ export const Header: React.FC<HeaderProps> = ({
         isCompact,
         userRole,
         setIsFullScreen,
-        isHeaderCollapsed
+        isHeaderCollapsed,
+        scheduleEditScope,
+        setScheduleEditScope
     } = useUIStore();
 
     // Data Store
@@ -43,6 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
         month: 'long'
     }).replace(/^\w/, (c) => c.toUpperCase());
 
+    const { selectedDate, resetWeekToTemplate } = useScheduleStore();
+    const isBaseTemplate = !useScheduleStore.getState().weeklySchedules[getWeekId(new Date(selectedDate))];
+
     const lessons = (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [];
 
     return (
@@ -57,6 +63,8 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {activeTab === 'schedule' && viewType !== 'dashboard' && (
                     <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all animate-in fade-in slide-in-from-left-4 duration-500", effectiveIsCompact ? "p-1" : "p-1.5")}>
+                        <WeekSwitcher compact={effectiveIsCompact} />
+                        <div className={cn("bg-white/5 self-center", effectiveIsCompact ? "w-[1px] h-3" : "w-[1px] h-4")} />
                         {[
                             { id: 'dashboard', label: 'Дашборд', icon: LayoutDashboard },
                             { id: 'byClass', label: 'По класах', icon: Columns },
@@ -78,6 +86,43 @@ export const Header: React.FC<HeaderProps> = ({
                                 {tab.label}
                             </button>
                         ))}
+                    </div>
+                )}
+
+                {/* Edit Scope Toggle */}
+                {activeTab === 'schedule' && viewType !== 'dashboard' && isEditMode && (
+                    <div className={cn(
+                        "flex items-center gap-0.5 bg-[#18181b] rounded-2xl border border-white/5 transition-all animate-in fade-in slide-in-from-left-4 duration-500",
+                        effectiveIsCompact ? "p-0.5" : "p-1"
+                    )}>
+                        <button
+                            onClick={() => setScheduleEditScope('template')}
+                            className={cn(
+                                "flex items-center gap-1.5 rounded-xl font-bold transition-all",
+                                effectiveIsCompact ? "px-2 py-1 text-[9px]" : "px-3 py-1.5 text-[10px]",
+                                scheduleEditScope === 'template'
+                                    ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                                    : "text-[#a1a1aa] hover:text-white hover:bg-white/5"
+                            )}
+                            title="Зміни застосовуються до всіх тижнів"
+                        >
+                            <Layers size={effectiveIsCompact ? 12 : 14} />
+                            Шаблон
+                        </button>
+                        <button
+                            onClick={() => setScheduleEditScope('week')}
+                            className={cn(
+                                "flex items-center gap-1.5 rounded-xl font-bold transition-all",
+                                effectiveIsCompact ? "px-2 py-1 text-[9px]" : "px-3 py-1.5 text-[10px]",
+                                scheduleEditScope === 'week'
+                                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                    : "text-[#a1a1aa] hover:text-white hover:bg-white/5"
+                            )}
+                            title="Зміни застосовуються тільки до цього тижня"
+                        >
+                            <CalendarClock size={effectiveIsCompact ? 12 : 14} />
+                            Цей тиждень
+                        </button>
                     </div>
                 )}
             </div>
@@ -109,18 +154,33 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
 
                 {activeTab === 'schedule' && schedule && (
-                    <button
-                        onClick={undo}
-                        disabled={historyLength === 0 || !isEditMode}
-                        className={cn(
-                            "flex items-center gap-2 bg-[#18181b] border border-white/5 rounded-xl text-[#a1a1aa] hover:text-white transition-all disabled:opacity-20 active:scale-95 group",
-                            isCompact ? "px-3 py-1.5" : "px-4 py-2.5"
+                    <div className="flex items-center gap-1">
+                        {!isBaseTemplate && (
+                            <button
+                                onClick={() => resetWeekToTemplate()}
+                                className={cn(
+                                    "flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 hover:bg-amber-500/20 transition-all active:scale-95 group",
+                                    isCompact ? "px-3 py-1.5" : "px-4 py-2.5"
+                                )}
+                                title="Скинути зміни цього тижня та повернутись до шаблону"
+                            >
+                                <RefreshCw size={isCompact ? 16 : 18} className="group-hover:rotate-180 transition-transform duration-500" />
+                                <span className={cn("font-bold", isCompact ? "text-xs" : "text-sm")}>Скинути</span>
+                            </button>
                         )}
-                        title={!isEditMode ? "Увімкніть редагування для скасування" : "Скасувати останню дію"}
-                    >
-                        <RotateCcw size={isCompact ? 16 : 18} className="group-hover:-rotate-45 transition-transform" />
-                        <span className={cn("font-bold", isCompact ? "text-xs" : "text-sm")}>Скасувати {historyLength > 0 && `(${historyLength})`}</span>
-                    </button>
+                        <button
+                            onClick={undo}
+                            disabled={historyLength === 0 || !isEditMode}
+                            className={cn(
+                                "flex items-center gap-2 bg-[#18181b] border border-white/5 rounded-xl text-[#a1a1aa] hover:text-white transition-all disabled:opacity-20 active:scale-95 group",
+                                isCompact ? "px-3 py-1.5" : "px-4 py-2.5"
+                            )}
+                            title={!isEditMode ? "Увімкніть редагування для скасування" : "Скасувати останню дію"}
+                        >
+                            <RotateCcw size={isCompact ? 16 : 18} className="group-hover:-rotate-45 transition-transform" />
+                            <span className={cn("font-bold", isCompact ? "text-xs" : "text-sm")}>Скасувати {historyLength > 0 && `(${historyLength})`}</span>
+                        </button>
+                    </div>
                 )}
 
                 {activeTab === 'schedule' && schedule && userRole === 'admin' && viewType === 'teachers' && (

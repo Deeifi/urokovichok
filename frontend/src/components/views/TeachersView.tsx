@@ -2,7 +2,7 @@ import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
 import { Users, Search, Droplet, LayoutGrid } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
-import { useScheduleStore } from '../../store/useScheduleStore';
+// import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
 import { useUIStore } from '../../store/useUIStore';
 import { getRoomColor, getSubjectColor } from '../../utils/gridHelpers';
 import { CompactTeacherSchedule } from '../CompactTeacherSchedule';
@@ -10,6 +10,7 @@ import { UnifiedGridView } from '../UnifiedGridView';
 import type { Lesson } from '../../types';
 
 interface TeachersViewProps {
+    lessons: Lesson[];
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
     dragOverCell: any;
@@ -20,12 +21,13 @@ interface TeachersViewProps {
 }
 
 export const TeachersView = memo(({
+    lessons,
     draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop,
     setViewingLesson, setEditingTeacherCell
 }: TeachersViewProps) => {
     const data = useDataStore(s => s.data);
-    const scheduleResponse = useScheduleStore(s => s.schedule);
-    const lessons = (scheduleResponse?.status === 'success' || scheduleResponse?.status === 'conflict') ? scheduleResponse.schedule : [];
+    // const scheduleResponse = useScheduleStore(s => s.schedule); // Removed
+    // const lessons = (scheduleResponse?.status === 'success' || scheduleResponse?.status === 'conflict') ? scheduleResponse.schedule : []; // Removed
 
     const isCompact = useUIStore(s => s.isCompact);
     const setIsCompact = useUIStore(s => s.setIsCompact);
