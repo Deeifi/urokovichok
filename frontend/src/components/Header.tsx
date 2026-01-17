@@ -52,8 +52,8 @@ export const Header: React.FC<HeaderProps> = ({
     const lessons = (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [];
 
     return (
-        <header className={cn("flex justify-between items-center px-2 transition-all duration-500 overflow-hidden shrink-0",
-            isHeaderCollapsed ? "h-0 opacity-0 mb-0" : (effectiveIsCompact ? "h-8 mb-1" : (viewType === 'dashboard' ? "h-16 mb-4 lg:mb-6" : "h-16 mb-4"))
+        <header className={cn("flex justify-between items-center px-2 transition-all duration-500 shrink-0",
+            isHeaderCollapsed ? "h-0 opacity-0 mb-0 overflow-hidden" : (effectiveIsCompact ? "h-8 mb-1" : (viewType === 'dashboard' ? "h-16 mb-4 lg:mb-6" : "h-16 mb-4"))
         )}>
             <div className="flex items-center gap-4">
                 <div className={cn("transition-all duration-300", (activeTab !== 'schedule' || viewType !== 'dashboard') && "opacity-0 invisible w-0 overflow-hidden")}>

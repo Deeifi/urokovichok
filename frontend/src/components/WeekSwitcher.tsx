@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useScheduleStore } from '../store/useScheduleStore';
 import { cn } from '../utils/cn';
@@ -8,6 +9,8 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
     const { selectedDate, setCurrentDate } = useScheduleStore();
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const popupRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
 
     const date = new Date(selectedDate);
     const endDate = new Date(date);
@@ -36,14 +39,39 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
         setIsCalendarOpen(false);
     };
 
+    // Update popup position
+    useEffect(() => {
+        const updatePosition = () => {
+            if (isCalendarOpen && buttonRef.current) {
+                const rect = buttonRef.current.getBoundingClientRect();
+                setPopupPosition({
+                    top: rect.bottom + 8,
+                    left: Math.max(16, Math.min(rect.left, window.innerWidth - 300)) // Keep on screen
+                });
+            }
+        };
+
+        if (isCalendarOpen) {
+            updatePosition();
+            window.addEventListener('resize', updatePosition);
+            window.addEventListener('scroll', updatePosition, true);
+        }
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [isCalendarOpen]);
+
     // Close on click outside
     useEffect(() => {
         const handler = (e: MouseEvent) => {
-            if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+            if (isCalendarOpen && popupRef.current && !popupRef.current.contains(e.target as Node) &&
+                buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
                 setIsCalendarOpen(false);
             }
         };
-        if (isCalendarOpen) document.addEventListener('mousedown', handler);
+        document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [isCalendarOpen]);
 
@@ -66,53 +94,57 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
     const selectedMonday = getMonday(date);
 
     return (
-        <div className="relative" ref={popupRef}>
-            <div className={cn(
-                "flex items-center gap-1 bg-[#18181b] border border-white/5 rounded-2xl overflow-hidden",
-                compact ? "p-0.5" : "p-1"
-            )}>
-                <button
-                    onClick={handlePrevWeek}
-                    className={cn(
-                        "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
-                        compact && "p-1"
-                    )}
-                    title="Попередній тиждень"
-                >
-                    <ChevronLeft size={compact ? 16 : 18} />
-                </button>
+        <div className="flex items-center gap-1 bg-[#18181b] border border-white/5 rounded-2xl overflow-hidden">
+            <button
+                onClick={handlePrevWeek}
+                className={cn(
+                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
+                    compact && "p-1"
+                )}
+                title="Попередній тиждень"
+            >
+                <ChevronLeft size={compact ? 16 : 18} />
+            </button>
 
-                <button
-                    onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                    className={cn(
-                        "flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 text-white transition-all rounded-xl",
-                        compact && "px-2 py-1 gap-1",
-                        isCalendarOpen && "bg-white/5"
-                    )}
-                >
-                    <div className="bg-indigo-500/10 p-1 rounded-lg text-indigo-400">
-                        <CalendarIcon size={compact ? 12 : 14} />
-                    </div>
-                    <span className={cn("font-bold text-[#a1a1aa] uppercase tracking-wider", compact ? "text-[9px]" : "text-[10px]")}>
-                        {formattedRange}
-                    </span>
-                </button>
+            <button
+                ref={buttonRef}
+                onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 text-white transition-all rounded-xl",
+                    compact && "px-2 py-1 gap-1",
+                    isCalendarOpen && "bg-white/5"
+                )}
+            >
+                <div className="bg-indigo-500/10 p-1 rounded-lg text-indigo-400">
+                    <CalendarIcon size={compact ? 12 : 14} />
+                </div>
+                <span className={cn("font-bold text-[#a1a1aa] uppercase tracking-wider", compact ? "text-[9px]" : "text-[10px]")}>
+                    {formattedRange}
+                </span>
+            </button>
 
-                <button
-                    onClick={handleNextWeek}
-                    className={cn(
-                        "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
-                        compact && "p-1"
-                    )}
-                    title="Наступний тиждень"
-                >
-                    <ChevronRight size={compact ? 16 : 18} />
-                </button>
-            </div>
+            <button
+                onClick={handleNextWeek}
+                className={cn(
+                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
+                    compact && "p-1"
+                )}
+                title="Наступний тиждень"
+            >
+                <ChevronRight size={compact ? 16 : 18} />
+            </button>
 
-            {/* Calendar Popup */}
-            {isCalendarOpen && (
-                <div className="absolute top-full left-0 mt-2 z-50 bg-[#1a1a1d] border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black/50 animate-in fade-in slide-in-from-top-2 duration-200 min-w-[280px]">
+            {/* Calendar Popup Portal */}
+            {isCalendarOpen && createPortal(
+                <div
+                    ref={popupRef}
+                    style={{
+                        position: 'fixed',
+                        top: `${popupPosition.top}px`,
+                        left: `${popupPosition.left}px`,
+                    }}
+                    className="z-[9999] bg-[#1a1a1d] border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black/50 animate-in fade-in slide-in-from-top-2 duration-200 min-w-[280px]"
+                >
                     {/* Header */}
                     <div className="flex items-center justify-between mb-3">
                         <button onClick={() => setViewMonth(m => m === 0 ? (setViewYear(y => y - 1), 11) : m - 1)} className="p-1.5 hover:bg-white/5 rounded-lg text-[#a1a1aa] hover:text-white">
@@ -164,7 +196,8 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
                             <X size={16} />
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
