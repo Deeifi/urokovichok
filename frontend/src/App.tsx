@@ -207,19 +207,11 @@ function App() {
           panelMode === 'docked' && isPanelOpen ? "pb-[400px]" : ""
         )}>
           {/* Header */}
-          {!isFullScreen ? (
+          {!isFullScreen && (
             <Header
               handleGenerate={handleGenerate}
               loading={loading}
             />
-          ) : (
-            <button
-              onClick={() => setIsFullScreen(false)}
-              className="fixed top-4 right-4 z-[100] bg-black/60 hover:bg-black/80 text-white/40 hover:text-white p-2 rounded-full border border-white/10 backdrop-blur-md transition-all shadow-2xl group"
-              title="Вийти з повноекранного режиму"
-            >
-              <Minimize2 size={20} className="group-hover:scale-110 transition-transform" />
-            </button>
           )}
 
           {/* Persistent Toolbar */}
@@ -379,6 +371,17 @@ function App() {
         )}
 
       </HoverProvider>
+
+      {/* Fullscreen Exit Button */}
+      {isFullScreen && (
+        <button
+          onClick={() => setIsFullScreen(false)}
+          className="fixed top-4 right-4 z-[9999] bg-black/60 hover:bg-black/80 text-white/40 hover:text-white p-2 rounded-full border border-white/10 backdrop-blur-md transition-all shadow-2xl group"
+          title="Вийти з повноекранного режиму"
+        >
+          <Minimize2 size={20} className="group-hover:scale-110 transition-transform" />
+        </button>
+      )}
     </div >
   );
 }

@@ -1,5 +1,4 @@
 import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
-import { Users, Search, Droplet, LayoutGrid } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
 // import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
@@ -115,16 +114,8 @@ export const TeachersView = memo(({
                 )}
 
                 <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
-                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transition-all", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
-                        <div className="flex items-center gap-2 pr-1 mr-1">
-                            <div className="relative">
-                                <Users size={isCompact ? 12 : 14} className="text-indigo-400" />
-                                <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
-                            </div>
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
-                                <span>{filteredTeachers.length}</span> / {data.teachers.length}
-                            </span>
-                        </div>
+                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transition-all hidden", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
+                        {/* Count moved to Toolbar */}
                     </div>
 
                     {!isCompact && (
