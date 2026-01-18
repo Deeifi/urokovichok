@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { FileSpreadsheet, GraduationCap, ChevronDown, Download } from 'lucide-react';
 import { cn } from '../utils/cn';
-import type { Teacher, Lesson, Subject, ScheduleClass } from '../types';
+import type { Teacher, Lesson, Subject, ClassGroup } from '../types';
 
 interface ExportDropdownProps {
     teachers: Teacher[];
     lessons: Lesson[];
     subjects: Subject[];
-    classes: ScheduleClass[];
-    exportFunction: (teachers: Teacher[], lessons: Lesson[], subjects: Subject[], classes: ScheduleClass[], options?: { onlyClassNames?: boolean }) => void;
+    classes: ClassGroup[];
+    exportFunction: (teachers: Teacher[], lessons: Lesson[], subjects: Subject[], classes: ClassGroup[], options?: { onlyClassNames?: boolean }) => void;
     compact?: boolean;
 }
 

@@ -17,7 +17,10 @@ export const ScheduleToolbar = () => {
         viewType, setViewType,
         isCompact,
         activeTab,
-        searchQuery, setSearchQuery
+        searchQuery, setSearchQuery,
+        isEditMode, setIsEditMode,
+        scheduleEditScope, setScheduleEditScope,
+        userRole
     } = useUIStore();
 
     // Data Store
@@ -25,16 +28,19 @@ export const ScheduleToolbar = () => {
 
     const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
-    // Schedule Store
-    const { schedule, history, undo, selectedDate, resetWeekToTemplate } = useScheduleStore();
-    const historyLength = history.past.length;
-
-    // UI Store Actions
+    // Schedule Store - get both histories and current scope
     const {
-        isEditMode, setIsEditMode,
-        scheduleEditScope, setScheduleEditScope,
-        userRole
-    } = useUIStore();
+        schedule,
+        templateHistory,
+        weekHistory,
+        undo,
+        selectedDate,
+        resetWeekToTemplate
+    } = useScheduleStore();
+
+    // Select correct history based on edit scope
+    const currentHistory = scheduleEditScope === 'template' ? templateHistory : weekHistory;
+    const historyLength = currentHistory.past.length;
 
     const isBaseTemplate = !useScheduleStore.getState().weeklySchedules[getWeekId(new Date(selectedDate))];
     const lessons = (schedule?.status === 'success' || schedule?.status === 'conflict') ? schedule.schedule : [];

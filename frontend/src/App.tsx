@@ -33,13 +33,12 @@ function App() {
   const isEditMode = useUIStore(s => s.isEditMode);
 
   // Derive the current week's schedule using useMemo for proper reactivity
+  // Always show the current week's schedule (with overrides if they exist)
+  // Edit mode only determines WHERE changes are saved, not WHAT is displayed
   const weekId = useMemo(() => getWeekId(new Date(selectedDate)), [selectedDate]);
   const schedule = useMemo(() => {
-    if (isEditMode && scheduleEditScope === 'template') {
-      return baseSchedule;
-    }
     return weeklySchedules[weekId] || baseSchedule;
-  }, [weeklySchedules, weekId, baseSchedule, isEditMode, scheduleEditScope]);
+  }, [weeklySchedules, weekId, baseSchedule]);
 
   const setSchedule = useScheduleStore(s => s.setSchedule);
   const pushToHistory = useScheduleStore(s => s.pushToHistory);
@@ -78,10 +77,24 @@ function App() {
 
   const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
-  // Business Logic: Remove excess lessons
+  // Business Logic: Remove excess lessons and initialize history
   useEffect(() => {
-    if (schedule && !useScheduleStore.getState().history.present) {
-      useScheduleStore.setState(s => ({ history: { ...s.history, present: schedule } }));
+    if (schedule) {
+      const state = useScheduleStore.getState();
+      const currentHistory = scheduleEditScope === 'template' ? state.templateHistory : state.weekHistory;
+
+      // Initialize history if present is null
+      if (!currentHistory.present) {
+        if (scheduleEditScope === 'template') {
+          useScheduleStore.setState(s => ({
+            templateHistory: { ...s.templateHistory, present: schedule }
+          }));
+        } else {
+          useScheduleStore.setState(s => ({
+            weekHistory: { ...s.weekHistory, present: schedule }
+          }));
+        }
+      }
     }
 
     if (schedule && schedule.status === 'success') {
@@ -90,7 +103,7 @@ function App() {
         setSchedule({ ...schedule, schedule: cleanedSchedule });
       }
     }
-  }, [data, schedule, setSchedule]);
+  }, [data, schedule, setSchedule, scheduleEditScope]);
 
   // Reset header collapse when switching views or tabs
   useEffect(() => {
@@ -207,7 +220,7 @@ function App() {
           panelMode === 'docked' && isPanelOpen ? "pb-[400px]" : ""
         )}>
           {/* Header */}
-          {!isFullScreen && (
+          {!isFullScreen && (activeTab !== 'schedule' || viewType === 'dashboard') && (
             <Header
               handleGenerate={handleGenerate}
               loading={loading}
