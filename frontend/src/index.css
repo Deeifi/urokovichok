@@ -9,6 +9,9 @@
         --text-primary: #ffffff;
         --text-muted: #a1a1aa;
         --border-color: rgba(255, 255, 255, 0.05);
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
 
     body {
@@ -16,12 +19,28 @@
         color: var(--text-primary);
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        outline: none !important;
+        margin: 0;
+        padding: 0;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: hidden;
+    }
+
+    /* Global focus reset to prevent "white ghost borders" on page load */
+    *:focus {
+        outline: none !important;
+    }
+
+    *:focus-visible {
+        outline: 2px solid var(--accent-primary) !important;
+        outline-offset: 2px;
     }
 }
 
 @layer components {
     .bento-card {
-        @apply bg-[#18181b] border border-white/5 rounded-2xl shadow-lg;
+        @apply bg-[#18181b] border border-white/5 rounded-2xl shadow-lg overflow-hidden;
     }
 
     .accent-card {

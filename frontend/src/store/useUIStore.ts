@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { indexedDBStorage } from '../utils/indexedDB';
 import type { PerformanceSettings, ViewType } from '../types';
 
 interface UIState {
@@ -151,7 +152,7 @@ export const useUIStore = create<UIState>()(
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment
-            storage: createJSONStorage(() => localStorage),
+            storage: createJSONStorage(() => indexedDBStorage),
             partialize: (state) => ({
                 // Persist only what we want to keep between sessions
                 isCompact: state.isCompact,

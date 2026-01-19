@@ -39,7 +39,9 @@ import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
 import { useHover } from '../context/HoverContext';
 import { useUIStore } from '../store/useUIStore';
+import { useScheduleStore } from '../store/useScheduleStore';
 import { useDragStore } from '../store/useDragStore';
+import { getDayDate } from '../utils/scheduleHelpers';
 const EMPTY_ARRAY: Lesson[] = [];
 
 interface MemoizedTeacherCellProps {
@@ -317,6 +319,7 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
 
         return index;
     }, [lessons]);
+    const selectedDate = useScheduleStore(s => s.selectedDate);
 
     // 2. Sort & Filter teachers
     const sortedTeachers = useMemo(() => {
@@ -361,6 +364,7 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="w-1 h-3 bg-indigo-500 rounded-full" />
                                             {days[dIdx]}
+                                            <span className="ml-1 text-[10px] font-black text-white">{getDayDate(selectedDate, dIdx)}</span>
                                         </div>
                                     </th>
                                     {/* Large separator column between days */}

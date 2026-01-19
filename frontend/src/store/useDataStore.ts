@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { INITIAL_DATA } from '../initialData';
+import { indexedDBStorage } from '../utils/indexedDB';
 import type { ScheduleRequest } from '../types';
 
 interface DataState {
@@ -21,7 +22,7 @@ export const useDataStore = create<DataState>()(
         }),
         {
             name: 'school_os_data',
-            storage: createJSONStorage(() => localStorage),
+            storage: createJSONStorage(() => indexedDBStorage),
             // Only persist if data is valid (optional enhancement logic can go here)
         }
     )

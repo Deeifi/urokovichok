@@ -1,9 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Columns, AlertTriangle, Pencil, Search } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { useScheduleStore } from '../../store/useScheduleStore';
 import { cn } from '../../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../../types';
 import { getSubjectColor } from '../../utils/gridHelpers';
+import { getDayDate } from '../../utils/scheduleHelpers';
 import { useHover } from '../../context/HoverContext';
 import { useDragStore } from '../../store/useDragStore';
 
@@ -33,14 +35,16 @@ interface ByClassViewProps {
 }
 
 export const ByClassView = memo(({
-    data, selectedClassId, setSelectedClassId, isCompact, isEditMode, perfSettings,
+    data, selectedClassId, setSelectedClassId, isCompact: _ignoredIsCompact, isEditMode, perfSettings,
     userRole, selectedTeacherId, lessons, apiDays, days, periods,
     getTeacherConflicts, getClassConflicts, draggedLesson, setDraggedLesson,
     processDrop, setEditingCell, setViewingLesson,
     handleExportPDF, isExporting, isFullScreen
 }: ByClassViewProps) => {
+    const isCompact = false; // Force standard view
     const { hoveredLesson, setHoveredLesson } = useHover();
     const { searchQuery, setSearchQuery } = useUIStore();
+    const selectedDate = useScheduleStore(s => s.selectedDate);
 
     const findLesson = useCallback((classId: string, day: string, period: number): Lesson | null => {
         return lessons.find(l =>
@@ -108,7 +112,10 @@ export const ByClassView = memo(({
             <div id="class-schedule-export" className={cn("grid grid-cols-1 md:grid-cols-5 gap-4", isFullScreen && "pt-2")}>
                 {apiDays.map((day, dIdx) => (
                     <div key={day} className={cn("bento-card border-white/5 bg-[#1a1a1e]", isCompact ? "p-2" : "p-4")}>
-                        <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-0.5 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
+                        <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-0.5 text-[10px]" : "mb-2")}>{days[dIdx]}</h4>
+                        <div className="text-[10px] font-black text-indigo-400 text-center uppercase tracking-widest mb-4 opacity-50">
+                            {getDayDate(selectedDate, dIdx)}
+                        </div>
                         <div className={isCompact ? "space-y-1" : "space-y-3"}>
                             {periods.map(p => {
                                 const lesson = findLesson(selectedClassId, day, p);

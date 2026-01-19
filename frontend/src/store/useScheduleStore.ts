@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { indexedDBStorage } from '../utils/indexedDB';
 import type { ScheduleResponse } from '../types';
 import { getWeekId, getMonday } from '../utils/scheduleHelpers';
 import { useUIStore } from './useUIStore';
@@ -240,7 +241,7 @@ export const useScheduleStore = create<ScheduleState>()(
         }),
         {
             name: 'school_os_schedule',
-            storage: createJSONStorage(() => localStorage),
+            storage: createJSONStorage(() => indexedDBStorage),
             // Removed partialize to persist EVERYTHING including history
         }
     )

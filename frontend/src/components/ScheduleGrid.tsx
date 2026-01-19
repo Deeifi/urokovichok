@@ -170,20 +170,6 @@ export function ScheduleGrid({
             viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-4") : "gap-0"
         )}>
             {/* UI Header for the Grid - Only shown on Dashboard as other views use the Header toolbar */}
-            {viewType === 'dashboard' && !isFullScreen && (
-                <div className={cn("flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-500 overflow-hidden shrink-0",
-                    (effectiveIsCompact || isHeaderCollapsed) ? "h-0 opacity-0 mb-0" : "h-14 mb-4")}>
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h2 className="text-2xl font-black text-white tracking-tight">Розклад</h2>
-                            {userRole === 'admin' && <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 uppercase">Адмін</span>}
-                        </div>
-                        <p className="text-xs font-bold text-[#a1a1aa] uppercase tracking-widest">
-                            {userRole === 'admin' ? "Керування навчальним процесом" : "Ваш персональний розклад"}
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
             {viewType === 'dashboard' && !isFullScreen && (

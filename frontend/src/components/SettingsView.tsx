@@ -15,10 +15,14 @@ import {
     Shield,
     X,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Download,
+    Upload,
+    Database
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
+import { getAllData, restoreData } from '../utils/indexedDB';
 import type { PerformanceSettings, Teacher } from '../types';
 
 interface SettingsViewProps {
@@ -286,31 +290,105 @@ export function SettingsView({
                     </div>
                 </div>
 
-                {/* System Section */}
+                {/* Data Management Section */}
                 <div className="bento-card border-white/5 bg-[#1a1a1e] p-6 space-y-6 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                            <Database className="text-blue-400" size={20} />
+                            <h3 className="text-lg font-black text-white uppercase tracking-widest text-sm">Дані та Бекапи</h3>
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                            <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-2">
+                                <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Збереження</div>
+                                <p className="text-[10px] text-[#a1a1aa] leading-relaxed">
+                                    Дані автоматично зберігаються в базі даних браузера (IndexedDB).
+                                    Рекомендуємо робити резервну копію раз на тиждень.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const data = await getAllData();
+                                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `school_os_backup_${new Date().toISOString().split('T')[0]}.json`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                        } catch (e) {
+                                            console.error('Export failed', e);
+                                            alert('Помилка при створенні резервної копії');
+                                        }
+                                    }}
+                                    className="flex flex-col items-center justify-center gap-2 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white transition-all border border-blue-500/20 active:scale-95"
+                                >
+                                    <Download size={20} />
+                                    Завантажити<br />Бекап
+                                </button>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        accept=".json"
+                                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+
+                                            if (confirm('УВАГА! Всі поточні дані будуть замінені даними з файлу. Це дію неможливо скасувати. Продовжити?')) {
+                                                try {
+                                                    const text = await file.text();
+                                                    const data = JSON.parse(text);
+                                                    await restoreData(data);
+                                                    alert('Дані успішно відновлено! Сторінка буде перезавантажена.');
+                                                    window.location.reload();
+                                                } catch (err) {
+                                                    console.error('Import failed', err);
+                                                    alert('Помилка при відновленні даних. Перевірте файл.');
+                                                }
+                                            }
+                                            // Reset input
+                                            e.target.value = '';
+                                        }}
+                                    />
+                                    <button
+                                        className="w-full h-full flex flex-col items-center justify-center gap-2 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white transition-all border border-emerald-500/20 active:scale-95"
+                                    >
+                                        <Upload size={20} />
+                                        Відновити<br />з файлу
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-white/5">
+                        <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-4">
                             <Cpu className="text-indigo-400" size={20} />
                             <h3 className="text-lg font-black text-white uppercase tracking-widest text-sm">Система</h3>
                         </div>
 
-                        <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3 mb-4">
                             <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Версія додатку</div>
                             <div className="text-xl font-black text-white flex items-center gap-2">
-                                v2.1.0
+                                v2.2.0
                                 <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20">PREMIUM</span>
                             </div>
-                            <p className="text-[10px] text-[#a1a1aa] leading-relaxed">Всі системи працюють у штатному режимі. Дані зберігаються локально у вашому браузері.</p>
                         </div>
-                    </div>
 
-                    <button
-                        onClick={handleReset}
-                        className="w-full py-4 rounded-2xl font-black bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        <Trash2 size={18} />
-                        Очистити всі дані
-                    </button>
+                        <button
+                            onClick={handleReset}
+                            className="w-full py-4 rounded-2xl font-black bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <Trash2 size={18} />
+                            Скинути семестр
+                        </button>
+                    </div>
                 </div>
             </div>
 

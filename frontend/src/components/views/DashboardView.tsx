@@ -1,5 +1,9 @@
 import { memo } from 'react';
-import { Video, ChevronRight } from 'lucide-react';
+import {
+    Video, ChevronRight, BookOpen, Calculator, FlaskConical, Languages, Book,
+    Library, Globe2, Divide, Shapes, Dna, Atom, Map, Scroll, Landmark,
+    Users2, Palette, Hammer, Cpu, HeartPulse, Dumbbell, Shield, Telescope, Leaf
+} from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { BELL_SCHEDULE } from '../../constants';
 import { TeacherDashboard } from '../TeacherDashboard';
@@ -22,9 +26,40 @@ interface DashboardViewProps {
     isFullScreen?: boolean;
 }
 
+const ICON_OPTIONS = [
+    { name: 'BookOpen', icon: BookOpen },
+    { name: 'Calculator', icon: Calculator },
+    { name: 'FlaskConical', icon: FlaskConical },
+    { name: 'Languages', icon: Languages },
+    { name: 'Book', icon: Book },
+    { name: 'Library', icon: Library },
+    { name: 'Globe2', icon: Globe2 },
+    { name: 'Divide', icon: Divide },
+    { name: 'Shapes', icon: Shapes },
+    { name: 'Dna', icon: Dna },
+    { name: 'Atom', icon: Atom },
+    { name: 'Map', icon: Map },
+    { name: 'Scroll', icon: Scroll },
+    { name: 'Landmark', icon: Landmark },
+    { name: 'Users2', icon: Users2 },
+    { name: 'Palette', icon: Palette },
+    { name: 'Hammer', icon: Hammer },
+    { name: 'Cpu', icon: Cpu },
+    { name: 'HeartPulse', icon: HeartPulse },
+    { name: 'Dumbbell', icon: Dumbbell },
+    { name: 'Shield', icon: Shield },
+    { name: 'Telescope', icon: Telescope },
+    { name: 'Leaf', icon: Leaf },
+];
+
+const IconRenderer = ({ name, size = 20, className = "", color }: { name?: string, size?: number, className?: string, color?: string }) => {
+    const IconComponent = ICON_OPTIONS.find(i => i.name === name)?.icon || BookOpen;
+    return <IconComponent size={size} className={className} color={color} />;
+};
+
 export const DashboardView = memo(({
     data, selectedClassId, setSelectedClassId, timeInfo, now, findLesson, periods,
-    getRoomColor, sortedClasses, perfSettings, userRole, selectedTeacherId, lessons, isFullScreen
+    sortedClasses, perfSettings, userRole, selectedTeacherId, lessons, isFullScreen
 }: DashboardViewProps) => {
     const { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod } = timeInfo;
 
@@ -56,7 +91,7 @@ export const DashboardView = memo(({
     const nextStartTime = nextPeriod !== -1 ? BELL_SCHEDULE.find(b => b.period === nextPeriod)?.start : null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none overflow-hidden">
             {/* Live Card */}
             {!isFullScreen && (
                 <div
@@ -67,8 +102,8 @@ export const DashboardView = memo(({
                             : undefined
                     }}
                 >
-                    <div className="absolute -top-16 -right-16 p-8 opacity-[0.03] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
-                        <Video size={200} />
+                    <div className="absolute -top-16 -right-16 p-8 opacity-[0.05] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+                        <IconRenderer name={subject?.icon} size={240} color={subject?.color} />
                     </div>
 
                     <div>
@@ -162,25 +197,28 @@ export const DashboardView = memo(({
                                 key={period}
                                 className={cn(
                                     "flex items-center gap-4 py-4 px-4 rounded-2xl transition-all duration-300",
-                                    isCurrent ? "bg-white/5 border-l-4 border-[#6366f1] translate-x-1" : "hover:bg-white/[0.02]",
-                                    isPast ? "opacity-40" : "opacity-100"
+                                    isCurrent ? "bg-white/5 border-l-4 border-indigo-500 translate-x-1" : "hover:bg-white/[0.02]",
+                                    isPast ? "opacity-30 grayscale" : "opacity-100"
                                 )}
                             >
                                 <div className={cn(
-                                    "w-16 font-black text-lg tabular-nums",
-                                    isCurrent ? "text-[#6366f1]" : "text-[#a1a1aa]"
+                                    "w-16 font-black text-lg tabular-nums text-center",
+                                    isCurrent ? "text-indigo-400" : "text-[#a1a1aa]"
                                 )}>
                                     {sched?.start || "--:--"}
                                 </div>
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                                    <IconRenderer name={sub?.icon} size={20} color={sub?.color} className={cn(!sub?.color && (isCurrent ? "text-indigo-400" : "text-white/40"))} />
+                                </div>
                                 <div className="flex-1">
-                                    <div className="font-bold text-lg">{sub?.name || "—"}</div>
-                                    <div className="text-xs text-[#a1a1aa] font-black uppercase tracking-tight">
+                                    <div className="font-bold text-lg leading-tight">{sub?.name || "—"}</div>
+                                    <div className="text-[10px] text-[#a1a1aa] font-black uppercase tracking-widest mt-0.5">
                                         {lesson ? data.teachers.find(t => t.id === lesson.teacher_id)?.name : "Вікно"}
                                     </div>
                                 </div>
                                 <div className={cn(
-                                    "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest",
-                                    getRoomColor(lesson?.room || sub?.defaultRoom)
+                                    "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 text-[#a1a1aa] border border-white/5",
+                                    isCurrent && "border-indigo-500/30 text-indigo-400 bg-indigo-500/5"
                                 )}>
                                     {lesson?.room || sub?.defaultRoom || "—"}
                                 </div>

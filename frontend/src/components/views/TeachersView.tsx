@@ -2,9 +2,10 @@ import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
-// import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
+import { useScheduleStore } from '../../store/useScheduleStore';
 import { useUIStore } from '../../store/useUIStore';
 import { getRoomColor, getSubjectColor } from '../../utils/gridHelpers';
+import { getDayDate } from '../../utils/scheduleHelpers';
 import { CompactTeacherSchedule } from '../CompactTeacherSchedule';
 import { UnifiedGridView } from '../UnifiedGridView';
 import type { Lesson } from '../../types';
@@ -25,6 +26,7 @@ export const TeachersView = memo(({
     setViewingLesson, setEditingTeacherCell, isFullScreen
 }: TeachersViewProps) => {
     const data = useDataStore(s => s.data);
+    const selectedDate = useScheduleStore(s => s.selectedDate);
     // const scheduleResponse = useScheduleStore(s => s.schedule); // Removed
     // const lessons = (scheduleResponse?.status === 'success' || scheduleResponse?.status === 'conflict') ? scheduleResponse.schedule : []; // Removed
 
@@ -110,7 +112,7 @@ export const TeachersView = memo(({
                         <div>
                             <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
                             <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                                Всі викладачі • {dayName}
+                                Всі викладачі • {dayName} {getDayDate(selectedDate, apiDays.indexOf(day))}
                             </div>
                         </div>
                     )}
@@ -159,11 +161,12 @@ export const TeachersView = memo(({
                                             }
                                         }}
                                         className={cn(
-                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap flex flex-col items-center leading-tight",
                                             day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
                                         )}
                                     >
-                                        {days[idx].toUpperCase()}
+                                        <span>{days[idx].toUpperCase()}</span>
+                                        <span className="text-[8px] opacity-40">{getDayDate(selectedDate, idx)}</span>
                                     </button>
                                 ))}
                             </div>

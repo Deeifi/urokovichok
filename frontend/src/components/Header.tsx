@@ -18,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
         activeTab,
         isCompact,
         isHeaderCollapsed,
+        userRole,
     } = useUIStore();
 
     // Data Store
@@ -41,7 +42,14 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Left Section: Greeting (Only in Dashboard) */}
             <div className="flex items-center gap-4 min-w-[200px]">
                 <div className={cn("transition-all duration-300", !showGreeting && "opacity-0 invisible w-0 overflow-hidden")}>
-                    <h1 className={cn("font-black tracking-tight transition-all", effectiveIsCompact ? "text-xl" : "text-3xl")}>Привіт👋</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className={cn("font-black tracking-tight transition-all", effectiveIsCompact ? "text-xl" : "text-3xl")}>Привіт👋</h1>
+                        {userRole === 'admin' && (
+                            <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 uppercase">
+                                Адмін
+                            </span>
+                        )}
+                    </div>
                     {!effectiveIsCompact && <div className="text-[#a1a1aa] font-medium mt-0.5 uppercase text-[10px] tracking-widest">{formattedDate}</div>}
                 </div>
             </div>

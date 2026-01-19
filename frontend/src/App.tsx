@@ -205,7 +205,7 @@ function App() {
 
   return (
     <div
-      className="flex h-screen bg-[#0f0f11] text-white"
+      className="flex h-screen bg-[#0f0f11] text-white outline-none overflow-hidden"
       data-perf-animations={(!perfSettings.disableAnimations).toString()}
       data-perf-blur={(!perfSettings.disableBlur).toString()}
       data-perf-shadows={(!perfSettings.disableShadows).toString()}
@@ -215,7 +215,7 @@ function App() {
 
         {/* Main Content Area */}
         <main className={cn(
-          "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+          "flex-1 flex flex-col overflow-hidden transition-all duration-300 outline-none",
           isFullScreen ? "p-0" : effectiveIsCompact ? 'px-2 py-1' : (viewType === 'dashboard' ? 'px-4 py-4 md:px-8' : 'px-2 py-3 lg:px-4 lg:py-4'),
           panelMode === 'docked' && isPanelOpen ? "pb-[400px]" : ""
         )}>

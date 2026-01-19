@@ -22,6 +22,19 @@ export function getMonday(date: Date): Date {
     return new Date(d.setDate(diff));
 }
 
+/**
+ * Gets a formatted date (DD.MM) for a specific day of the week based on its index from Monday.
+ * @param mondayDate The Monday of the week (Date or ISO string)
+ * @param dayIndex 0 for Monday, 1 for Tuesday, etc.
+ */
+export function getDayDate(mondayDate: Date | string, dayIndex: number): string {
+    const d = new Date(mondayDate);
+    d.setDate(d.getDate() + dayIndex);
+    const dd = d.getDate().toString().padStart(2, '0');
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${dd}.${mm}`;
+}
+
 export interface UnscheduledItem {
     subject_id: string;
     class_id: string;

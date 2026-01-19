@@ -40,7 +40,9 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
 
 import { useHover } from '../context/HoverContext';
 import { useUIStore } from '../store/useUIStore';
+import { useScheduleStore } from '../store/useScheduleStore';
 import { useDragStore } from '../store/useDragStore';
+import { getDayDate } from '../utils/scheduleHelpers';
 
 interface MemoizedCellProps {
     classId: string;
@@ -254,6 +256,7 @@ export const CompactMatrixSchedule = ({
     getClassConflicts, userRole, selectedTeacherId, showIcons, filteredClasses
 }: CompactMatrixScheduleProps & { filteredClasses: import('../types').ClassGroup[] }) => {
     const { hoveredLesson } = useHover();
+    const selectedDate = useScheduleStore(s => s.selectedDate);
 
     const lessonLookup = useMemo(() => {
         const map: Record<string, Lesson> = {};
@@ -300,6 +303,7 @@ export const CompactMatrixSchedule = ({
                                         <div className="flex items-center justify-center gap-2">
                                             <div className="w-1 h-3 bg-indigo-500 rounded-full" />
                                             <span>{days[dIdx].toUpperCase()}</span>
+                                            <span className="ml-1 text-[10px] font-black text-white">{getDayDate(selectedDate, dIdx)}</span>
                                         </div>
                                     </th>
                                     {/* Separator column */}
