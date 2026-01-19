@@ -9,7 +9,6 @@ interface ExportDropdownProps {
     subjects: Subject[];
     classes: ClassGroup[];
     exportFunction: (teachers: Teacher[], lessons: Lesson[], subjects: Subject[], classes: ClassGroup[], options?: { onlyClassNames?: boolean }) => void;
-    compact?: boolean;
 }
 
 export const ExportDropdown: React.FC<ExportDropdownProps> = ({
@@ -18,7 +17,6 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
     subjects,
     classes,
     exportFunction,
-    compact = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,16 +40,14 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "flex items-center gap-2 rounded-xl border transition-all text-xs font-bold h-10",
-                    compact ? "px-2" : "px-3 md:px-4",
+                    "flex items-center gap-1.5 rounded-xl border transition-all text-xs font-bold h-9 min-[1100px]:h-10 px-2 min-[1100px]:px-3 shrink-0",
                     isOpen
                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                         : "bg-[#18181b] border-white/5 text-[#a1a1aa] hover:text-white hover:bg-white/5"
                 )}
                 title="Експорт в Excel"
             >
-                <Download size={compact ? 14 : 16} />
-                {!compact && <span>ЕКСПОРТ</span>}
+                <Download size={18} />
                 <ChevronDown size={12} className={cn("transition-transform duration-200", isOpen && "rotate-180")} />
             </button>
 

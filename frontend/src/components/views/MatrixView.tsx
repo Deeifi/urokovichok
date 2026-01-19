@@ -1,5 +1,5 @@
 import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
-// import { Search, Droplet, LayoutGrid, Eye, EyeOff } from 'lucide-react'; // Removed unused icons
+import { Search } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
 // import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
@@ -13,17 +13,16 @@ interface MatrixViewProps {
     lessons: Lesson[];
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
-    setDragOverCell: (c: any) => void;
-    processDrop: (classId: string, day: string, period: number, externalLesson?: any) => void;
+    processDrop: (classId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     setViewingLesson: (c: any) => void;
     setEditingCell: (c: any) => void;
+    isFullScreen?: boolean;
 }
 
 export const MatrixView = memo(({
     lessons,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
-    setViewingLesson, setEditingCell
+    draggedLesson, setDraggedLesson, processDrop,
+    setViewingLesson, setEditingCell, isFullScreen
 }: MatrixViewProps) => {
     const data = useDataStore(s => s.data);
     // const scheduleResponse = useScheduleStore(s => s.schedule); // Removed
@@ -39,7 +38,8 @@ export const MatrixView = memo(({
     const showIcons = useUIStore(s => s.showIcons);
     // const setShowIcons = useUIStore(s => s.setShowIcons); // Unused
     const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
-    const searchQuery = useUIStore(s => s.searchQuery); // Use shared state
+    const searchQuery = useUIStore(s => s.searchQuery);
+    const setSearchQuery = useUIStore(s => s.setSearchQuery);
 
     const [day, setDay] = useState<string>('Mon');
     const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
@@ -101,52 +101,68 @@ export const MatrixView = memo(({
 
     return (
         <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                {!isCompact && (
-                    <div className="flex flex-col">
-                        <h2 className="text-2xl font-black text-white tracking-tight">Матриця</h2>
-                        <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                            {dayName} • {activeGradeGroup === '1-4' ? '1-4 Класи' : activeGradeGroup === '5-9' ? '5-9 Класи' : '10-11 Класи'}
+            {!isFullScreen && (
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+                    {!isCompact && (
+                        <div className="flex flex-col">
+                            <h2 className="text-2xl font-black text-white tracking-tight">Матриця</h2>
+                            <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
+                                {dayName} • {activeGradeGroup === '1-4' ? '1-4 Класи' : activeGradeGroup === '5-9' ? '5-9 Класи' : '10-11 Класи'}
+                            </div>
                         </div>
+                    )}
+
+                    <div className={cn("flex flex-wrap items-center gap-4", isCompact ? "ml-auto" : "")}>
+                        {/* Search Input */}
+                        {!isCompact && (
+                            <div className="flex items-center gap-2 bg-[#18181b] rounded-xl border border-white/5 px-2.5 h-9 transition-all group focus-within:border-indigo-500/50 focus-within:shadow-lg focus-within:shadow-indigo-500/10 min-w-0">
+                                <Search size={14} className="text-[#a1a1aa] group-focus-within:text-indigo-400 transition-colors shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Клас..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-transparent border-none focus:ring-0 text-[10px] min-[1100px]:text-xs font-bold text-white placeholder-[#a1a1aa] w-12 focus:w-24 min-[1100px]:w-20 min-[1100px]:focus:w-32 transition-all outline-none uppercase tracking-wide"
+                                />
+                            </div>
+                        )}
+
+                        {!isCompact && (
+                            <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                                {apiDays.map((d, idx) => (
+                                    <button
+                                        key={d}
+                                        onClick={(e) => {
+                                            if (e.ctrlKey || e.metaKey) {
+                                                const dayLessons = lessons.filter(l => l.day === d);
+                                                const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                            } else {
+                                                setDay(d);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                            day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
+                                        )}
+                                    >
+                                        {days[idx].toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {!isCompact && (
+                            <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
+                                <button onClick={() => setActiveGradeGroup('1-4')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '1-4' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>1-4</button>
+                                <button onClick={() => setActiveGradeGroup('5-9')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-9' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-9</button>
+                                <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
+                            </div>
+                        )}
                     </div>
-                )}
-
-                <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
-                    {!isCompact && (
-                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                            {apiDays.map((d, idx) => (
-                                <button
-                                    key={d}
-                                    onClick={(e) => {
-                                        if (e.ctrlKey || e.metaKey) {
-                                            const dayLessons = lessons.filter(l => l.day === d);
-                                            const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
-                                            const currentSelected = useUIStore.getState().selectedLessonIds;
-                                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
-                                        } else {
-                                            setDay(d);
-                                        }
-                                    }}
-                                    className={cn(
-                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                        day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
-                                    )}
-                                >
-                                    {days[idx].toUpperCase()}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {!isCompact && (
-                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
-                            <button onClick={() => setActiveGradeGroup('1-4')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '1-4' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>1-4</button>
-                            <button onClick={() => setActiveGradeGroup('5-9')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-9' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-9</button>
-                            <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
-                        </div>
-                    )}
                 </div>
-            </div>
+            )}
 
             {isCompact ? (
                 <CompactMatrixSchedule
@@ -181,8 +197,6 @@ export const MatrixView = memo(({
                     }}
                     draggedLesson={draggedLesson}
                     setDraggedLesson={setDraggedLesson}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
                     processDrop={processDrop}
                     isMonochrome={isMonochrome}
                     perfSettings={perfSettings}
@@ -239,8 +253,6 @@ export const MatrixView = memo(({
                     onDrop={processDrop}
                     draggedLesson={draggedLesson}
                     setDraggedLesson={setDraggedLesson}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
                     infoColumnWidth="w-[120px]"
                     onRowHeaderClick={(classId, e) => {
                         if (e.ctrlKey || e.metaKey) {

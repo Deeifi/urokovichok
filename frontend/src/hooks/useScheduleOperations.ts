@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useDataStore } from '../store/useDataStore';
 import { useConflicts } from './useConflicts';
 import type { Lesson, ScheduleResponse } from '../types';
+import { useDragStore } from '../store/useDragStore';
 
 /**
  * Hook for managing interactive schedule operations:
@@ -25,12 +26,6 @@ export const useScheduleOperations = (
 
     // --- Interaction States ---
     const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
-    const [dragOverCell, setDragOverCell] = useState<{
-        classId?: string,
-        teacherId?: string,
-        day: string,
-        period: number
-    } | null>(null);
 
     const [dragConfirm, setDragConfirm] = useState<{
         type: 'swap' | 'move' | 'copy';
@@ -221,7 +216,7 @@ export const useScheduleOperations = (
             onScheduleChange(newResponse);
             setDraggedLesson(null);
         }
-        setDragOverCell(null);
+        useDragStore.getState().setDragOverCell(null);
     }, [draggedLesson, lessons, teachers, subjects, getTeacherConflicts, schedule, onScheduleChange]);
 
     /**
@@ -259,7 +254,7 @@ export const useScheduleOperations = (
             isCopy
         });
 
-        setDragOverCell(null);
+        useDragStore.getState().setDragOverCell(null);
     }, [draggedLesson, classes, getTeacherConflicts, lessons, schedule, onScheduleChange]);
 
     const deleteLessons = useCallback((lessonIds: string[]) => {
@@ -390,7 +385,6 @@ export const useScheduleOperations = (
 
     return {
         draggedLesson, setDraggedLesson,
-        dragOverCell, setDragOverCell,
         dragConfirm, setDragConfirm,
         handleSaveLesson,
         executeDragAction,

@@ -59,10 +59,11 @@ interface TeacherDashboardProps {
         nextPeriod: number;
     };
     now: Date;
+    isFullScreen?: boolean;
 }
 
 export const TeacherDashboard = memo(({
-    data, teacherId, schedule, timeInfo, now
+    data, teacherId, schedule, timeInfo, now, isFullScreen
 }: TeacherDashboardProps) => {
     const { todayApiDay, currentPeriod, isBreak, minutesLeft, nextPeriod } = timeInfo;
 
@@ -129,28 +130,30 @@ export const TeacherDashboard = memo(({
     return (
         <div className="space-y-4 md:space-y-6 animate-in fade-in duration-700">
             {/* Top Stats Bar */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                    { label: 'Годин на тиждень', value: stats.totalHours, icon: Clock, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-                    { label: 'Кількість класів', value: stats.classesCount, icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                    { label: 'Уроків сьогодні', value: stats.totalToday, icon: BookOpen, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                    { label: 'Прогрес дня', value: `${stats.finishedToday}/${stats.totalToday}`, icon: Zap, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-                ].map((stat, i) => (
-                    <div key={i} className="bento-card border-white/5 p-4 flex items-center gap-4 group hover:scale-[1.02] transition-transform">
-                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0", stat.bg, stat.color)}>
-                            <stat.icon size={24} />
+            {!isFullScreen && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                        { label: 'Годин на тиждень', value: stats.totalHours, icon: Clock, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+                        { label: 'Кількість класів', value: stats.classesCount, icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                        { label: 'Уроків сьогодні', value: stats.totalToday, icon: BookOpen, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+                        { label: 'Прогрес дня', value: `${stats.finishedToday}/${stats.totalToday}`, icon: Zap, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+                    ].map((stat, i) => (
+                        <div key={i} className="bento-card border-white/5 p-4 flex items-center gap-4 group hover:scale-[1.02] transition-transform">
+                            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0", stat.bg, stat.color)}>
+                                <stat.icon size={24} />
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">{stat.label}</div>
+                                <div className="text-2xl font-black text-white">{stat.value}</div>
+                            </div>
                         </div>
-                        <div>
-                            <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">{stat.label}</div>
-                            <div className="text-2xl font-black text-white">{stat.value}</div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Live Card */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className={cn(isFullScreen ? "lg:col-span-3" : "lg:col-span-2", "space-y-6")}>
                     <div
                         className="accent-card min-h-[220px] md:min-h-[300px] flex flex-col justify-between overflow-hidden relative group p-6 md:p-10"
                         style={{
@@ -275,69 +278,71 @@ export const TeacherDashboard = memo(({
                 </div>
 
                 {/* Sidebar Widgets */}
-                <div className="space-y-6">
-                    {/* Weekly Load Widget */}
-                    <div className="bento-card border-white/5 p-6">
-                        <h3 className="text-xs font-black text-[#a1a1aa] uppercase tracking-[0.2em] mb-6">Тижневе навантаження</h3>
-                        <div className="flex justify-between items-end h-40 px-2">
-                            {weeklyProgress.map((day, i) => (
-                                <div key={i} className="flex flex-col items-center gap-3 w-8">
-                                    <div className="relative flex-1 w-full flex items-end">
-                                        <div className="absolute inset-0 bg-white/[0.02] rounded-full" />
-                                        <div
-                                            className={cn(
-                                                "w-full rounded-full transition-all duration-1000 origin-bottom",
-                                                day.isToday ? "bg-indigo-500 shadow-lg shadow-indigo-500/20" : "bg-white/10"
-                                            )}
-                                            style={{ height: `${(day.count / 8) * 100}%` }}
-                                        />
-                                    </div>
-                                    <span className={cn("text-[10px] font-black tracking-widest", day.isToday ? "text-white" : "text-[#a1a1aa]")}>{day.day}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Next Activity Widget */}
-                    <div className="bento-card border-white/5 p-6 bg-gradient-to-br from-indigo-500/10 to-transparent">
-                        <div className="flex items-center gap-2 text-indigo-400 mb-4">
-                            <Calendar size={18} />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">Наступний урок</h3>
-                        </div>
-                        {upcomingLesson ? (
-                            <div className="space-y-2">
-                                <div className="text-3xl font-black text-white">{nextStartTime}</div>
-                                <div className="text-lg font-bold text-white/90">{data.subjects.find(s => s.id === upcomingLesson.subject_id)?.name}</div>
-                                <div className="text-sm font-medium text-[#a1a1aa]">Клас {data.classes.find(c => c.id === upcomingLesson.class_id)?.name}</div>
-                            </div>
-                        ) : (
-                            <div className="text-[#a1a1aa] font-bold py-2 italic text-sm">Сьогодні уроків більше немає</div>
-                        )}
-                    </div>
-
-                    {/* My Classes Widget */}
-                    <div className="bento-card border-white/5 p-6">
-                        <div className="flex items-center gap-2 text-emerald-400 mb-6">
-                            <Users size={18} />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em]">Мої класи</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {myClasses.map((cls, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-black text-xs">
-                                            {cls.name.slice(0, 1)}
+                {!isFullScreen && (
+                    <div className="space-y-6">
+                        {/* Weekly Load Widget */}
+                        <div className="bento-card border-white/5 p-6">
+                            <h3 className="text-xs font-black text-[#a1a1aa] uppercase tracking-[0.2em] mb-6">Тижневе навантаження</h3>
+                            <div className="flex justify-between items-end h-40 px-2">
+                                {weeklyProgress.map((day, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-3 w-8">
+                                        <div className="relative flex-1 w-full flex items-end">
+                                            <div className="absolute inset-0 bg-white/[0.02] rounded-full" />
+                                            <div
+                                                className={cn(
+                                                    "w-full rounded-full transition-all duration-1000 origin-bottom",
+                                                    day.isToday ? "bg-indigo-500 shadow-lg shadow-indigo-500/20" : "bg-white/10"
+                                                )}
+                                                style={{ height: `${(day.count / 8) * 100}%` }}
+                                            />
                                         </div>
-                                        <span className="font-bold text-sm text-white">{cls.name}</span>
+                                        <span className={cn("text-[10px] font-black tracking-widest", day.isToday ? "text-white" : "text-[#a1a1aa]")}>{day.day}</span>
                                     </div>
-                                    <div className="text-[10px] font-black text-[#a1a1aa] group-hover:text-white transition-colors">
-                                        {cls.hours} год/тижд
-                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Next Activity Widget */}
+                        <div className="bento-card border-white/5 p-6 bg-gradient-to-br from-indigo-500/10 to-transparent">
+                            <div className="flex items-center gap-2 text-indigo-400 mb-4">
+                                <Calendar size={18} />
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em]">Наступний урок</h3>
+                            </div>
+                            {upcomingLesson ? (
+                                <div className="space-y-2">
+                                    <div className="text-3xl font-black text-white">{nextStartTime}</div>
+                                    <div className="text-lg font-bold text-white/90">{data.subjects.find(s => s.id === upcomingLesson.subject_id)?.name}</div>
+                                    <div className="text-sm font-medium text-[#a1a1aa]">Клас {data.classes.find(c => c.id === upcomingLesson.class_id)?.name}</div>
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="text-[#a1a1aa] font-bold py-2 italic text-sm">Сьогодні уроків більше немає</div>
+                            )}
+                        </div>
+
+                        {/* My Classes Widget */}
+                        <div className="bento-card border-white/5 p-6">
+                            <div className="flex items-center gap-2 text-emerald-400 mb-6">
+                                <Users size={18} />
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em]">Мої класи</h3>
+                            </div>
+                            <div className="space-y-3">
+                                {myClasses.map((cls, i) => (
+                                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-black text-xs">
+                                                {cls.name.slice(0, 1)}
+                                            </div>
+                                            <span className="font-bold text-sm text-white">{cls.name}</span>
+                                        </div>
+                                        <div className="text-[10px] font-black text-[#a1a1aa] group-hover:text-white transition-colors">
+                                            {cls.hours} год/тижд
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

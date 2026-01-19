@@ -37,6 +37,7 @@ interface ScheduleGridProps {
     selectedTeacherId: string | null;
     isHeaderCollapsed?: boolean;
     setIsHeaderCollapsed?: (collapsed: boolean) => void;
+    isFullScreen?: boolean;
 }
 
 export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
@@ -48,7 +49,7 @@ export type ViewType = 'dashboard' | 'matrix' | 'byClass' | 'teachers';
 
 export function ScheduleGrid({
     data, schedule, onScheduleChange, isEditMode, setIsEditMode, isCompact, viewType, setViewType, perfSettings,
-    userRole, selectedTeacherId, isHeaderCollapsed, setIsHeaderCollapsed
+    userRole, selectedTeacherId, isHeaderCollapsed, setIsHeaderCollapsed, isFullScreen
 }: ScheduleGridProps) {
     const [selectedClassId, setSelectedClassId] = useState<string>(data.classes[0]?.id || '');
     const [editingCell, setEditingCell] = useState<{ classId: string, day: string, period: number } | null>(null);
@@ -60,7 +61,6 @@ export function ScheduleGrid({
     const { now, timeInfo } = useTimeInfo(perfSettings.lowFrequencyClock);
     const {
         draggedLesson, setDraggedLesson,
-        dragOverCell, setDragOverCell,
         dragConfirm, setDragConfirm,
         handleSaveLesson,
         executeDragAction,
@@ -170,7 +170,7 @@ export function ScheduleGrid({
             viewType === 'dashboard' ? (effectiveIsCompact ? "gap-2" : "gap-4") : "gap-0"
         )}>
             {/* UI Header for the Grid - Only shown on Dashboard as other views use the Header toolbar */}
-            {viewType === 'dashboard' && (
+            {viewType === 'dashboard' && !isFullScreen && (
                 <div className={cn("flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-500 overflow-hidden shrink-0",
                     (effectiveIsCompact || isHeaderCollapsed) ? "h-0 opacity-0 mb-0" : "h-14 mb-4")}>
                     <div className="flex flex-col">
@@ -186,8 +186,8 @@ export function ScheduleGrid({
             )}
 
             {/* View Selection Bar & Edit Mode Toggle - Only shown on Dashboard as other views use the Header toolbar */}
-            {viewType === 'dashboard' && (
-                <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 transition-all duration-500",
+            {viewType === 'dashboard' && !isFullScreen && (
+                <div className={cn("flex flex-col md:flex-row items-start md:items-center gap-4 shrink-0 transition-all duration-500",
                     isHeaderCollapsed ? "mb-4" : (effectiveIsCompact ? "mb-[-16px]" : "mb-2"))}>
                     <div className={cn("flex flex-wrap gap-2 bg-[#18181b] rounded-2xl w-fit border border-white/5 transition-all", (effectiveIsCompact || isHeaderCollapsed) ? "p-1" : "p-1.5")}>
                         {[
@@ -200,21 +200,23 @@ export function ScheduleGrid({
                                 key={tab.id}
                                 onClick={() => setViewType(tab.id as ViewType)}
                                 className={cn(
-                                    "flex items-center gap-2 rounded-xl font-bold transition-all duration-200",
-                                    (effectiveIsCompact || isHeaderCollapsed) ? "px-3 py-1 text-xs" : "px-5 py-2",
+                                    "flex items-center gap-1.5 md:gap-2 rounded-xl font-bold transition-all duration-200",
+                                    (effectiveIsCompact || isHeaderCollapsed)
+                                        ? "px-2 py-1 text-[10px]"
+                                        : "px-2 py-1.5 text-[10px] md:px-5 md:py-2 md:text-xs",
                                     viewType === tab.id
                                         ? "bg-white/10 text-white shadow-lg shadow-black/20"
                                         : "text-[#a1a1aa] hover:text-white"
                                 )}
                             >
-                                <tab.icon size={(effectiveIsCompact || isHeaderCollapsed) ? 14 : 18} />
-                                {!(effectiveIsCompact || isHeaderCollapsed) && tab.label}
-                                {(effectiveIsCompact || isHeaderCollapsed) && tab.id === viewType && tab.label}
+                                <tab.icon size={14} className="md:w-[18px] md:h-[18px]" />
+                                <span className={cn("hidden sm:inline", viewType === tab.id && "inline")}>{!(effectiveIsCompact || isHeaderCollapsed) && tab.label}</span>
+                                {(effectiveIsCompact || isHeaderCollapsed) && tab.id === viewType && <span className="hidden sm:inline">{tab.label}</span>}
                             </button>
                         ))}
                     </div>
 
-                    {userRole === 'admin' && (
+                    {userRole === 'admin' && viewType !== 'dashboard' && (
                         <div className={cn("flex items-center gap-2 bg-[#18181b] rounded-2xl border border-white/5 transition-all", (effectiveIsCompact || isHeaderCollapsed) ? "p-1" : "p-1.5")}>
                             <button
                                 onClick={() => setIsEditMode(!isEditMode)}
@@ -247,7 +249,7 @@ export function ScheduleGrid({
             <div
                 className={cn("flex-1 min-h-0", (viewType === 'teachers' || viewType === 'matrix') ? "overflow-hidden flex flex-col" : "overflow-y-auto custom-scrollbar")}
                 onScroll={(e) => {
-                    if (viewType !== 'dashboard' || !setIsHeaderCollapsed) return;
+                    if (viewType !== 'dashboard' || !setIsHeaderCollapsed || isFullScreen) return;
                     const top = e.currentTarget.scrollTop;
                     if (top > 50 && !isHeaderCollapsed) {
                         setIsHeaderCollapsed(true);
@@ -272,6 +274,7 @@ export function ScheduleGrid({
                             userRole={userRole}
                             selectedTeacherId={selectedTeacherId}
                             lessons={lessons}
+                            isFullScreen={isFullScreen}
                         />
                     </ErrorBoundary>
                 ) : viewType === 'byClass' ? (
@@ -280,7 +283,7 @@ export function ScheduleGrid({
                             data={data}
                             selectedClassId={selectedClassId}
                             setSelectedClassId={setSelectedClassId}
-                            isCompact={false}
+                            isCompact={isCompact}
                             isEditMode={userRole === 'admin' ? isEditMode : false}
                             perfSettings={perfSettings}
                             userRole={userRole}
@@ -293,13 +296,12 @@ export function ScheduleGrid({
                             getClassConflicts={getClassConflicts}
                             draggedLesson={draggedLesson}
                             setDraggedLesson={setDraggedLesson}
-                            dragOverCell={dragOverCell}
-                            setDragOverCell={setDragOverCell}
                             processDrop={processDrop}
                             setEditingCell={setEditingCell}
                             setViewingLesson={setViewingLesson}
                             handleExportPDF={handleExportPDF}
                             isExporting={isExporting}
+                            isFullScreen={isFullScreen}
                         />
                     </ErrorBoundary>
 
@@ -309,11 +311,10 @@ export function ScheduleGrid({
                             lessons={lessons}
                             draggedLesson={draggedLesson}
                             setDraggedLesson={setDraggedLesson}
-                            dragOverCell={dragOverCell}
-                            setDragOverCell={setDragOverCell}
                             processDrop={processDrop}
                             setViewingLesson={setViewingLesson}
                             setEditingCell={setEditingCell}
+                            isFullScreen={isFullScreen}
                         />
                     </ErrorBoundary>
                 ) : (
@@ -322,11 +323,10 @@ export function ScheduleGrid({
                             lessons={lessons}
                             draggedLesson={draggedLesson}
                             setDraggedLesson={setDraggedLesson}
-                            dragOverCell={dragOverCell}
-                            setDragOverCell={setDragOverCell}
                             processTeacherDrop={processTeacherDrop}
                             setViewingLesson={setViewingLesson}
                             setEditingTeacherCell={setEditingTeacherCell}
+                            isFullScreen={isFullScreen}
                         />
                     </ErrorBoundary>
                 )}

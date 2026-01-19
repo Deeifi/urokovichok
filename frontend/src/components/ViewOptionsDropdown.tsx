@@ -34,14 +34,14 @@ export const ViewOptionsDropdown = () => {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "flex items-center gap-2 h-10 px-3 md:px-4 rounded-xl border border-white/5 transition-all text-xs font-bold uppercase tracking-wide",
+                    "flex items-center gap-2 h-9 min-[1100px]:h-10 px-2.5 min-[1100px]:px-4 rounded-xl border border-white/5 transition-all text-xs font-bold uppercase tracking-wide shrink-0",
                     isOpen
                         ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                         : "bg-[#18181b] text-[#a1a1aa] hover:text-white hover:bg-white/5"
                 )}
             >
                 <Settings2 size={16} />
-                <span className="hidden md:inline">Вигляд</span>
+                <span className="hidden min-[1000px]:inline">Вигляд</span>
                 <ChevronDown size={14} className={cn("transition-transform duration-200", isOpen && "rotate-180")} />
             </button>
 

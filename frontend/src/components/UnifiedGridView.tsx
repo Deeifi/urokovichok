@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useHover } from '../context/HoverContext';
 import { useUIStore } from '../store/useUIStore'; // Import store
+import { useDragStore } from '../store/useDragStore';
 import type { Lesson, ScheduleRequest } from '../types';
 
 interface UnifiedGridViewProps<T> {
@@ -34,8 +35,6 @@ interface UnifiedGridViewProps<T> {
     // Drag and Drop
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
-    setDragOverCell: (c: any) => void;
 
     // Label for empty cell
     emptyCellLabel?: string;
@@ -107,8 +106,8 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
     const {
         day, periods = [], data, isEditMode, isMonochrome, perfSettings = {},
         getLessons, getConflicts, getClassConflicts, renderItemInfo,
-        onCellClick, onDrop, setDragOverCell, setDraggedLesson,
-        draggedLesson, dragOverCell, onRowHeaderClick,
+        onCellClick, onDrop, setDraggedLesson,
+        draggedLesson, onRowHeaderClick,
         emptyCellLabel = "ДОДАТИ", infoColumnWidth, minCellWidth
     } = props;
 
@@ -146,10 +145,11 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
                 const hasOtherTeachers = cellLessons.some((l: Lesson) => getClassConflicts?.(l.class_id, day, p, l.teacher_id)?.length > 0);
                 const isActualConflict = isHighlighted && (cellLessons.length > 1 || hasOtherClasses || hasOtherTeachers);
 
-                const isDragOver = dragOverCell &&
-                    dragOverCell[item.type === 'teacher' ? 'teacherId' : 'classId'] === item.id &&
-                    dragOverCell.day === day &&
-                    dragOverCell.period === p;
+                const isDragOver = useDragStore(s =>
+                    s.dragOverCell?.[item.type === 'teacher' ? 'teacherId' : 'classId'] === item.id &&
+                    s.dragOverCell?.day === day &&
+                    s.dragOverCell?.period === p
+                );
 
                 // Recommended slot logic
                 const activeForRec = draggedLesson || (hoveredLesson?.isUnscheduled ? hoveredLesson : null);
@@ -183,10 +183,10 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
                             if (isEditMode) {
                                 e.preventDefault();
                                 e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move'; // Visual feedback for copy
-                                setDragOverCell?.({ [item.type === 'teacher' ? 'teacherId' : 'classId']: item.id, day, period: p });
+                                useDragStore.getState().setDragOverCellDebounced({ [item.type === 'teacher' ? 'teacherId' : 'classId']: item.id, day, period: p });
                             }
                         }}
-                        onDragLeave={() => isEditMode && setDragOverCell?.(null)}
+                        onDragLeave={() => isEditMode && useDragStore.getState().setDragOverCell(null)}
                         onDrop={(e) => {
                             if (isEditMode) {
                                 e.preventDefault();
@@ -201,7 +201,7 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
                                     console.warn('Failed to parse dropped lesson data:', err);
                                 }
                                 onDrop?.(item.id, day, p, externalLesson, e.altKey); // Pass Alt key state
-                                setDragOverCell?.(null);
+                                useDragStore.getState().setDragOverCell(null);
                             }
                         }}
                     >
@@ -237,7 +237,7 @@ const UnifiedRow = memo(({ item, ...props }: any) => {
                                             onDragEnd={() => {
                                                 if (isEditMode) {
                                                     setDraggedLesson?.(null);
-                                                    setDragOverCell?.(null);
+                                                    useDragStore.getState().setDragOverCell(null);
                                                 }
                                             }}
                                             onMouseEnter={() => setHoveredLesson(lesson)}

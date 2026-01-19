@@ -40,14 +40,13 @@ const IconRenderer = ({ name, size = 20, className = "" }: { name?: string, size
 
 import { useHover } from '../context/HoverContext';
 import { useUIStore } from '../store/useUIStore';
+import { useDragStore } from '../store/useDragStore';
 
 interface MemoizedCellProps {
     classId: string;
     day: string;
     period: number;
     lesson: Lesson | undefined;
-    isDragOver: boolean;
-    setDragOverCell: (pos: { classId: string; day: string; period: number } | null) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
     onCellClick: (classId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
@@ -66,11 +65,12 @@ interface MemoizedCellProps {
 
 const MemoizedCell = memo(({
     classId, day, period, lesson,
-    isDragOver, setDragOverCell, draggedLesson, setDraggedLesson,
+    draggedLesson, setDraggedLesson,
     onCellClick, isEditMode, isMonochrome, getSubjectColor, getConflicts, processDrop, subjects,
     getClassConflicts, userRole, selectedTeacherId, showIcons
 }: MemoizedCellProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
+    const isDragOver = useDragStore(s => s.dragOverCell?.day === day && s.dragOverCell?.period === period && s.dragOverCell?.classId === classId);
     const isDragging = draggedLesson?.day === day && draggedLesson?.period === period && draggedLesson?.class_id === classId;
 
     const subject = lesson ? subjects.find(s => s.id === lesson.subject_id) : null;
@@ -132,7 +132,7 @@ const MemoizedCell = memo(({
                 if (isEditMode) {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
-                    setDragOverCell({ classId, day, period });
+                    useDragStore.getState().setDragOverCell({ classId, day, period });
                 }
             }}
             onDrop={(e) => {
@@ -174,7 +174,7 @@ const MemoizedCell = memo(({
                     }}
                     onDragEnd={() => {
                         setDraggedLesson(null);
-                        setDragOverCell(null);
+                        useDragStore.getState().setDragOverCell(null);
                     }}
                 >
                     {showIcons ? (
@@ -237,8 +237,6 @@ interface CompactMatrixScheduleProps {
     // Drag and drop props
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: { classId: string, day: string, period: number } | null;
-    setDragOverCell: (c: { classId: string, day: string, period: number } | null) => void;
     processDrop: (classId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     isMonochrome?: boolean;
     perfSettings: PerformanceSettings;
@@ -251,7 +249,7 @@ interface CompactMatrixScheduleProps {
 export const CompactMatrixSchedule = ({
     data, lessons, periods, apiDays, days,
     getSubjectColor, getConflicts, isEditMode, onCellClick,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processDrop,
+    draggedLesson, setDraggedLesson, processDrop,
     isMonochrome = false, perfSettings,
     getClassConflicts, userRole, selectedTeacherId, showIcons, filteredClasses
 }: CompactMatrixScheduleProps & { filteredClasses: import('../types').ClassGroup[] }) => {
@@ -380,8 +378,6 @@ export const CompactMatrixSchedule = ({
                                                 day={day}
                                                 period={p}
                                                 lesson={findLesson(cls.id, day, p)}
-                                                isDragOver={dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.classId === cls.id}
-                                                setDragOverCell={setDragOverCell}
                                                 draggedLesson={draggedLesson}
                                                 setDraggedLesson={setDraggedLesson}
                                                 onCellClick={onCellClick}

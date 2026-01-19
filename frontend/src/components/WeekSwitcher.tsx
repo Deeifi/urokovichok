@@ -94,31 +94,33 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
     const selectedMonday = getMonday(date);
 
     return (
-        <div className="flex items-center gap-1 bg-[#18181b] border border-white/5 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-0.5 bg-[#18181b] border border-white/5 rounded-xl overflow-hidden p-0.5 min-w-fit shrink-0 shadow-inner shadow-black/20">
             <button
                 onClick={handlePrevWeek}
                 className={cn(
-                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
+                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-lg",
                     compact && "p-1"
                 )}
                 title="Попередній тиждень"
             >
-                <ChevronLeft size={compact ? 16 : 18} />
+                <ChevronLeft size={compact ? 14 : 16} />
             </button>
 
             <button
                 ref={buttonRef}
                 onClick={() => setIsCalendarOpen(!isCalendarOpen)}
                 className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 text-white transition-all rounded-xl",
-                    compact && "px-2 py-1 gap-1",
-                    isCalendarOpen && "bg-white/5"
+                    "flex items-center gap-1.5 px-2 py-1.5 hover:bg-white/5 text-white transition-all rounded-lg border border-transparent",
+                    isCalendarOpen && "bg-white/5 border-white/5 shadow-sm shadow-indigo-500/10"
                 )}
             >
-                <div className="bg-indigo-500/10 p-1 rounded-lg text-indigo-400">
-                    <CalendarIcon size={compact ? 12 : 14} />
+                <div className="text-indigo-400 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <CalendarIcon size={14} />
                 </div>
-                <span className={cn("font-bold text-[#a1a1aa] uppercase tracking-wider", compact ? "text-[9px]" : "text-[10px]")}>
+                <span className={cn(
+                    "font-bold text-[#a1a1aa] text-[9px] uppercase tracking-[0.05em] whitespace-nowrap transition-all duration-300",
+                    "hidden min-[1200px]:inline"
+                )}>
                     {formattedRange}
                 </span>
             </button>
@@ -126,12 +128,12 @@ export const WeekSwitcher: React.FC<{ compact?: boolean }> = ({ compact }) => {
             <button
                 onClick={handleNextWeek}
                 className={cn(
-                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-xl",
+                    "p-1.5 hover:bg-white/5 text-[#a1a1aa] hover:text-white transition-all rounded-lg",
                     compact && "p-1"
                 )}
                 title="Наступний тиждень"
             >
-                <ChevronRight size={compact ? 16 : 18} />
+                <ChevronRight size={compact ? 14 : 16} />
             </button>
 
             {/* Calendar Popup Portal */}

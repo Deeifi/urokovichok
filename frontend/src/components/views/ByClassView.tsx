@@ -1,9 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
-import { Columns, AlertTriangle, Pencil } from 'lucide-react';
+import { Columns, AlertTriangle, Pencil, Search } from 'lucide-react';
+import { useUIStore } from '../../store/useUIStore';
 import { cn } from '../../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../../types';
 import { getSubjectColor } from '../../utils/gridHelpers';
 import { useHover } from '../../context/HoverContext';
+import { useDragStore } from '../../store/useDragStore';
 
 interface ByClassViewProps {
     data: ScheduleRequest;
@@ -22,23 +24,23 @@ interface ByClassViewProps {
     getClassConflicts: (classId: string, day: string, period: number, excludeTeacherId?: string) => string[];
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
-    setDragOverCell: (c: any) => void;
     processDrop: (className: string, day: string, p: number, external?: any) => void;
     setEditingCell: (c: { classId: string, day: string, period: number } | null) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     handleExportPDF: () => void;
     isExporting: boolean;
+    isFullScreen?: boolean;
 }
 
 export const ByClassView = memo(({
     data, selectedClassId, setSelectedClassId, isCompact, isEditMode, perfSettings,
     userRole, selectedTeacherId, lessons, apiDays, days, periods,
     getTeacherConflicts, getClassConflicts, draggedLesson, setDraggedLesson,
-    dragOverCell, setDragOverCell, processDrop, setEditingCell, setViewingLesson,
-    handleExportPDF, isExporting
+    processDrop, setEditingCell, setViewingLesson,
+    handleExportPDF, isExporting, isFullScreen
 }: ByClassViewProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
+    const { searchQuery, setSearchQuery } = useUIStore();
 
     const findLesson = useCallback((classId: string, day: string, period: number): Lesson | null => {
         return lessons.find(l =>
@@ -48,40 +50,62 @@ export const ByClassView = memo(({
         ) || null;
     }, [lessons]);
 
-    const sortedClasses = useMemo(() => [...data.classes].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })), [data.classes]);
+    const sortedClasses = useMemo(() => {
+        let list = [...data.classes].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        if (searchQuery) {
+            list = list.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+        return list;
+    }, [data.classes, searchQuery]);
 
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#18181b]/50 p-2 rounded-2xl border border-white/5 backdrop-blur-md">
-                <div className="flex flex-wrap gap-2">
-                    {sortedClasses.map(cls => (
-                        <button
-                            key={cls.id}
-                            onClick={() => setSelectedClassId(cls.id)}
-                            className={cn(
-                                "px-3 py-1.5 rounded-xl font-bold transition-all text-xs uppercase tracking-tight",
-                                selectedClassId === cls.id
-                                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                                    : "text-[#a1a1aa] hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            {cls.name}
-                        </button>
-                    ))}
+            {!isFullScreen && (
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-[#18181b]/50 p-2 rounded-2xl border border-white/5 backdrop-blur-md">
+                    {/* Search Input */}
+                    {!isCompact && (
+                        <div className="flex items-center gap-2 bg-[#18181b] rounded-xl border border-white/5 px-2.5 h-9 transition-all group focus-within:border-indigo-500/50 focus-within:shadow-lg focus-within:shadow-indigo-500/10 min-w-0">
+                            <Search size={14} className="text-[#a1a1aa] group-focus-within:text-indigo-400 transition-colors shrink-0" />
+                            <input
+                                type="text"
+                                placeholder="Клас..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-transparent border-none focus:ring-0 text-[10px] md:text-xs font-bold text-white placeholder-[#a1a1aa] w-12 focus:w-32 transition-all outline-none uppercase tracking-wide"
+                            />
+                        </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+                        {sortedClasses.map(cls => (
+                            <button
+                                key={cls.id}
+                                onClick={() => setSelectedClassId(cls.id)}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-xl font-bold transition-all text-xs uppercase tracking-tight",
+                                    selectedClassId === cls.id
+                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                                        : "text-[#a1a1aa] hover:text-white hover:bg-white/5"
+                                )}
+                            >
+                                {cls.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={handleExportPDF}
+                        disabled={isExporting}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                    >
+                        {isExporting ? <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" /> : <Columns size={16} />}
+                        {isExporting ? 'Експорт...' : 'Експорт PDF'}
+                    </button>
                 </div>
+            )}
 
-                <button
-                    onClick={handleExportPDF}
-                    disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
-                >
-                    {isExporting ? <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" /> : <Columns size={16} />}
-                    {isExporting ? 'Експорт...' : 'Експорт PDF'}
-                </button>
-            </div>
-
-            <div id="class-schedule-export" className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div id="class-schedule-export" className={cn("grid grid-cols-1 md:grid-cols-5 gap-4", isFullScreen && "pt-2")}>
                 {apiDays.map((day, dIdx) => (
                     <div key={day} className={cn("bento-card border-white/5 bg-[#1a1a1e]", isCompact ? "p-2" : "p-4")}>
                         <h4 className={cn("text-[#a1a1aa] font-black text-center uppercase tracking-widest", isCompact ? "mb-0.5 text-[10px]" : "mb-4")}>{days[dIdx]}</h4>
@@ -95,7 +119,7 @@ export const ByClassView = memo(({
                                 const teacherConflicts = lesson ? getTeacherConflicts(lesson.teacher_id, day, p, selectedClassId) : [];
                                 const classConflicts = lesson ? getClassConflicts(selectedClassId, day, p, lesson.teacher_id) : [];
 
-                                const isDragOver = dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.classId === selectedClassId;
+                                const isDragOver = useDragStore(s => s.dragOverCell?.day === day && s.dragOverCell?.period === p && s.dragOverCell?.classId === selectedClassId);
                                 const isDragging = draggedLesson?.day === day && draggedLesson?.period === p && draggedLesson?.class_id === selectedClassId;
                                 const isTeacherHighlighted = hoveredLesson && lesson && lesson.teacher_id === hoveredLesson.teacher_id;
                                 const isTeacherConflict = isTeacherHighlighted && hoveredLesson && day === hoveredLesson.day && p === hoveredLesson.period && (teacherConflicts.length > 0 || classConflicts.length > 0);
@@ -144,10 +168,10 @@ export const ByClassView = memo(({
                                             if (isEditMode) {
                                                 e.preventDefault();
                                                 e.dataTransfer.dropEffect = 'move';
-                                                setDragOverCell({ classId: selectedClassId, day, period: p });
+                                                useDragStore.getState().setDragOverCellDebounced({ classId: selectedClassId, day, period: p });
                                             }
                                         }}
-                                        onDragLeave={() => isEditMode && setDragOverCell(null)}
+                                        onDragLeave={() => isEditMode && useDragStore.getState().setDragOverCell(null)}
                                         onDrop={(e) => {
                                             if (isEditMode) {
                                                 e.preventDefault();

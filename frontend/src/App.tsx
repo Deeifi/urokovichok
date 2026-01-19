@@ -211,7 +211,7 @@ function App() {
       data-perf-shadows={(!perfSettings.disableShadows).toString()}
     >
       <HoverProvider disableHoverEffects={perfSettings.disableHoverEffects}>
-        <Sidebar />
+        {!isFullScreen && <Sidebar />}
 
         {/* Main Content Area */}
         <main className={cn(
@@ -228,9 +228,11 @@ function App() {
           )}
 
           {/* Persistent Toolbar */}
-          <div className="px-2 lg:px-4">
-            <ScheduleToolbar />
-          </div>
+          {!isFullScreen && (
+            <div className="px-2 lg:px-4">
+              <ScheduleToolbar />
+            </div>
+          )}
 
           {/* Content Container */}
           <div className={cn("flex-1 px-2", activeTab === 'schedule' ? "overflow-hidden flex flex-col" : "overflow-y-auto scrollbar-hide")}>
@@ -279,6 +281,7 @@ function App() {
                         selectedTeacherId={selectedTeacherId}
                         isHeaderCollapsed={isHeaderCollapsed}
                         setIsHeaderCollapsed={setIsHeaderCollapsed}
+                        isFullScreen={isFullScreen}
                       />
                     </ErrorBoundary>
                   </div>
@@ -368,7 +371,7 @@ function App() {
           description="Ви впевнені, що хочете скинути всю базу даних та розклад до початкових значень? Цю дію неможливо скасувати."
         />
 
-        {activeTab === 'schedule' && userRole === 'admin' && (
+        {activeTab === 'schedule' && userRole === 'admin' && !isFullScreen && (
           <ErrorBoundary>
             <UnscheduledPanel
               items={unscheduledLessons}

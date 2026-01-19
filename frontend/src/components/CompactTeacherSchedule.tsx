@@ -39,6 +39,7 @@ import { cn } from '../utils/cn';
 import type { ScheduleRequest, Lesson, PerformanceSettings } from '../types';
 import { useHover } from '../context/HoverContext';
 import { useUIStore } from '../store/useUIStore';
+import { useDragStore } from '../store/useDragStore';
 const EMPTY_ARRAY: Lesson[] = [];
 
 interface MemoizedTeacherCellProps {
@@ -50,8 +51,6 @@ interface MemoizedTeacherCellProps {
     isMonochrome: boolean;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    isDragOver: boolean;
-    setDragOverCell: (c: any) => void;
     onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     getSubjectColor: (id: string) => string;
@@ -64,10 +63,11 @@ interface MemoizedTeacherCellProps {
 
 const MemoizedTeacherCell = memo(({
     teacherId, day, period, lessons, isEditMode, isMonochrome,
-    draggedLesson, setDraggedLesson, isDragOver, setDragOverCell, onCellClick, processTeacherDrop,
+    draggedLesson, setDraggedLesson, onCellClick, processTeacherDrop,
     getSubjectColor, getConflicts, getClassConflicts, setActiveGroupPicker, data,
 }: MemoizedTeacherCellProps) => {
     const { hoveredLesson, setHoveredLesson } = useHover();
+    const isDragOver = useDragStore(s => s.dragOverCell?.day === day && s.dragOverCell?.period === period && s.dragOverCell?.teacherId === teacherId);
     const hasLessons = lessons.length > 0;
     const selectedLessonIds = useUIStore(s => s.selectedLessonIds);
 
@@ -87,10 +87,10 @@ const MemoizedTeacherCell = memo(({
                 if (isEditMode) {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
-                    setDragOverCell({ teacherId, day, period });
+                    useDragStore.getState().setDragOverCellDebounced({ teacherId, day, period });
                 }
             }}
-            onDragLeave={() => isEditMode && setDragOverCell(null)}
+            onDragLeave={() => isEditMode && useDragStore.getState().setDragOverCell(null)}
             onDrop={(e) => {
                 if (isEditMode) {
                     e.preventDefault();
@@ -266,8 +266,6 @@ interface CompactTeacherScheduleProps {
     onCellClick: (teacherId: string, day: string, period: number, lesson?: Lesson, e?: React.MouseEvent) => void;
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
-    setDragOverCell: (c: any) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any, isCopy?: boolean) => void;
     isMonochrome?: boolean;
     searchQuery?: string;
@@ -287,8 +285,6 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
     onCellClick,
     draggedLesson,
     setDraggedLesson,
-    dragOverCell,
-    setDragOverCell,
     processTeacherDrop,
     isMonochrome = false,
     searchQuery = '',
@@ -451,8 +447,6 @@ export const CompactTeacherSchedule: React.FC<CompactTeacherScheduleProps> = ({
                                                 isMonochrome={isMonochrome}
                                                 draggedLesson={draggedLesson}
                                                 setDraggedLesson={setDraggedLesson}
-                                                isDragOver={dragOverCell?.day === day && dragOverCell?.period === p && dragOverCell?.teacherId === teacher.id}
-                                                setDragOverCell={setDragOverCell}
                                                 onCellClick={onCellClick}
                                                 processTeacherDrop={processTeacherDrop}
                                                 getSubjectColor={getSubjectColor}

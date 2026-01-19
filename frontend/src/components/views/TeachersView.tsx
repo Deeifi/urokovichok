@@ -1,4 +1,5 @@
 import { memo, useState, useMemo, useDeferredValue, useCallback } from 'react';
+import { Search } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useDataStore } from '../../store/useDataStore';
 // import { useScheduleStore } from '../../store/useScheduleStore'; // Removed
@@ -12,17 +13,16 @@ interface TeachersViewProps {
     lessons: Lesson[];
     draggedLesson: Lesson | null;
     setDraggedLesson: (l: Lesson | null) => void;
-    dragOverCell: any;
-    setDragOverCell: (c: any) => void;
     processTeacherDrop: (teacherId: string, day: string, period: number, externalLesson?: any) => void;
     setViewingLesson: (c: { classId: string, day: string, period: number } | null) => void;
     setEditingTeacherCell: (c: { teacherId: string, day: string, period: number } | null) => void;
+    isFullScreen?: boolean;
 }
 
 export const TeachersView = memo(({
     lessons,
-    draggedLesson, setDraggedLesson, dragOverCell, setDragOverCell, processTeacherDrop,
-    setViewingLesson, setEditingTeacherCell
+    draggedLesson, setDraggedLesson, processTeacherDrop,
+    setViewingLesson, setEditingTeacherCell, isFullScreen
 }: TeachersViewProps) => {
     const data = useDataStore(s => s.data);
     // const scheduleResponse = useScheduleStore(s => s.schedule); // Removed
@@ -36,7 +36,8 @@ export const TeachersView = memo(({
     // const setIsMonochrome = useUIStore(s => s.setIsMonochrome); // Unused
     const userRole = useUIStore(s => s.userRole);
     const selectedTeacherId = useUIStore(s => s.selectedTeacherId);
-    const searchQuery = useUIStore(s => s.searchQuery); // Use shared state
+    const setSearchQuery = useUIStore(s => s.setSearchQuery);
+    const searchQuery = useUIStore(s => s.searchQuery);
 
     const [day, setDay] = useState<string>('Mon');
     // const [searchQuery, setSearchQuery] = useState(''); // Removed local state
@@ -103,48 +104,73 @@ export const TeachersView = memo(({
 
     return (
         <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-                {!isCompact && (
-                    <div>
-                        <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
-                        <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                            Всі викладачі • {dayName}
-                        </div>
-                    </div>
-                )}
-
-                <div className={cn("flex flex-wrap items-center gap-6", isCompact ? "ml-auto" : "")}>
-                    <div className={cn("flex items-center gap-4 bg-[#18181b]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transition-all hidden", isCompact ? "p-0.5 px-2" : "p-1 px-3")}>
-                        {/* Count moved to Toolbar */}
-                    </div>
-
+            {!isFullScreen && (
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 shrink-0">
                     {!isCompact && (
-                        <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                            {apiDays.map((d, idx) => (
-                                <button
-                                    key={d}
-                                    onClick={(e) => {
-                                        if (e.ctrlKey || e.metaKey) {
-                                            const dayLessons = lessons.filter(l => l.day === d);
-                                            const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
-                                            const currentSelected = useUIStore.getState().selectedLessonIds;
-                                            useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
-                                        } else {
-                                            setDay(d);
-                                        }
-                                    }}
-                                    className={cn(
-                                        "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
-                                        day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
-                                    )}
-                                >
-                                    {days[idx].toUpperCase()}
-                                </button>
-                            ))}
+                        <div>
+                            <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
+                            <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
+                                Всі викладачі • {dayName}
+                            </div>
                         </div>
                     )}
+
+                    <div className={cn("flex flex-wrap items-center gap-4")}>
+                        {/* Search Input and Counter */}
+                        {!isCompact && (
+                            <div className="flex items-center gap-2 bg-[#18181b] rounded-xl border border-white/5 px-2.5 h-9 transition-all group focus-within:border-indigo-500/50 focus-within:shadow-lg focus-within:shadow-indigo-500/10 min-w-0">
+                                <Search size={14} className="text-[#a1a1aa] group-focus-within:text-indigo-400 transition-colors shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Пошук..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-transparent border-none focus:ring-0 text-[10px] min-[1100px]:text-xs font-bold text-white placeholder-[#a1a1aa] w-12 focus:w-24 min-[1100px]:w-20 min-[1100px]:focus:w-32 transition-all outline-none uppercase tracking-wide"
+                                />
+
+                                {/* Counter Badge */}
+                                <div className="flex items-center gap-1 pl-1.5 border-l border-white/10 ml-0.5 shrink-0">
+                                    <span className={cn("text-[10px] font-black transition-colors",
+                                        filteredTeachers.length === 0 ? "text-red-400" : "text-indigo-400"
+                                    )}>
+                                        {filteredTeachers.length}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-[#a1a1aa] select-none">/</span>
+                                    <span className="text-[10px] font-bold text-[#a1a1aa] select-none">
+                                        {data.teachers?.length || 0}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isCompact && (
+                            <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                                {apiDays.map((d, idx) => (
+                                    <button
+                                        key={d}
+                                        onClick={(e) => {
+                                            if (e.ctrlKey || e.metaKey) {
+                                                const dayLessons = lessons.filter(l => l.day === d);
+                                                const newIds = dayLessons.map(l => `${l.class_id}-${l.day}-${l.period}-${l.subject_id}`);
+                                                const currentSelected = useUIStore.getState().selectedLessonIds;
+                                                useUIStore.getState().setSelectedLessons(Array.from(new Set([...currentSelected, ...newIds])));
+                                            } else {
+                                                setDay(d);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "px-3 py-1.5 rounded-lg text-[10px] font-black transition-all whitespace-nowrap",
+                                            day === d ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white"
+                                        )}
+                                    >
+                                        {days[idx].toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {isCompact ? (
                 <CompactTeacherSchedule
@@ -179,8 +205,6 @@ export const TeachersView = memo(({
                     }}
                     draggedLesson={draggedLesson}
                     setDraggedLesson={setDraggedLesson}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
                     processTeacherDrop={processTeacherDrop}
                     isMonochrome={isMonochrome}
                     searchQuery={deferredSearchQuery}
@@ -254,8 +278,6 @@ export const TeachersView = memo(({
                     onDrop={processTeacherDrop}
                     draggedLesson={draggedLesson}
                     setDraggedLesson={setDraggedLesson}
-                    dragOverCell={dragOverCell}
-                    setDragOverCell={setDragOverCell}
                     infoColumnWidth="w-[160px]"
                     onRowHeaderClick={(teacherId, e) => {
                         if (e.ctrlKey || e.metaKey) {
