@@ -44,7 +44,7 @@ export const MatrixView = memo(({
     const setSearchQuery = useUIStore(s => s.setSearchQuery);
 
     const [day, setDay] = useState<string>('Mon');
-    const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-9' | '10-11'>('5-9');
+    const [activeGradeGroup, setActiveGradeGroup] = useState<'1-4' | '5-11'>('5-11');
     // const [searchQuery, setSearchQuery] = useState(''); // Removed local state
     const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -89,8 +89,7 @@ export const MatrixView = memo(({
         let classes = sortedClasses;
         if (!isCompact) {
             if (activeGradeGroup === '1-4') classes = classes.filter(c => parseInt(c.name) <= 4);
-            else if (activeGradeGroup === '5-9') classes = classes.filter(c => parseInt(c.name) >= 5 && parseInt(c.name) <= 9);
-            else if (activeGradeGroup === '10-11') classes = classes.filter(c => parseInt(c.name) >= 10);
+            else if (activeGradeGroup === '5-11') classes = classes.filter(c => parseInt(c.name) >= 5);
         }
 
         if (deferredSearchQuery) {
@@ -109,7 +108,7 @@ export const MatrixView = memo(({
                         <div className="flex flex-col">
                             <h2 className="text-2xl font-black text-white tracking-tight">Матриця</h2>
                             <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest mt-1">
-                                {dayName} {getDayDate(selectedDate, apiDays.indexOf(day))} • {activeGradeGroup === '1-4' ? '1-4 Класи' : activeGradeGroup === '5-9' ? '5-9 Класи' : '10-11 Класи'}
+                                {dayName} {getDayDate(selectedDate, apiDays.indexOf(day))} • {activeGradeGroup === '1-4' ? '1-4 Класи' : '5-11 Класи'}
                             </div>
                         </div>
                     )}
@@ -159,8 +158,7 @@ export const MatrixView = memo(({
                         {!isCompact && (
                             <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/5">
                                 <button onClick={() => setActiveGradeGroup('1-4')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '1-4' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>1-4</button>
-                                <button onClick={() => setActiveGradeGroup('5-9')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-9' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-9</button>
-                                <button onClick={() => setActiveGradeGroup('10-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '10-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>10-11</button>
+                                <button onClick={() => setActiveGradeGroup('5-11')} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black transition-all", activeGradeGroup === '5-11' ? "bg-white/10 text-white" : "text-[#a1a1aa] hover:text-white")}>5-11</button>
                             </div>
                         )}
                     </div>

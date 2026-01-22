@@ -107,7 +107,7 @@ export const TeachersView = memo(({
     return (
         <div className={cn("animate-in fade-in duration-300 h-full flex flex-col overflow-hidden", isCompact ? "space-y-1" : "space-y-3 lg:space-y-4")}>
             {!isFullScreen && (
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 shrink-0">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                     {!isCompact && (
                         <div>
                             <h2 className="text-2xl font-black text-white tracking-tight">Розклад вчителів</h2>
