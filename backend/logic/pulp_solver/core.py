@@ -98,6 +98,8 @@ def solve_with_pulp(data: ScheduleRequest, periods: List[int], strict: bool = Tr
         for d in day_indices:
             for p in periods:
                 vars_in_slot = [x[(r_idx, d, p)] for r_idx in c_req_indices if (r_idx, d, p) in x]
+                if vars_in_slot:
+                     prob += pulp.lpSum(vars_in_slot) <= 1, f"Class_{c_id}_{d}_{p}"
 
     # C4. GAP MINIMIZATION (SIMPLIFIED) for Teachers
     # Instead of complex first/last tracking, use a simpler heuristic:
@@ -122,57 +124,92 @@ def solve_with_pulp(data: ScheduleRequest, periods: List[int], strict: bool = Tr
                 
                 if lessons_at_p:
                     prob += active_var >= pulp.lpSum(lessons_at_p), f"Active_{t_id}_{d}_{p}"
-                    prob += active_var <= len(lessons_at_p) * pulp.lpSum(lessons_at_p), f"ActiveMax_{t_id}_{d}_{p}"
+                    # Since we now enforce <= 1 lesson per teacher per slot, this max constraint is redundant but safe
+                    # prob += active_var <= len(lessons_at_p) * pulp.lpSum(lessons_at_p), f"ActiveMax_{t_id}_{d}_{p}"
 
 
     # 5. Objective Function
-    # We want to minimize the usage of "bad" periods (like period 0 if not preferred, or late periods).
-    # Since "Gaps" are hard to model linearly without many extra variables, 
-    # we use a "Compactness" heuristic: penalize later periods.
-    
     objective_terms = []
     
+    # 5.1 Basic Period Penalties (compactness & period 0)
     for (r_idx, d, p), var in x.items():
         req = requests[r_idx]
-        
-        # Penalize period 0 if teacher doesn't like it
         if p == 0:
             if teacher_prefers_zero.get(req["teacher_id"], False):
-                objective_terms.append(-10 * var) # Bonus for preferred
+                objective_terms.append(-10 * var)
             else:
-                objective_terms.append(1000 * var) # Huge Penalty for unwanted 0
-        
-        # Penalize later periods to keep schedule compact (1 -> 1, 7 -> 7)
-        # Weight can be adjusted.
+                objective_terms.append(1000 * var)
         weight = p * 10 
         objective_terms.append(weight * var)
-    
-    # GAP PENALTY (SIMPLIFIED): Encourage consecutive periods
-    # Instead of tracking exact gaps, penalize "inactive" periods between lessons
-    GAP_PENALTY = 300  # Reduced from 500
-    
+
+    # C5. STUDENT GAPS (SOFT CONSTRAINT)
+    # Ensure students have no gaps in their schedule for periods >= 1.
+    main_periods = sorted([p for p in periods if p > 0])
+    if main_periods:
+        for c_id in class_ids:
+            c_req_indices = [i for i, r in enumerate(requests) if r["class_id"] == c_id]
+            if not c_req_indices: continue
+            for d in day_indices:
+                day_active_vars = {}
+                for p in main_periods:
+                    c_active_var = pulp.LpVariable(f"c_active_{c_id}_{d}_{p}", 0, 1, pulp.LpBinary)
+                    day_active_vars[p] = c_active_var
+                    lessons_at_p = [x[(r_idx, d, p)] for r_idx in c_req_indices if (r_idx, d, p) in x]
+                    if lessons_at_p:
+                         prob += c_active_var == pulp.lpSum(lessons_at_p), f"C_Active_{c_id}_{d}_{p}"
+                    else:
+                         prob += c_active_var == 0, f"C_Active_Zero_{c_id}_{d}_{p}"
+
+                start_vars = []
+                for i, p in enumerate(main_periods):
+                    start_var = pulp.LpVariable(f"c_start_{c_id}_{d}_{p}", 0, 1, pulp.LpBinary)
+                    start_vars.append(start_var)
+                    current_active = day_active_vars[p]
+                    if i == 0:
+                        prob += start_var >= current_active, f"StartReq_{c_id}_{d}_{p}"
+                    else:
+                        prev_p = main_periods[i-1]
+                        prev_active = day_active_vars[prev_p]
+                        prob += start_var >= current_active - prev_active, f"StartReq_{c_id}_{d}_{p}"
+                
+                # SOFT CONSTRAINT: Minimize start blocks per day (Student Gaps)
+                STUDENT_GAP_PENALTY = 10000
+                excess_starts = pulp.LpVariable(f"c_excess_starts_{c_id}_{d}", 0)
+                prob += excess_starts >= pulp.lpSum(start_vars) - 1, f"ExcessStarts_{c_id}_{d}"
+                objective_terms.append(STUDENT_GAP_PENALTY * excess_starts)
+
+    # GAP PENALTY for TEACHERS
+    GAP_PENALTY = 300  
     for t_id in teacher_ids:
         t_req_indices = [i for i, r in enumerate(requests) if r["teacher_id"] == t_id]
-        if not t_req_indices:
-            continue
-        
+        if not t_req_indices: continue
         for d in day_indices:
-            # For consecutive periods, penalize: active[p] + active[p+2] - 2*active[p+1]
-            # This penalizes pattern: lesson, gap, lesson
             for p in periods[:-2]:
-                if p+2 not in periods:
-                    continue
-                
+                if p+2 not in periods: continue
                 if (t_id, d, p) in teacher_period_usage and (t_id, d, p+1) in teacher_period_usage and (t_id, d, p+2) in teacher_period_usage:
-                    # Gap indicator: has lessons at p and p+2 but not p+1
                     gap_indicator = teacher_period_usage[(t_id, d, p)] + teacher_period_usage[(t_id, d, p+2)] - 2 * teacher_period_usage[(t_id, d, p+1)]
-                    
-                    # This is positive only when p and p+2 are active but p+1 is not
                     gap_var = pulp.LpVariable(f"gap_simple_{t_id}_{d}_{p}", 0)
                     prob += gap_var >= gap_indicator, f"GapSimple_{t_id}_{d}_{p}"
-                    
                     objective_terms.append(GAP_PENALTY * gap_var)
-    
+
+    # TEACHER COMPACTNESS (METHODOLOGICAL DAYS SUPPORT)
+    DAYS_OFF_BONUS = 500
+    for t_id in teacher_ids:
+         t_req_indices = [i for i, r in enumerate(requests) if r["teacher_id"] == t_id]
+         if not t_req_indices: continue
+         total_load = sum(requests[r]["count"] for r in t_req_indices)
+         if total_load < 30: 
+             for d in day_indices:
+                 day_used_var = pulp.LpVariable(f"t_day_used_{t_id}_{d}", 0, 1, pulp.LpBinary)
+                 day_active_vars = []
+                 for p in periods:
+                     if (t_id, d, p) in teacher_period_usage:
+                         day_active_vars.append(teacher_period_usage[(t_id, d, p)])
+                 if day_active_vars:
+                     prob += pulp.lpSum(day_active_vars) <= len(periods) * day_used_var, f"DayUsed_{t_id}_{d}"
+                     objective_terms.append(DAYS_OFF_BONUS * day_used_var)
+
+
     # DAILY DISTRIBUTION BALANCE: Avoid concentrating subject lessons in few days
     # For each (subject, class) pair, penalize uneven distribution across weekdays
     DISTRIBUTION_PENALTY = 100
@@ -293,7 +330,7 @@ def solve_with_pulp(data: ScheduleRequest, periods: List[int], strict: bool = Tr
     print(f"Using timeout: {timeout}s")
     
     # Prefer CBC
-    solver = pulp.PULP_CBC_CMD(timeLimit=timeout, msg=True)
+    solver = pulp.PULP_CBC_CMD(timeLimit=timeout, msg=False)
     prob.solve(solver)
 
     # 7. Extract Results
