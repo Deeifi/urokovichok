@@ -38,6 +38,8 @@ export interface ScheduleRequest {
     subjects: Subject[];
     classes: ClassGroup[];
     plan: TeachingPlanItem[];
+    strategy?: 'ortools' | 'pulp';
+    timeout?: number;
 }
 
 export interface Lesson {

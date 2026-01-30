@@ -18,6 +18,7 @@ import { useUIStore } from './store/useUIStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getWeekId } from './utils/scheduleHelpers';
 import { ScheduleToolbar } from './components/ScheduleToolbar';
+import { GenerationSettingsModal } from './components/GenerationSettingsModal';
 
 
 function App() {
@@ -74,6 +75,7 @@ function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [panelMode, setPanelMode] = useState<'docked' | 'floating'>('docked');
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isGenSettingsOpen, setIsGenSettingsOpen] = useState(false);
 
   const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
@@ -175,12 +177,17 @@ function App() {
     setShowResetConfirm(false);
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (strategy: 'ortools' | 'pulp' = 'ortools', timeout: number = 30) => {
     setLoading(true);
     setError(null);
     setConflictData(null);
+    setIsGenSettingsOpen(false); // Close settings modal when starting
     try {
-      const result = await generateSchedule(data);
+      const result = await generateSchedule({
+        ...data,
+        strategy,
+        timeout
+      });
 
       if (result.status === 'success') {
         setSchedule(result);
@@ -222,10 +229,17 @@ function App() {
           {/* Header */}
           {!isFullScreen && (activeTab !== 'schedule' || viewType === 'dashboard') && (
             <Header
-              handleGenerate={handleGenerate}
+              handleGenerate={() => setIsGenSettingsOpen(true)}
               loading={loading}
             />
           )}
+
+          <GenerationSettingsModal
+            isOpen={isGenSettingsOpen}
+            onClose={() => setIsGenSettingsOpen(false)}
+            onGenerate={handleGenerate}
+            isGenerating={loading}
+          />
 
           {/* Persistent Toolbar */}
           {!isFullScreen && (
@@ -341,7 +355,7 @@ function App() {
                     Редагувати дані
                   </button>
                   <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate()}
                     className="px-6 py-3 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-500/20"
                   >
                     Спробувати ще раз

@@ -45,11 +45,12 @@ export const ScheduleToolbar = () => {
     const { teachers, subjects, classes } = data;
 
 
+
+
     if (activeTab !== 'schedule' || viewType === 'dashboard') return null;
 
     return (
         <div className="flex flex-col gap-4 mb-4 animate-in fade-in slide-in-from-top-4 duration-500 z-[100] relative">
-
             {/* Main Toolbar Container */}
             <div className="flex flex-nowrap items-center justify-between gap-1 p-1 bg-[#18181b]/50 backdrop-blur-md border border-white/5 rounded-2xl shadow-sm">
 
@@ -114,6 +115,9 @@ export const ScheduleToolbar = () => {
                                 exportFunction={exportMasterTeacherSchedule}
                             />
                         )}
+
+
+
 
                         {/* Scope Selector (Appears to the LEFT of Edit Toggle) */}
                         {isEditMode && schedule && (

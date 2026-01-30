@@ -7,7 +7,7 @@ REM --- BACKEND ---
 echo Starting backend...
 cd backend
 call venv\Scripts\activate
-start cmd /k uvicorn main:app --reload
+start cmd /k "venv\Scripts\python.exe -m uvicorn main:app --reload"
 cd ..
 
 REM --- FRONTEND ---

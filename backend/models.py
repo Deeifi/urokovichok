@@ -32,3 +32,5 @@ class ScheduleRequest(BaseModel):
     subjects: List[Subject]
     classes: List[ClassGroup]
     plan: List[TeachingPlanItem]
+    strategy: Optional[str] = "ortools" # "ortools" or "pulp"
+    timeout: Optional[int] = 30

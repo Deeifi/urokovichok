@@ -5,3 +5,4 @@ pydantic
 ortools
 gunicorn
 sqlalchemy
+pulp
