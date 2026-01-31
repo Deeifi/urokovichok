@@ -5,7 +5,7 @@ import { useUIStore } from '../store/useUIStore';
 interface GenerationSettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onGenerate: (strategy: 'ortools' | 'pulp' | 'genetic', timeout: number) => void;
+    onGenerate: (strategy: 'ortools' | 'pulp' | 'genetic', timeout: number, geneticParams?: { populationSize: number, generations: number, mutationRate: number }) => void;
     isGenerating: boolean;
 }
 
@@ -17,12 +17,22 @@ export const GenerationSettingsModal: React.FC<GenerationSettingsModalProps> = (
 }) => {
     const [strategy, setStrategy] = useState<'ortools' | 'pulp' | 'genetic'>('ortools');
     const [timeout, setTimeoutVal] = useState(30);
+
+    // Genetic Params
+    const [popSize, setPopSize] = useState(8);
+    const [generations, setGenerations] = useState(3);
+    const [mutationRate, setMutationRate] = useState(40); // 40%
+
     const showExperimentalFeatures = useUIStore(s => s.showExperimentalFeatures);
 
     if (!isOpen) return null;
 
     const handleGenerate = () => {
-        onGenerate(strategy, timeout);
+        onGenerate(strategy, timeout, strategy === 'genetic' ? {
+            populationSize: popSize,
+            generations: generations,
+            mutationRate: mutationRate / 100.0
+        } : undefined);
     };
 
     return (
@@ -148,30 +158,111 @@ export const GenerationSettingsModal: React.FC<GenerationSettingsModalProps> = (
                         </div>
                     </div>
 
-                    {/* Timeout Slider */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                Час на пошук
-                            </label>
-                            <span className="text-sm font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                                {timeout} сек
-                            </span>
+                    {/* Timeout Slider (Standard) */}
+                    {strategy !== 'genetic' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                    <Clock className="w-4 h-4" />
+                                    Час на пошук
+                                </label>
+                                <span className="text-sm font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                                    {timeout} сек
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="5"
+                                max="120"
+                                step="5"
+                                value={timeout}
+                                onChange={(e) => setTimeoutVal(parseInt(e.target.value))}
+                                className="w-full accent-indigo-600 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <p className="text-xs text-zinc-500">
+                                Більше часу = кращий результат, але довше очікування.
+                            </p>
                         </div>
-                        <input
-                            type="range"
-                            min="5"
-                            max="120"
-                            step="5"
-                            value={timeout}
-                            onChange={(e) => setTimeoutVal(parseInt(e.target.value))}
-                            className="w-full accent-indigo-600 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <p className="text-xs text-zinc-500">
-                            Більше часу = кращий результат, але довше очікування.
-                        </p>
-                    </div>
+                    )}
+
+                    {/* Genetic Algorithm Settings */}
+                    {strategy === 'genetic' && (
+                        <div className="space-y-6 pt-2 border-t border-zinc-100 dark:border-zinc-800 animate-in fade-in slide-in-from-top-4">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Налаштування Генетики</h3>
+
+                            {/* Population Size */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                        Розмір Популяції
+                                    </label>
+                                    <span className="text-sm font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                                        {popSize}
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="4"
+                                    max="20"
+                                    step="2"
+                                    value={popSize}
+                                    onChange={(e) => setPopSize(parseInt(e.target.value))}
+                                    className="w-full accent-purple-600 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <p className="text-xs text-zinc-500">
+                                    Кількість розкладів, що еволюціонують паралельно.
+                                </p>
+                            </div>
+
+                            {/* Generations */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                        Кількість Поколінь
+                                    </label>
+                                    <span className="text-sm font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                                        {generations}
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={generations}
+                                    onChange={(e) => setGenerations(parseInt(e.target.value))}
+                                    className="w-full accent-purple-600 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <p className="text-xs text-zinc-500">
+                                    Більше поколінь = краща оптимізація.
+                                </p>
+                            </div>
+
+                            {/* Mutation Rate */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                        Рівень Мутації
+                                    </label>
+                                    <span className="text-sm font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                                        {mutationRate}%
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="10"
+                                    max="60"
+                                    step="5"
+                                    value={mutationRate}
+                                    onChange={(e) => setMutationRate(parseInt(e.target.value))}
+                                    className="w-full accent-pink-600 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <p className="text-xs text-zinc-500">
+                                    Відсоток змін у розкладі на кожному кроці.
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
 
                 </div>

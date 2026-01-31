@@ -40,6 +40,9 @@ export interface ScheduleRequest {
     plan: TeachingPlanItem[];
     strategy?: 'ortools' | 'pulp' | 'genetic';
     timeout?: number;
+    genetic_population_size?: number;
+    genetic_generations?: number;
+    genetic_mutation_rate?: number;
 }
 
 export interface Lesson {

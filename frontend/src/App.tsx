@@ -179,17 +179,24 @@ function App() {
     setShowResetConfirm(false);
   };
 
-  const handleGenerate = async (strategy: 'ortools' | 'pulp' | 'genetic' = 'ortools', timeout: number = 30) => {
+  const handleGenerate = async (
+    strategy: 'ortools' | 'pulp' | 'genetic' = 'ortools',
+    timeout: number = 30,
+    geneticParams?: { populationSize: number, generations: number, mutationRate: number }
+  ) => {
     setLoading(true);
     setError(null);
     setConflictData(null);
     setIsGenSettingsOpen(false); // Close settings modal when starting
     try {
-      const result = await generateSchedule({
-        ...data,
-        strategy,
-        timeout
-      });
+      const requestPayload: any = { ...data, strategy, timeout };
+      if (strategy === 'genetic' && geneticParams) {
+        requestPayload.genetic_population_size = geneticParams.populationSize;
+        requestPayload.genetic_generations = geneticParams.generations;
+        requestPayload.genetic_mutation_rate = geneticParams.mutationRate;
+      }
+
+      const result = await generateSchedule(requestPayload);
 
       if (result.status === 'success') {
         setSchedule(result);

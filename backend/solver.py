@@ -14,10 +14,14 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
         return {"status": "error", "message": "Помилка валідації:\n" + "\n".join(validation_errors)}
 
     # Strategy: Genetic (Evolutionary)
+    # Strategy: Genetic (Evolutionary)
     if data.strategy == "genetic":
-        # Optimized for laptop: Pop=8, Gen=3
-        print(f"🧬 Using Genetic Solver (Pop=8, Gen=3)...")
-        genetic = GeneticSolver(data, population_size=8, generations=3, mutation_rate=0.4)
+        pop_size = data.genetic_population_size or 8
+        generations = data.genetic_generations or 3
+        mutation_rate = data.genetic_mutation_rate or 0.4
+        
+        print(f"🧬 Using Genetic Solver (Pop={pop_size}, Gen={generations}, Mut={mutation_rate})...")
+        genetic = GeneticSolver(data, population_size=pop_size, generations=generations, mutation_rate=mutation_rate)
         result = genetic.evolve()
         
         if result:

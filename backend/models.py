@@ -32,5 +32,8 @@ class ScheduleRequest(BaseModel):
     subjects: List[Subject]
     classes: List[ClassGroup]
     plan: List[TeachingPlanItem]
-    strategy: Optional[str] = "ortools" # "ortools" or "pulp"
+    strategy: Optional[str] = "ortools" # "ortools" or "pulp" or "genetic"
     timeout: Optional[int] = 30
+    genetic_population_size: Optional[int] = 8
+    genetic_generations: Optional[int] = 3
+    genetic_mutation_rate: Optional[float] = 0.4
