@@ -66,6 +66,8 @@ function App() {
   const setSelectedTeacherId = useUIStore(s => s.setSelectedTeacherId);
   const isHeaderCollapsed = useUIStore(s => s.isHeaderCollapsed);
   const setIsHeaderCollapsed = useUIStore(s => s.setIsHeaderCollapsed);
+  const showExperimentalFeatures = useUIStore(s => s.showExperimentalFeatures);
+  const setShowExperimentalFeatures = useUIStore(s => s.setShowExperimentalFeatures);
 
 
   // Local UI State
@@ -177,7 +179,7 @@ function App() {
     setShowResetConfirm(false);
   };
 
-  const handleGenerate = async (strategy: 'ortools' | 'pulp' = 'ortools', timeout: number = 30) => {
+  const handleGenerate = async (strategy: 'ortools' | 'pulp' | 'genetic' = 'ortools', timeout: number = 30) => {
     setLoading(true);
     setError(null);
     setConflictData(null);
@@ -319,6 +321,8 @@ function App() {
                   selectedTeacherId={selectedTeacherId}
                   setSelectedTeacherId={setSelectedTeacherId}
                   teachers={data.teachers}
+                  showExperimentalFeatures={showExperimentalFeatures}
+                  setShowExperimentalFeatures={setShowExperimentalFeatures}
                 />
               </div>
             ) : null}

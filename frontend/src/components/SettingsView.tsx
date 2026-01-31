@@ -18,7 +18,8 @@ import {
     AlertCircle,
     Download,
     Upload,
-    Database
+    Database,
+    FlaskConical
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '../utils/cn';
@@ -34,6 +35,8 @@ interface SettingsViewProps {
     selectedTeacherId: string | null;
     setSelectedTeacherId: (id: string | null) => void;
     teachers: Teacher[];
+    showExperimentalFeatures: boolean;
+    setShowExperimentalFeatures: (show: boolean) => void;
 }
 
 interface AdminPasswordModalProps {
@@ -151,7 +154,8 @@ function AdminPasswordModal({ isOpen, onClose, onSuccess }: AdminPasswordModalPr
 
 export function SettingsView({
     perfSettings, setPerfSettings, handleReset,
-    userRole, setUserRole, selectedTeacherId, setSelectedTeacherId, teachers
+    userRole, setUserRole, selectedTeacherId, setSelectedTeacherId, teachers,
+    showExperimentalFeatures, setShowExperimentalFeatures
 }: SettingsViewProps) {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
@@ -375,20 +379,50 @@ export function SettingsView({
 
                         <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3 mb-4">
                             <div className="text-[10px] font-black text-[#a1a1aa] uppercase tracking-widest">Версія додатку</div>
-                            <div className="text-xl font-black text-white flex items-center gap-2">
-                                v2.2.0
-                                <span className="text-[10px] font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20">PREMIUM</span>
-                            </div>
                         </div>
-
-                        <button
-                            onClick={handleReset}
-                            className="w-full py-4 rounded-2xl font-black bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <Trash2 size={18} />
-                            Скинути семестр
-                        </button>
                     </div>
+
+                    <div
+                        onClick={() => setShowExperimentalFeatures(!showExperimentalFeatures)}
+                        className={cn(
+                            "flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer group mb-4",
+                            showExperimentalFeatures
+                                ? "bg-amber-600/10 border-amber-500/30"
+                                : "bg-white/5 border-transparent hover:border-white/10"
+                        )}
+                    >
+                        <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                            showExperimentalFeatures ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" : "bg-white/5 text-[#a1a1aa] group-hover:text-white"
+                        )}>
+                            <FlaskConical size={20} />
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-white text-xs">Експериментальні функції</span>
+                                <div className={cn(
+                                    "w-8 h-4 rounded-full relative transition-colors",
+                                    showExperimentalFeatures ? "bg-amber-500" : "bg-white/10"
+                                )}>
+                                    <div className={cn(
+                                        "absolute top-1 w-2 h-2 bg-white rounded-full transition-all",
+                                        showExperimentalFeatures ? "left-5" : "left-1"
+                                    )} />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-[#a1a1aa] leading-relaxed font-medium">
+                                Активувати доступ до функцій у стадії розробки (наприклад, альтернативні солвери).
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleReset}
+                        className="w-full py-4 rounded-2xl font-black bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        <Trash2 size={18} />
+                        Скинути семестр
+                    </button>
                 </div>
             </div>
 

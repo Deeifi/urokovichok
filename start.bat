@@ -5,14 +5,13 @@ echo ==============================
 
 REM --- BACKEND ---
 echo Starting backend...
-cd backend
+cd /d "%~dp0backend"
 call venv\Scripts\activate
 start cmd /k "venv\Scripts\python.exe -m uvicorn main:app --reload"
-cd ..
 
 REM --- FRONTEND ---
 echo Starting frontend...
-cd frontend
+cd /d "%~dp0frontend"
 start cmd /k npm run dev
 cd ..
 

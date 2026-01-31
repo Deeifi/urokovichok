@@ -3,6 +3,7 @@ from models import ScheduleRequest
 from logic.preprocessor import validate_workloads
 from logic.analyzer import analyze_violations
 from logic.engine import ortools_solve, optimize_period_zero
+from logic.genetic_solver import GeneticSolver
 
 from logic.pulp_solver.core import solve_with_pulp
 
@@ -11,6 +12,20 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
     validation_errors = validate_workloads(data)
     if validation_errors:
         return {"status": "error", "message": "Помилка валідації:\n" + "\n".join(validation_errors)}
+
+    # Strategy: Genetic (Evolutionary)
+    if data.strategy == "genetic":
+        # Optimized for laptop: Pop=8, Gen=3
+        print(f"🧬 Using Genetic Solver (Pop=8, Gen=3)...")
+        genetic = GeneticSolver(data, population_size=8, generations=3, mutation_rate=0.4)
+        result = genetic.evolve()
+        
+        if result:
+            violations = analyze_violations(result, data)
+            if not violations: return {"status": "success", "schedule": result}
+            return {"status": "conflict", "schedule": result, "violations": violations}
+        else:
+            return {"status": "error", "message": "Генетичний алгоритм не зміг знайти валідне рішення."}
 
     # Dispatch based on strategy
     if data.strategy == "pulp":

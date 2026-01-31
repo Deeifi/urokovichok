@@ -17,9 +17,10 @@ def optimize_period_zero(schedule: List[Dict[str, Any]], data: ScheduleRequest) 
                 break
     return schedule
 
-def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True) -> Tuple[Optional[List[Dict[str, Any]]], str]:
+def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True, fixed_assignments: List[Dict[str, Any]] = None) -> Tuple[Optional[List[Dict[str, Any]]], str]:
     model = cp_model.CpModel()
     days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    day_map = {d: i for i, d in enumerate(days)}
     class_names = {c.id: c.name for c in data.classes}
     teacher_availabilities = {t.id: t.availability or {} for t in data.teachers}
     teacher_prefers_zero = {t.id: t.prefers_period_zero for t in data.teachers}
@@ -56,6 +57,55 @@ def ortools_solve(data: ScheduleRequest, periods: List[int], strict: bool = True
                 if p in teacher_availabilities.get(req["teacher_id"], {}).get(days[d], []): model.Add(x[(r_idx, d, p)] == 0)
         model.Add(sum(x[(r_idx, d, p)] for d in range(5) for p in periods) == req["count"])
 
+    # Enforce fixed assignments (for mutation/repair)
+    if fixed_assignments:
+        # Group fixed assignments by (class, subject, teacher) to handle multiples
+        from collections import defaultdict
+        fixed_map = defaultdict(list)
+        for f in fixed_assignments:
+            key = (f["class_id"], f["subject_id"], f["teacher_id"])
+            if f["day"] in day_map:
+                fixed_map[key].append((day_map[f["day"]], f["period"]))
+
+        # For each request type, enforce that specific slots are taken
+        for r_idx, req in enumerate(requests):
+            key = (req["class_id"], req["subject_id"], req["teacher_id"])
+            if key in fixed_map:
+                # This is a bit complex: we have N requests for this key, and M fixed slots.
+                # Simplification: if we have fixed slots for this type, enforce them.
+                # But since all requests of same type are identical, any of them can fill the slot.
+                # However, we simply need to ensure that *someone* fills these slots.
+                # Actually, strictly enforcing x[r_idx, d, p] == 1 might conflict if multiple r_idx share same key.
+                # Better approach: Pre-process constraints globally.
+                pass 
+        
+        # Proper enforcement:
+        # Iterate over all specific fixed slots (class, day, period) -> implies class_busy
+        # We need to find *which* r_idx corresponds to that fixed slot.
+        # Since r_idx are fungible for same (c, s, t), we can greedily assign them.
+        
+        assigned_indices = set()
+        
+        for f in fixed_assignments:
+            if f["day"] not in day_map: continue
+            d_idx = day_map[f["day"]]
+            p_idx = f["period"]
+            
+            # Find a free Request that matches this assignment
+            found = False
+            for r_idx, req in enumerate(requests):
+                if r_idx in assigned_indices: continue
+                if (req["class_id"] == f["class_id"] and 
+                    req["teacher_id"] == f["teacher_id"] and 
+                    req["subject_id"] == f["subject_id"]):
+                    
+                    if (r_idx, d_idx, p_idx) in x:
+                        model.Add(x[(r_idx, d_idx, p_idx)] == 1)
+                        assigned_indices.add(r_idx)
+                        found = True
+                        break
+            # If not found, it might be a conflict or invalid fix, strictly speaking we should ignore or log
+    
     for t in [t.id for t in data.teachers]:
         for d in range(5):
             for p in periods:

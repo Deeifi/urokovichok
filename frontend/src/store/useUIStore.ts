@@ -65,6 +65,10 @@ interface UIState {
     // Shared Search State
     searchQuery: string;
     setSearchQuery: (query: string) => void;
+
+    // Experimental Features
+    showExperimentalFeatures: boolean;
+    setShowExperimentalFeatures: (show: boolean) => void;
 }
 
 const DEFAULT_PERF_SETTINGS: PerformanceSettings = {
@@ -149,6 +153,9 @@ export const useUIStore = create<UIState>()(
 
             searchQuery: '',
             setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+            showExperimentalFeatures: false,
+            setShowExperimentalFeatures: (showExperimentalFeatures) => set({ showExperimentalFeatures }),
         }),
         {
             name: 'school_os_ui_settings', // Merging multiple localKeys into one store for cleaner managment
@@ -166,7 +173,7 @@ export const useUIStore = create<UIState>()(
                 dataEntrySelectedClassId: state.dataEntrySelectedClassId,
                 dataEntrySelectedPlanClassId: state.dataEntrySelectedPlanClassId,
                 dataEntryClassDetailTab: state.dataEntryClassDetailTab,
-                // userRole: state.userRole (maybe?)
+                showExperimentalFeatures: state.showExperimentalFeatures,
             }),
         }
     )

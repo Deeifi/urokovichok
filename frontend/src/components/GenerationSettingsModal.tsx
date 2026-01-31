@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Play, Settings2, Clock } from 'lucide-react';
+import { X, Play, Settings2, Clock, Beaker, Dna } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
 
 interface GenerationSettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onGenerate: (strategy: 'ortools' | 'pulp', timeout: number) => void;
+    onGenerate: (strategy: 'ortools' | 'pulp' | 'genetic', timeout: number) => void;
     isGenerating: boolean;
 }
 
@@ -14,8 +15,9 @@ export const GenerationSettingsModal: React.FC<GenerationSettingsModalProps> = (
     onGenerate,
     isGenerating
 }) => {
-    const [strategy, setStrategy] = useState<'ortools' | 'pulp'>('ortools');
+    const [strategy, setStrategy] = useState<'ortools' | 'pulp' | 'genetic'>('ortools');
     const [timeout, setTimeoutVal] = useState(30);
+    const showExperimentalFeatures = useUIStore(s => s.showExperimentalFeatures);
 
     if (!isOpen) return null;
 
@@ -76,32 +78,73 @@ export const GenerationSettingsModal: React.FC<GenerationSettingsModalProps> = (
                                 </div>
                             </label>
 
-                            <label className={`
-                                relative flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all
-                                ${strategy === 'pulp'
-                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500'
-                                    : 'border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700'}
-                            `}>
-                                <div className="mt-0.5">
-                                    <input
-                                        type="radio"
-                                        name="strategy"
-                                        value="pulp"
-                                        checked={strategy === 'pulp'}
-                                        onChange={() => setStrategy('pulp')}
-                                        className="sr-only"
-                                    />
-                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'pulp' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-400'}`}>
-                                        {strategy === 'pulp' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                                    </div>
-                                </div>
-                                <div className="flex-1">
-                                    <div className="font-medium text-zinc-900 dark:text-zinc-100">PuLP (CBC)</div>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                                        Класичний підхід Mixed Integer Programming. Більш точний, але може бути повільнішим.
-                                    </p>
-                                </div>
-                            </label>
+                            {showExperimentalFeatures && (
+                                <>
+                                    <label className={`
+                                        relative flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all
+                                        ${strategy === 'pulp'
+                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500'
+                                            : 'border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700'}
+                                    `}>
+                                        <div className="mt-0.5">
+                                            <input
+                                                type="radio"
+                                                name="strategy"
+                                                value="pulp"
+                                                checked={strategy === 'pulp'}
+                                                onChange={() => setStrategy('pulp')}
+                                                className="sr-only"
+                                            />
+                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'pulp' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-400'}`}>
+                                                {strategy === 'pulp' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="font-medium text-zinc-900 dark:text-zinc-100">PuLP (CBC)</div>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
+                                                    <Beaker size={10} /> РАННЯ АЛЬФА
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                                Класичний підхід Mixed Integer Programming. Більш точний, але може бути повільнішим.
+                                            </p>
+                                        </div>
+                                    </label>
+
+                                    <label className={`
+                                        relative flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all
+                                        ${strategy === 'genetic'
+                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-500'
+                                            : 'border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700'}
+                                    `}>
+                                        <div className="mt-0.5">
+                                            <input
+                                                type="radio"
+                                                name="strategy"
+                                                value="genetic"
+                                                checked={strategy === 'genetic'}
+                                                onChange={() => setStrategy('genetic')}
+                                                className="sr-only"
+                                            />
+                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${strategy === 'genetic' ? 'border-indigo-600 bg-indigo-600' : 'border-zinc-400'}`}>
+                                                {strategy === 'genetic' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="font-medium text-zinc-900 dark:text-zinc-100">Генетичний (Evolutionary)</div>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-500 border border-purple-500/20 flex items-center gap-1">
+                                                    <Dna size={10} /> НОВИНКА
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                                Створює популяцію розкладів, схрещує їх та мутує для пошуку ідеального розподілу.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </>
+                            )}
                         </div>
                     </div>
 

@@ -38,7 +38,7 @@ export interface ScheduleRequest {
     subjects: Subject[];
     classes: ClassGroup[];
     plan: TeachingPlanItem[];
-    strategy?: 'ortools' | 'pulp';
+    strategy?: 'ortools' | 'pulp' | 'genetic';
     timeout?: number;
 }
 
