@@ -80,6 +80,52 @@
         background: rgba(255, 255, 255, 0.2);
         background-clip: content-box;
     }
+
+    .premium-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .premium-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .premium-scrollbar::-webkit-scrollbar-thumb {
+        background: linear-gradient(to bottom, var(--accent-primary), var(--accent-secondary));
+        border-radius: 10px;
+        opacity: 0.5;
+    }
+
+    .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+        opacity: 1;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes orbit {
+    from {
+        transform: rotate(0deg) translate(40px) rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg) translate(40px) rotate(-360deg);
+    }
+}
+
+.animate-shimmer {
+    animation: shimmer 1.5s infinite linear;
+}
+
+.animate-orbit {
+    animation: orbit 4s linear infinite;
 }
 
 /* Hide default scrollbars but allow scrolling */

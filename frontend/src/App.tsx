@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Lesson } from './types';
-import { generateSchedule } from './api';
+import { generateScheduleStream } from './api';
 import { Calendar, Minimize2, CircleAlert, CheckCircle2 } from 'lucide-react';
 import { DataEntry } from './components/DataEntry';
 import { ScheduleGrid } from './components/ScheduleGrid';
@@ -78,6 +78,8 @@ function App() {
   const [panelMode, setPanelMode] = useState<'docked' | 'floating'>('docked');
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isGenSettingsOpen, setIsGenSettingsOpen] = useState(false);
+  const [genProgress, setGenProgress] = useState(0);
+  const [genStatus, setGenStatus] = useState('');
 
   const effectiveIsCompact = isCompact && (viewType === 'matrix' || viewType === 'teachers');
 
@@ -187,7 +189,10 @@ function App() {
     setLoading(true);
     setError(null);
     setConflictData(null);
-    setIsGenSettingsOpen(false); // Close settings modal when starting
+    setGenProgress(0);
+    setGenStatus('Підготовка даних...');
+    // We don't close the modal here anymore, it will show progress
+    // setIsGenSettingsOpen(false); 
     try {
       const requestPayload: any = { ...data, strategy, timeout };
       if (strategy === 'genetic' && geneticParams) {
@@ -196,14 +201,19 @@ function App() {
         requestPayload.genetic_mutation_rate = geneticParams.mutationRate;
       }
 
-      const result = await generateSchedule(requestPayload);
+      const result = await generateScheduleStream(requestPayload, (progress, message) => {
+        setGenProgress(progress);
+        setGenStatus(message);
+      });
 
       if (result.status === 'success') {
         setSchedule(result);
+        setIsGenSettingsOpen(false); // Close on success
         setActiveTab('schedule');
       } else if (result.status === 'conflict') {
         setConflictData({ schedule: result.schedule, violations: result.violations });
         setSchedule(result);
+        setIsGenSettingsOpen(false); // Close on conflict too
         setActiveTab('schedule');
       } else {
         setError(result.message || 'Помилка генерації розкладу');
@@ -245,9 +255,11 @@ function App() {
 
           <GenerationSettingsModal
             isOpen={isGenSettingsOpen}
-            onClose={() => setIsGenSettingsOpen(false)}
+            onClose={() => !loading && setIsGenSettingsOpen(false)}
             onGenerate={handleGenerate}
             isGenerating={loading}
+            progress={genProgress}
+            statusMessage={genStatus}
           />
 
           {/* Persistent Toolbar */}

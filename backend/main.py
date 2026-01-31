@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from typing import List
 from sqlalchemy.orm import Session
+import json
+import asyncio
 
 from models import ScheduleRequest
 from solver import generate_schedule
@@ -37,13 +40,44 @@ def generate(request: ScheduleRequest, db: Session = Depends(get_db)):
     result = generate_schedule(request)
     if result["status"] == "error":
         raise HTTPException(status_code=400, detail=result["message"])
-    
-    # Optionally save the generated schedule to DB
-    # new_schedule = ScheduleDB(name="Generated", lessons=result["lessons"])
-    # db.add(new_schedule)
-    # db.commit()
-    
     return result
+
+@app.post("/api/generate-stream")
+async def generate_stream(request: ScheduleRequest):
+    # Capture the running loop to use in callbacks from other threads
+    main_loop = asyncio.get_running_loop()
+
+    async def event_generator():
+        queue = asyncio.Queue()
+
+        def progress_callback(progress, message):
+            # Put progress data into the queue from a synchronous context
+            # Use the captured main_loop to call safely from the solver thread
+            main_loop.call_soon_threadsafe(queue.put_nowait, {"type": "progress", "progress": progress, "message": message})
+
+        # Run generation in a separate thread to not block the event loop
+        async def run_solver():
+            try:
+                # Use run_in_executor for blocking CPU bound task
+                result = await main_loop.run_in_executor(None, generate_schedule, request, progress_callback)
+                await queue.put({"type": "result", "data": result})
+            except Exception as e:
+                import traceback
+                print(f"❌ Solver Error: {str(e)}")
+                traceback.print_exc()
+                await queue.put({"type": "error", "message": str(e)})
+
+        solver_task = asyncio.create_task(run_solver())
+
+        while True:
+            item = await queue.get()
+            yield f"data: {json.dumps(item)}\n\n"
+            if item["type"] in ["result", "error"]:
+                break
+        
+        await solver_task
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/data")
 def get_all_data(db: Session = Depends(get_db)):

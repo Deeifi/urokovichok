@@ -7,7 +7,7 @@ from logic.genetic_solver import GeneticSolver
 
 from logic.pulp_solver.core import solve_with_pulp
 
-def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
+def generate_schedule(data: ScheduleRequest, progress_callback=None) -> Dict[str, Any]:
     # Pass 0: Pre-validation
     validation_errors = validate_workloads(data)
     if validation_errors:
@@ -21,10 +21,12 @@ def generate_schedule(data: ScheduleRequest) -> Dict[str, Any]:
         mutation_rate = data.genetic_mutation_rate or 0.4
         
         print(f"🧬 Using Genetic Solver (Pop={pop_size}, Gen={generations}, Mut={mutation_rate})...")
-        genetic = GeneticSolver(data, population_size=pop_size, generations=generations, mutation_rate=mutation_rate)
+        genetic = GeneticSolver(data, population_size=pop_size, generations=generations, mutation_rate=mutation_rate, progress_callback=progress_callback)
         result = genetic.evolve()
         
         if result:
+            if progress_callback:
+                progress_callback(100, "✅ Генерацію завершено!")
             violations = analyze_violations(result, data)
             if not violations: return {"status": "success", "schedule": result}
             return {"status": "conflict", "schedule": result, "violations": violations}
